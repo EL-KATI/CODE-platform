@@ -1,0 +1,11 @@
+{
+  "name": "CODE — رخصة السياقة",
+  "short_name": "CODE",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b1220",
+  "theme_color": "#0b1220",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": [{ "src": "/assets/img/logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
