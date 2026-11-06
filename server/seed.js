@@ -24,16 +24,25 @@ const CATEGORIES = [
 ];
 
 function parseLesson(file) {
-  // Supprime le BOM éventuel et normalise les sauts de ligne Windows (\r\n -> \n)
-  const raw = fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
-  const m = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
-  if (!m) throw new Error(`Front-matter manquant: ${file}`);
+  // Tolère BOM, sauts de ligne Windows (\r\n) ou anciens Mac (\r), espaces après "---"
+  // et lignes vides avant l'en-tête. Sans en-tête, la leçon est quand même importée.
+  const raw = fs.readFileSync(file, 'utf8').replace(/\uFEFF/g, '').replace(/\r\n?/g, '\n');
+  const m = raw.match(/^\s*---[ \t]*\n([\s\S]*?)\n---[ \t]*(?:\n|$)([\s\S]*)$/);
   const meta = {};
-  for (const line of m[1].split('\n')) {
-    const i = line.indexOf(':');
-    if (i > 0) meta[line.slice(0, i).trim()] = line.slice(i + 1).trim();
+  let body = raw;
+  if (m) {
+    body = m[2];
+    for (const line of m[1].split('\n')) {
+      const i = line.indexOf(':');
+      if (i > 0) meta[line.slice(0, i).trim()] = line.slice(i + 1).trim();
+    }
+  } else {
+    console.warn(`[seed] En-tête (front-matter) absent, valeurs par défaut utilisées : ${path.basename(file)}`);
   }
-  return { ...meta, body: m[2].trim() };
+  const name = path.basename(file, '.md');
+  if (!meta.slug) meta.slug = name.replace(/^\d+-/, '').toLowerCase().replace(/[^a-z0-9-]+/g, '-') || name;
+  if (!meta.title) meta.title = (/^#\s+(.+)$/m.exec(body) || [])[1] || meta.slug;
+  return { ...meta, body: body.trim() };
 }
 
 function seedContent(d, { force = false } = {}) {

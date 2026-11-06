@@ -1,0 +1,4 @@
+# Garder les fichiers de contenu en LF sur toutes les plateformes (Windows compris)
+*.md text eol=lf
+*.json text eol=lf
+*.js text eol=lf
