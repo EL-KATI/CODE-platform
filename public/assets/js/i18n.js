@@ -78,6 +78,12 @@ const ar = {
   'admin.category': 'المحور', 'admin.status': 'الحالة', 'admin.difficulty': 'الصعوبة', 'admin.title_ar': 'العنوان (عربي)', 'admin.title_fr': 'العنوان (فرنسي)', 'admin.body': 'المحتوى (Markdown)',
   'admin.name': 'الاسم', 'admin.email': 'البريد', 'admin.role': 'الدور', 'admin.active': 'مفعّل', 'admin.date': 'التاريخ', 'admin.user': 'المستخدم', 'admin.action': 'العملية', 'admin.confirmDelete': 'تأكيد الحذف؟',
   'admin.settingsHelp': 'إعدادات الامتحان العامة', 'admin.exams': 'الامتحانات', 'admin.attempts': 'المحاولات', 'admin.lastActivity': 'آخر نشاط',
+  'admin.newSeries': 'سلسلة جديدة', 'admin.editSeries': 'تعديل السلسلة', 'admin.seriesTitle': 'عنوان السلسلة', 'admin.description': 'الوصف', 'admin.order': 'الترتيب',
+  'admin.visible': 'ظاهرة', 'admin.hidden': 'مخفية', 'admin.hide': 'إيقاف العرض', 'admin.show': 'إظهار', 'admin.showToLearners': 'ظاهرة للمتعلمين',
+  'admin.seriesQuestions': 'أسئلة السلسلة ({n}/100)', 'admin.addQuestions': 'إضافة أسئلة', 'admin.noneSelected': 'لم تختر أي سؤال بعد. أضف أسئلة من القائمة.', 'admin.maxQuestions': 'الحد الأقصى 100 سؤال في السلسلة',
+  'admin.allCategories': 'كل المحاور', 'admin.allStatuses': 'كل الحالات', 'admin.add': 'إضافة', 'admin.remove': 'إزالة', 'admin.up': 'أعلى', 'admin.down': 'أسفل', 'admin.addAll': 'إضافة الكل', 'admin.results': '{n} سؤال',
+  'status.published': 'منشور', 'status.draft': 'مسودة', 'status.archived': 'مؤرشف',
+  'quiz.autoRead': 'قراءة تلقائية', 'quiz.autoReadOn': 'القراءة التلقائية مفعّلة', 'quiz.autoReadOff': 'القراءة التلقائية متوقفة',
 };
 
 const fr = {
@@ -159,6 +165,12 @@ const fr = {
   'admin.category': 'Thème', 'admin.status': 'Statut', 'admin.difficulty': 'Difficulté', 'admin.title_ar': 'Titre (arabe)', 'admin.title_fr': 'Titre (français)', 'admin.body': 'Contenu (Markdown)',
   'admin.name': 'Nom', 'admin.email': 'E-mail', 'admin.role': 'Rôle', 'admin.active': 'Actif', 'admin.date': 'Date', 'admin.user': 'Utilisateur', 'admin.action': 'Action', 'admin.confirmDelete': 'Confirmer la suppression ?',
   'admin.settingsHelp': 'Paramètres généraux de l’examen', 'admin.exams': 'Examens', 'admin.attempts': 'Tentatives', 'admin.lastActivity': 'Dernière activité',
+  'admin.newSeries': 'Nouvelle série', 'admin.editSeries': 'Modifier la série', 'admin.seriesTitle': 'Titre de la série', 'admin.description': 'Description', 'admin.order': 'Ordre',
+  'admin.visible': 'Visible', 'admin.hidden': 'Masquée', 'admin.hide': 'Masquer', 'admin.show': 'Afficher', 'admin.showToLearners': 'Visible pour les élèves',
+  'admin.seriesQuestions': 'Questions de la série ({n}/100)', 'admin.addQuestions': 'Ajouter des questions', 'admin.noneSelected': 'Aucune question choisie. Ajoutez-en depuis la liste.', 'admin.maxQuestions': '100 questions maximum par série',
+  'admin.allCategories': 'Tous les thèmes', 'admin.allStatuses': 'Tous les statuts', 'admin.add': 'Ajouter', 'admin.remove': 'Retirer', 'admin.up': 'Monter', 'admin.down': 'Descendre', 'admin.addAll': 'Tout ajouter', 'admin.results': '{n} question(s)',
+  'status.published': 'Publiée', 'status.draft': 'Brouillon', 'status.archived': 'Archivée',
+  'quiz.autoRead': 'Lecture auto', 'quiz.autoReadOn': 'Lecture automatique activée', 'quiz.autoReadOff': 'Lecture automatique désactivée',
 };
 
 const DICT = { ar, fr };

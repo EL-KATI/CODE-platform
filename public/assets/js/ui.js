@@ -101,8 +101,18 @@ export const sound = {
 };
 
 // --- Lecture vocale de la question (accessibilité / apprenants peu lecteurs) --------
-export function speak(text) {
-  if (!('speechSynthesis' in window)) { toast(t('quiz.noSpeech'), 'error'); return; }
+export function stopSpeaking() {
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+}
+
+// Préférence de l'élève : lire chaque question automatiquement (activée par défaut).
+export const autoRead = {
+  get() { try { return localStorage.getItem('autoRead') !== '0'; } catch { return true; } },
+  set(on) { try { localStorage.setItem('autoRead', on ? '1' : '0'); } catch { /* stockage indisponible */ } },
+};
+
+export function speak(text, { silent = false } = {}) {
+  if (!('speechSynthesis' in window)) { if (!silent) toast(t('quiz.noSpeech'), 'error'); return; }
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
   u.lang = getLocale() === 'fr' ? 'fr-FR' : 'ar-MA';
