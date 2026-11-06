@@ -11,6 +11,8 @@ function toQuestion(row, { includeAnswer = false } = {}) {
     visual: row.visual ? JSON.parse(row.visual) : null,
     image: row.image || null,
     imageAlt: row.image_alt || '',
+    video: row.video || null,
+    audioText: row.audio_text || '',
   };
   if (includeAnswer) {
     q.correct = JSON.parse(row.correct);

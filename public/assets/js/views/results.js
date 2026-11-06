@@ -4,7 +4,7 @@ import { api } from '../api.js';
 import { store } from '../store.js';
 import { navigate } from '../router.js';
 import { renderVisual } from '../scenario.js';
-import { progressBar, ring, modeLabel, startAttempt } from './common.js';
+import { progressBar, ring, modeLabel, startAttempt, videoBlock } from './common.js';
 
 export function reviewItem(q, i, cats) {
   const correct = new Set(q.correct || []);
@@ -15,6 +15,7 @@ export function reviewItem(q, i, cats) {
     <div class="row"><span class="pill ${ok ? 'pill-success' : 'pill-danger'}">${i !== null ? `${i + 1} · ` : ''}${ok ? t('quiz.right') : sel.size ? t('results.wrong') : t('results.noAnswer')}</span>
       ${c ? html`<span class="pill">${c.icon} ${catName(c)}</span>` : ''}</div>
     <div class="row" style="align-items:flex-start;margin-top:12px;flex-wrap:wrap">
+      ${raw(videoBlock(q).s || '')}
       ${q.image || q.visual ? html`<div class="scene" style="max-width:260px;margin:0">${raw(renderVisual(q))}</div>` : ''}
       <div style="flex:1;min-width:240px">
         <h3 lang="ar" dir="rtl">${q.text}</h3>

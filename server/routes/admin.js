@@ -84,6 +84,14 @@ function validateQuestion(b) {
     image = str(b.image, { max: 500, field: 'image' });
     if (!/^(\/uploads\/[\w.-]+|https:\/\/[^\s"'<>]+)$/.test(image)) throw bad('invalid_field', { field: 'image' });
   }
+  let video = null;
+  if (b.video) {
+    const raw = str(b.video, { max: 500, field: 'video' });
+    const yt = /^https:\/\/(?:www\.)?(?:youtube\.com\/(?:watch\?(?:[^#\s]*&)?v=|embed\/|shorts\/)|youtu\.be\/|youtube-nocookie\.com\/embed\/)([\w-]{11})/.exec(raw);
+    if (yt) video = `https://www.youtube-nocookie.com/embed/${yt[1]}`;
+    else if (/^(\/uploads\/[\w.-]+\.(mp4|webm)|https:\/\/[^\s"'<>]+\.(mp4|webm|ogg)(\?[^\s"'<>]*)?)$/i.test(raw)) video = raw;
+    else throw bad('invalid_field', { field: 'video' });
+  }
   const status = ['draft', 'published', 'archived'].includes(b.status) ? b.status : 'published';
   return {
     category_id: categoryId,
@@ -94,6 +102,8 @@ function validateQuestion(b) {
     visual: visual ? JSON.stringify(visual) : null,
     image,
     image_alt: str(b.imageAlt || '', { max: 300, field: 'imageAlt' }),
+    video,
+    audio_text: str(b.audioText || '', { max: 3000, field: 'audioText' }),
     difficulty: optInt(b.difficulty, { min: 1, max: 3, field: 'difficulty' }) || 2,
     status,
   };
@@ -126,8 +136,8 @@ router.get('/questions/:id', wrap(async (req, res) => {
 
 router.post('/questions', wrap(async (req, res) => {
   const v = validateQuestion(req.body || {});
-  const info = db.get().prepare(`INSERT INTO questions (category_id, text, options, correct, explanation, visual, image, image_alt, difficulty, status)
-    VALUES (@category_id, @text, @options, @correct, @explanation, @visual, @image, @image_alt, @difficulty, @status)`).run(v);
+  const info = db.get().prepare(`INSERT INTO questions (category_id, text, options, correct, explanation, visual, image, image_alt, video, audio_text, difficulty, status)
+    VALUES (@category_id, @text, @options, @correct, @explanation, @visual, @image, @image_alt, @video, @audio_text, @difficulty, @status)`).run(v);
   db.audit(req.user.id, 'create', 'question', info.lastInsertRowid);
   res.status(201).json(rowToAdmin(db.get().prepare('SELECT * FROM questions WHERE id = ?').get(info.lastInsertRowid)));
 }));
@@ -137,7 +147,7 @@ router.put('/questions/:id', wrap(async (req, res) => {
   if (!db.get().prepare('SELECT 1 FROM questions WHERE id = ?').get(id)) throw notFound();
   const v = validateQuestion(req.body || {});
   db.get().prepare(`UPDATE questions SET category_id=@category_id, text=@text, options=@options, correct=@correct, explanation=@explanation,
-    visual=@visual, image=@image, image_alt=@image_alt, difficulty=@difficulty, status=@status, updated_at=datetime('now') WHERE id=@id`).run({ ...v, id });
+    visual=@visual, image=@image, image_alt=@image_alt, video=@video, audio_text=@audio_text, difficulty=@difficulty, status=@status, updated_at=datetime('now') WHERE id=@id`).run({ ...v, id });
   db.audit(req.user.id, 'update', 'question', id);
   res.json(rowToAdmin(db.get().prepare('SELECT * FROM questions WHERE id = ?').get(id)));
 }));
@@ -202,6 +212,21 @@ router.post('/uploads', wrap(async (req, res) => {
   fs.mkdirSync(config.uploadsDir, { recursive: true });
   fs.writeFileSync(path.join(config.uploadsDir, name), buf);
   db.audit(req.user.id, 'upload', 'image', null, { name });
+  res.status(201).json({ url: `/uploads/${name}` });
+}));
+
+// Téléversement de vidéo (corps binaire brut mp4/webm, 30 Mo max) -> /uploads/<hash>.<ext>
+router.post('/uploads-video', express.raw({ type: ['video/mp4', 'video/webm'], limit: '30mb' }), wrap(async (req, res) => {
+  const buf = req.body;
+  if (!Buffer.isBuffer(buf) || !buf.length) throw bad('invalid_video');
+  const isMp4 = buf.length > 12 && buf.toString('latin1', 4, 8) === 'ftyp';
+  const isWebm = buf.length > 4 && buf.readUInt32BE(0) === 0x1a45dfa3;
+  if (!isMp4 && !isWebm) throw bad('invalid_video');
+  const ext = isMp4 ? 'mp4' : 'webm';
+  const name = `${crypto.createHash('sha256').update(buf).digest('hex').slice(0, 24)}.${ext}`;
+  fs.mkdirSync(config.uploadsDir, { recursive: true });
+  fs.writeFileSync(path.join(config.uploadsDir, name), buf);
+  db.audit(req.user.id, 'upload', 'video', null, { name });
   res.status(201).json({ url: `/uploads/${name}` });
 }));
 

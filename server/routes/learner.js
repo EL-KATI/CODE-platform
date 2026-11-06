@@ -48,7 +48,7 @@ router.get('/me/mistakes', (req, res) => {
     WHERE uq.user_id = ? AND (uq.last_result = 0 OR uq.bookmarked = 1) ORDER BY uq.updated_at DESC LIMIT 200`).all(req.user.id);
   res.json(rows.map((r) => ({
     id: r.id, categoryId: r.category_id, text: r.text, options: JSON.parse(r.options), correct: JSON.parse(r.correct),
-    explanation: r.explanation, visual: r.visual ? JSON.parse(r.visual) : null, image: r.image, imageAlt: r.image_alt,
+    explanation: r.explanation, visual: r.visual ? JSON.parse(r.visual) : null, image: r.image, imageAlt: r.image_alt, video: r.video || null, audioText: r.audio_text || '',
     wrong: r.wrong, right: r.right_count, bookmarked: !!r.bookmarked,
   })));
 });

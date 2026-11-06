@@ -44,6 +44,8 @@ CREATE TABLE IF NOT EXISTS questions (
   visual      TEXT,                        -- JSON {type, sub} for built-in SVG scenes
   image       TEXT,                        -- URL of a photo (uploaded or external)
   image_alt   TEXT NOT NULL DEFAULT '',
+  video       TEXT,                        -- uploaded video, direct https video URL or YouTube embed URL
+  audio_text  TEXT NOT NULL DEFAULT '',    -- narration text read aloud (speech synthesis)
   difficulty  INTEGER NOT NULL DEFAULT 2 CHECK (difficulty BETWEEN 1 AND 3),
   status      TEXT NOT NULL DEFAULT 'published' CHECK (status IN ('draft','published','archived')),
   created_at  TEXT NOT NULL DEFAULT (datetime('now')),
@@ -146,6 +148,9 @@ function open(file = config.dbFile) {
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   db.exec(SCHEMA);
+  const cols = db.prepare('PRAGMA table_info(questions)').all().map((c) => c.name);
+  if (!cols.includes('video')) db.exec('ALTER TABLE questions ADD COLUMN video TEXT');
+  if (!cols.includes('audio_text')) db.exec("ALTER TABLE questions ADD COLUMN audio_text TEXT NOT NULL DEFAULT ''");
   return db;
 }
 

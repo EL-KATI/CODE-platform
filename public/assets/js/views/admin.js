@@ -1,10 +1,11 @@
 // Panneau d'administration : statistiques, contenu, élèves, utilisateurs, paramètres, audit.
 import { html, raw, loading, toast, errorMessage, confirmDialog, fmtDate, pct } from '../ui.js';
 import { t, catName } from '../i18n.js';
-import { api } from '../api.js';
+import { api, uploadBlob } from '../api.js';
 import { store } from '../store.js';
 import { navigate } from '../router.js';
-import { progressBar } from './common.js';
+import { progressBar, videoBlock } from './common.js';
+import { speak } from '../ui.js';
 
 const TABS = [
   ['/admin', 'admin.stats'], ['/admin/questions', 'admin.questions'], ['/admin/series', 'admin.series'],
@@ -84,6 +85,26 @@ export async function questionEditView(root, { params }) {
         <label>${t('admin.options')}<textarea class="input" name="options" rows="4" required>${q.options.join('\n')}</textarea></label>
         <label>${t('admin.correct')}<input class="input" name="correct" value="${q.correct.join(',')}" required></label>
         <label>${t('admin.explanation')}<textarea class="input" name="explanation" rows="3">${q.explanation || ''}</textarea></label>
+        <fieldset class="stack" style="border:1px solid var(--border,#ccd);border-radius:10px;padding:12px">
+          <legend>${t('admin.media')}</legend>
+          <div id="img-prev"></div>
+          <div class="row" style="flex-wrap:wrap;gap:8px">
+            <label class="btn btn-secondary">🖼️ ${t('admin.uploadImage')}<input type="file" id="img-file" accept="image/png,image/jpeg,image/webp,image/gif" hidden></label>
+            <button class="btn btn-ghost" type="button" id="img-clear">${t('admin.removeImage')}</button>
+          </div>
+          <label>${t('admin.imageUrl')}<input class="input" name="image" dir="ltr" value="${q.image || ''}" placeholder="https://… ${t('admin.orPaste')}"></label>
+          <label>${t('admin.imageAlt')}<input class="input" name="imageAlt" value="${q.image_alt || ''}"></label>
+          <hr style="width:100%;opacity:.3">
+          <div id="vid-prev"></div>
+          <div class="row" style="flex-wrap:wrap;gap:8px">
+            <label class="btn btn-secondary">🎬 ${t('admin.uploadVideo')}<input type="file" id="vid-file" accept="video/mp4,video/webm" hidden></label>
+            <button class="btn btn-ghost" type="button" id="vid-clear">${t('admin.removeVideo')}</button>
+          </div>
+          <label>${t('admin.videoUrl')}<input class="input" name="video" dir="ltr" value="${q.video || ''}" placeholder="YouTube / https://…mp4"></label>
+          <hr style="width:100%;opacity:.3">
+          <label>${t('admin.audioText')}<textarea class="input" name="audioText" rows="3" placeholder="${t('admin.audioHelp')}">${q.audio_text || ''}</textarea></label>
+          <div><button class="btn btn-secondary" type="button" id="audio-test">🔊 ${t('admin.audioTest')}</button></div>
+        </fieldset>
         <div class="row">
           <label>${t('admin.difficulty')}<select class="input" name="difficulty">${[1, 2, 3].map((d) => html`<option ${d === q.difficulty ? raw('selected') : ''}>${d}</option>`)}</select></label>
           <label>${t('admin.status')}<select class="input" name="status">${['draft', 'published', 'archived'].map((s) => html`<option ${s === q.status ? raw('selected') : ''}>${s}</option>`)}</select></label>
@@ -92,6 +113,35 @@ export async function questionEditView(root, { params }) {
           ${isNew ? '' : html`<button class="btn btn-danger" type="button" id="q-del">${t('common.delete')}</button>`}</div>
       </form>`);
     const form = root.querySelector('#q-form');
+    const showMedia = () => {
+      const img = val(form, 'image').trim();
+      root.querySelector('#img-prev').innerHTML = img ? html`<img src="${img}" alt="" style="max-width:320px;max-height:220px;border-radius:8px">`.s : '';
+      root.querySelector('#vid-prev').innerHTML = videoBlock({ video: val(form, 'video').trim() }).s || '';
+    };
+    const readDataUrl = (file) => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(file); });
+    const sendImage = async (file) => {
+      try {
+        const { url } = await api.post('/admin/uploads', { dataUrl: await readDataUrl(file) });
+        form.elements.image.value = url; showMedia(); toast(t('common.saved'));
+      } catch (err) { toast(errorMessage(err), 'error'); }
+    };
+    root.querySelector('#img-file').onchange = (e) => { const f = e.target.files[0]; if (f) sendImage(f); };
+    root.querySelector('#img-clear').onclick = () => { form.elements.image.value = ''; showMedia(); };
+    root.querySelector('#vid-clear').onclick = () => { form.elements.video.value = ''; showMedia(); };
+    root.querySelector('#vid-file').onchange = async (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      if (f.size > 30 * 1024 * 1024) { toast(t('admin.videoTooBig'), 'error'); return; }
+      toast(t('common.loading'));
+      try { const { url } = await uploadBlob('/admin/uploads-video', f); form.elements.video.value = url; showMedia(); toast(t('common.saved')); } catch (err) { toast(errorMessage(err), 'error'); }
+    };
+    form.addEventListener('paste', (e) => {
+      const f = [...(e.clipboardData?.files || [])].find((x) => x.type.startsWith('image/'));
+      if (f) { e.preventDefault(); sendImage(f); }
+    });
+    form.elements.image.addEventListener('change', showMedia);
+    form.elements.video.addEventListener('change', showMedia);
+    root.querySelector('#audio-test').onclick = () => speak(val(form, 'audioText') || val(form, 'text'));
+    showMedia();
     form.onsubmit = async (e) => {
       e.preventDefault();
       const body = {
@@ -99,7 +149,8 @@ export async function questionEditView(root, { params }) {
         options: val(form, 'options').split('\n').map((s) => s.trim()).filter(Boolean),
         correct: val(form, 'correct').split(',').map((s) => Number(s.trim())).filter(Boolean),
         difficulty: Number(val(form, 'difficulty')), status: val(form, 'status'),
-        visual: q.visual || null, image: q.image || null, imageAlt: q.image_alt || '',
+        visual: q.visual || null, image: val(form, 'image').trim() || null, imageAlt: val(form, 'imageAlt'),
+        video: val(form, 'video').trim() || null, audioText: val(form, 'audioText'),
       };
       try {
         if (isNew) await api.post('/admin/questions', body); else await api.put(`/admin/questions/${params.id}`, body);

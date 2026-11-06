@@ -41,3 +41,17 @@ export async function startAttempt(body, btn) {
 }
 
 export { catName };
+
+/** Vidéo d'une question : fichier (<video>) ou YouTube (<iframe>). */
+export function videoBlock(q) {
+  if (!q.video) return '';
+  if (q.video.startsWith('https://www.youtube-nocookie.com/embed/')) {
+    return html`<div class="scene" style="margin:0 0 16px;aspect-ratio:16/9"><iframe src="${q.video}" title="video" style="width:100%;height:100%;border:0" allow="encrypted-media; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>`;
+  }
+  return html`<video class="scene" src="${q.video}" controls preload="metadata" playsinline style="width:100%;max-height:380px;margin:0 0 16px;background:#000"></video>`;
+}
+
+/** Texte lu à voix haute : narration de l'auteur, sinon énoncé + choix. */
+export function speechText(q) {
+  return q.audioText || `${q.text} ${q.options.map((o, i) => `${i + 1}: ${o}`).join('. ')}`;
+}

@@ -22,6 +22,8 @@ function createApp() {
         'style-src-attr': ["'unsafe-inline'"],
         'font-src': ["'self'", 'https://fonts.gstatic.com'],
         'img-src': ["'self'", 'data:', 'https:'],
+        'media-src': ["'self'", 'https:'],
+        'frame-src': ['https://www.youtube-nocookie.com'],
         'connect-src': ["'self'"],
         'object-src': ["'none'"],
         'frame-ancestors': ["'none'"],

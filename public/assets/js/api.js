@@ -13,6 +13,14 @@ async function request(method, url, body) {
   return data;
 }
 
+export async function uploadBlob(url, blob) {
+  let res;
+  try { res = await fetch(`/api${url}`, { method: 'POST', headers: { 'X-Requested-With': 'fetch', 'Content-Type': blob.type }, credentials: 'same-origin', body: blob }); } catch { throw new ApiError(0, 'network_error'); }
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new ApiError(res.status, data?.error || 'server_error', data?.details);
+  return data;
+}
+
 export const api = {
   get: (u) => request('GET', u),
   post: (u, b = {}) => request('POST', u, b),

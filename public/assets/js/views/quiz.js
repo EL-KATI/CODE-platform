@@ -6,7 +6,7 @@ import { api } from '../api.js';
 import { store } from '../store.js';
 import { navigate } from '../router.js';
 import { renderVisual } from '../scenario.js';
-import { modeLabel } from './common.js';
+import { modeLabel, videoBlock, speechText } from './common.js';
 
 export async function quizView(root, { params }) {
   root.innerHTML = loading().s;
@@ -83,6 +83,7 @@ export async function quizView(root, { params }) {
         <button class="btn btn-ghost btn-sm" id="speak" type="button" aria-label="${t('quiz.listen')}">🔊 ${t('quiz.listen')}</button>
         <button class="btn btn-ghost btn-sm" id="bm" type="button" aria-pressed="${!!cur.bookmarked}">${cur.bookmarked ? '★' : '☆'} ${t('quiz.bookmark')}</button>
       </div>
+      ${raw(videoBlock(cur).s || '')}
       ${cur.image || cur.visual ? html`<figure class="scene" style="margin:0 0 16px">${raw(renderVisual(cur))}</figure>` : ''}
       <h2 class="question-text" id="qtext" lang="ar" dir="rtl">${cur.text}</h2>
       <p class="small muted" style="margin-top:-6px">${t('quiz.multiHint')}</p>
@@ -110,7 +111,7 @@ export async function quizView(root, { params }) {
       </div>`.s;
 
     card.querySelectorAll('.option:not([disabled])').forEach((b) => (b.onclick = () => toggle(Number(b.dataset.n))));
-    card.querySelector('#speak').onclick = () => speak(`${cur.text} ${cur.options.map((o, i) => `${i + 1}: ${o}`).join('. ')}`);
+    card.querySelector('#speak').onclick = () => speak(speechText(cur));
     card.querySelector('#bm').onclick = toggleBookmark;
     const v = card.querySelector('#validate'); if (v) v.onclick = validate;
     const cl = card.querySelector('#clear'); if (cl) cl.onclick = () => { selected.clear(); syncOptions(); };
