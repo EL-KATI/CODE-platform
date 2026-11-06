@@ -1,0 +1,44 @@
+'use strict';
+const db = require('../db');
+
+/** Convertit une ligne SQL en objet question. includeAnswer=false pour l'envoyer pendant un examen. */
+function toQuestion(row, { includeAnswer = false } = {}) {
+  const q = {
+    id: row.id,
+    categoryId: row.category_id,
+    text: row.text,
+    options: JSON.parse(row.options),
+    visual: row.visual ? JSON.parse(row.visual) : null,
+    image: row.image || null,
+    imageAlt: row.image_alt || '',
+  };
+  if (includeAnswer) {
+    q.correct = JSON.parse(row.correct);
+    q.explanation = row.explanation;
+  }
+  return q;
+}
+
+function getByIds(ids) {
+  if (!ids.length) return new Map();
+  const rows = db.get().prepare(`SELECT * FROM questions WHERE id IN (${ids.map(() => '?').join(',')})`).all(...ids);
+  return new Map(rows.map((r) => [r.id, r]));
+}
+
+/** Un QCM est juste si l'ensemble des réponses cochées est exactement celui des bonnes réponses. */
+function isCorrect(selected, correct) {
+  if (selected.length !== correct.length) return false;
+  const s = new Set(selected);
+  return correct.every((c) => s.has(c));
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+module.exports = { toQuestion, getByIds, isCorrect, shuffle };
