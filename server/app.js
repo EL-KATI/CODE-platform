@@ -42,6 +42,7 @@ function createApp() {
   api.use('/', require('./routes/content'));
   api.use('/admin', require('./routes/admin'));
   api.use('/', require('./routes/learner'));
+  api.use('/ai', require('./routes/ai'));
   api.use((req, res) => res.status(404).json({ error: 'not_found' }));
   app.use('/api', api);
 
