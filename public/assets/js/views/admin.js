@@ -443,36 +443,128 @@ export async function studentView(root, { params }) {
 export async function usersView(root) {
   await load(root, '/admin/users', async () => {
     const list = await api.get('/admin/users');
-    shell(root, '/admin/users', html`
-      <div class="card" style="overflow:auto"><table class="table"><thead><tr><th>${t('admin.name')}</th><th>${t('admin.email')}</th><th>${t('admin.role')}</th><th>${t('admin.active')}</th></tr></thead><tbody>
-        ${list.map((u) => html`<tr><td>${u.name}</td><td>${u.email}</td>
-          <td><select class="input" data-role="${u.id}">${['student', 'instructor', 'admin'].map((r) => html`<option value="${r}" ${r === u.role ? raw('selected') : ''}>${t('role.' + r)}</option>`)}</select></td>
-          <td><input type="checkbox" data-active="${u.id}" ${u.active ? raw('checked') : ''} aria-label="${t('admin.active')}"></td></tr>`)}
-      </tbody></table></div>`);
-    const patch = async (id, body) => { try { await api.patch(`/admin/users/${id}`, body); toast(t('common.saved')); } catch (err) { toast(errorMessage(err), 'error'); await usersView(root); } };
-    root.querySelectorAll('[data-role]').forEach((s) => s.onchange = () => patch(s.dataset.role, { role: s.value }));
-    root.querySelectorAll('[data-active]').forEach((c) => c.onchange = () => patch(c.dataset.active, { active: c.checked }));
+    let showAddForm = false;
+
+    function render() {
+      shell(root, '/admin/users', html`
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <h2 style="margin:0">${t('admin.users')}</h2>
+          <button class="btn btn-primary btn-sm" id="btn-add-user">＋ ${t('admin.addUser')}</button>
+        </div>
+        ${showAddForm ? html`
+        <div class="card" style="margin-bottom:16px">
+          <h3 style="margin-top:0">${t('admin.addUser')}</h3>
+          <form id="add-user-form" class="stack" style="max-width:420px">
+            <label>${t('admin.name')}<input class="input" name="name" required minlength="2" maxlength="80" placeholder="${t('admin.namePlaceholder')}"></label>
+            <label>${t('admin.email')}<input class="input" name="email" type="email" required placeholder="exemple@gmail.com"></label>
+            <label>${t('admin.password')}<input class="input" name="password" type="password" required minlength="8" placeholder="${t('admin.passwordHint')}"></label>
+            <label>${t('admin.role')}
+              <select class="input" name="role">
+                ${['student', 'instructor', 'admin'].map((r) => html`<option value="${r}">${t('role.' + r)}</option>`)}
+              </select>
+            </label>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-primary" type="submit">${t('common.save')}</button>
+              <button class="btn btn-secondary" type="button" id="btn-cancel-user">${t('common.cancel')}</button>
+            </div>
+          </form>
+        </div>` : ''}
+        <div class="card" style="overflow:auto"><table class="table"><thead><tr>
+          <th>${t('admin.name')}</th><th>${t('admin.email')}</th><th>${t('admin.role')}</th><th>${t('admin.active')}</th><th></th>
+        </tr></thead><tbody>
+          ${list.map((u) => html`<tr>
+            <td>${u.name}</td>
+            <td>${u.email}</td>
+            <td><select class="input" data-role="${u.id}">${['student', 'instructor', 'admin'].map((r) => html`<option value="${r}" ${r === u.role ? raw('selected') : ''}>${t('role.' + r)}</option>`)}</select></td>
+            <td><input type="checkbox" data-active="${u.id}" ${u.active ? raw('checked') : ''} aria-label="${t('admin.active')}"></td>
+            <td><button class="btn btn-danger btn-sm" data-del="${u.id}" title="${t('admin.deleteUser')}">🗑</button></td>
+          </tr>`)}
+        </tbody></table></div>`);
+
+      root.querySelector('#btn-add-user').onclick = () => { showAddForm = !showAddForm; render(); };
+      const cancelBtn = root.querySelector('#btn-cancel-user');
+      if (cancelBtn) cancelBtn.onclick = () => { showAddForm = false; render(); };
+
+      const addForm = root.querySelector('#add-user-form');
+      if (addForm) {
+        addForm.onsubmit = async (e) => {
+          e.preventDefault();
+          const fd = new FormData(addForm);
+          const body = { name: fd.get('name'), email: fd.get('email'), password: fd.get('password'), role: fd.get('role'), acceptTerms: true };
+          try {
+            await api.post('/admin/users', body);
+            toast(t('common.saved'));
+            showAddForm = false;
+            const updated = await api.get('/admin/users');
+            list.splice(0, list.length, ...updated);
+            render();
+          } catch (err) { toast(errorMessage(err), 'error'); }
+        };
+      }
+
+      const patch = async (id, body) => {
+        try { await api.patch(`/admin/users/${id}`, body); toast(t('common.saved')); }
+        catch (err) { toast(errorMessage(err), 'error'); const updated = await api.get('/admin/users'); list.splice(0, list.length, ...updated); render(); }
+      };
+      root.querySelectorAll('[data-role]').forEach((s) => s.onchange = () => patch(s.dataset.role, { role: s.value }));
+      root.querySelectorAll('[data-active]').forEach((c) => c.onchange = () => patch(c.dataset.active, { active: c.checked }));
+      root.querySelectorAll('[data-del]').forEach((b) => b.onclick = async () => {
+        if (!confirm(t('admin.confirmDelete'))) return;
+        try {
+          await api.del(`/admin/users/${b.dataset.del}`);
+          const updated = await api.get('/admin/users');
+          list.splice(0, list.length, ...updated);
+          render();
+        } catch (err) { toast(errorMessage(err), 'error'); }
+      });
+    }
+    render();
   });
 }
 
 // --- Paramètres (admin) ----------------------------------------------------------
 export async function settingsView(root) {
   await load(root, '/admin/settings', async () => {
-    const s = await store.getSettings(true);
+    const [s, cats] = await Promise.all([store.getSettings(true), store.getCategories()]);
     shell(root, '/admin/settings', html`
       <form class="card stack" id="s-form" style="max-width:480px">
         <p class="muted">${t('admin.settingsHelp')}</p>
-        <label>${t('exam.questions')}<input class="input" name="exam_question_count" type="number" min="5" max="100" value="${s.questionCount}"></label>
-        <label>${t('exam.passMark')}<input class="input" name="exam_pass_mark" type="number" min="1" max="100" value="${s.passMark}"></label>
+        <label>${t('exam.questions')} <small class="muted">(${t('admin.defaultForAll')})</small><input class="input" name="exam_question_count" type="number" min="5" max="200" value="${s.questionCount}"></label>
+        <label>${t('exam.passMark')}<input class="input" name="exam_pass_mark" type="number" min="1" max="200" value="${s.passMark}"></label>
         <label>${t('exam.perQuestion')} (s)<input class="input" name="exam_seconds_per_question" type="number" min="10" max="300" value="${s.secondsPerQuestion}"></label>
         <label>${t('dash.readiness')}<input class="input" name="readiness_window" type="number" min="2" max="20" value="${s.readinessWindow}"></label>
         <button class="btn btn-primary" type="submit">${t('common.save')}</button>
-      </form>`);
+      </form>
+      <div class="card" style="margin-top:16px">
+        <h3 style="margin-top:0">${t('admin.examCountPerCategory')}</h3>
+        <p class="muted small">${t('admin.examCountHelp')}</p>
+        <table class="table"><thead><tr><th>${t('admin.category')}</th><th>${t('admin.examCount')}</th></tr></thead><tbody>
+          ${cats.map((c) => html`<tr>
+            <td>${c.name_ar || c.nameAr}</td>
+            <td><input class="input" type="number" min="1" max="200" placeholder="${s.questionCount}" data-catcount="${c.id}" value="${c.exam_count ?? c.examCount ?? ''}"></td>
+          </tr>`)}
+        </tbody></table>
+        <button class="btn btn-secondary" id="btn-save-counts" style="margin-top:12px">${t('common.save')}</button>
+      </div>`);
     const form = root.querySelector('#s-form');
     form.onsubmit = async (e) => {
       e.preventDefault();
       const body = Object.fromEntries([...new FormData(form)].map(([k, v]) => [k, Number(v)]));
       try { await api.put('/admin/settings', body); await store.getSettings(true); toast(t('common.saved')); } catch (err) { toast(errorMessage(err), 'error'); }
+    };
+    // Save per-category exam counts
+    root.querySelector('#btn-save-counts').onclick = async () => {
+      const inputs = root.querySelectorAll('[data-catcount]');
+      const saves = [...inputs].map(async (inp) => {
+        const id = inp.dataset.catcount;
+        const val = inp.value.trim();
+        const cat = cats.find((c) => String(c.id) === String(id));
+        if (!cat) return;
+        const examCount = val === '' ? null : Number(val);
+        const body = { name_ar: cat.name_ar || cat.nameAr, name_fr: cat.name_fr || cat.nameFr, icon: cat.icon || '', exam_weight: cat.exam_weight ?? cat.examWeight ?? 1, sort: cat.sort ?? 0, exam_count: examCount };
+        return api.put(`/admin/categories/${id}`, body);
+      });
+      try { await Promise.all(saves); await store.getCategories(true); toast(t('common.saved')); } catch (err) { toast(errorMessage(err), 'error'); }
     };
   });
 }

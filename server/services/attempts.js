@@ -11,12 +11,24 @@ const published = () => db.get().prepare("SELECT id, category_id FROM questions 
 /**
  * Tirage d'un examen blanc selon le « blueprint » : nombre de questions par thème
  * proportionnel au poids exam_weight de chaque catégorie (comme les examens officiels).
+ * Si une catégorie a exam_count défini, ce nombre est utilisé à la place du global.
+ * (Ex: catégorie B → 40 questions, autres catégories → 46 questions)
  */
-function drawExam(count) {
+function drawExam(defaultCount, categoryId) {
   const d = db.get();
-  const cats = d.prepare('SELECT id, exam_weight FROM categories WHERE exam_weight > 0').all();
+  // Si un categoryId est fourni, on tire uniquement pour cette catégorie
+  const cats = categoryId
+    ? d.prepare('SELECT id, exam_weight, exam_count FROM categories WHERE id = ? AND exam_weight > 0').all(categoryId)
+    : d.prepare('SELECT id, exam_weight, exam_count FROM categories WHERE exam_weight > 0').all();
   const pool = published();
   const byCat = new Map(cats.map((c) => [c.id, shuffle(pool.filter((q) => q.category_id === c.id).map((q) => q.id))]));
+
+  // Determine total count: use category-specific count if single category, else default
+  let count = defaultCount;
+  if (cats.length === 1 && cats[0].exam_count != null) {
+    count = cats[0].exam_count;
+  }
+
   const totalWeight = cats.reduce((s, c) => s + c.exam_weight, 0) || 1;
 
   // Méthode du plus fort reste pour que la somme fasse exactement `count`.
@@ -28,7 +40,7 @@ function drawExam(count) {
   [...quotas].sort((a, b) => b.rest - a.rest).forEach((q) => { if (missing > 0) { q.n++; missing--; } });
 
   const picked = [];
-  for (const q of quotas) picked.push(...byCat.get(q.id).splice(0, q.n));
+  for (const q of quotas) picked.push(...(byCat.get(q.id) || []).splice(0, q.n));
   // Si un thème n'a pas assez de questions, on complète avec le reste de la banque.
   if (picked.length < count) {
     const used = new Set(picked);
@@ -57,11 +69,19 @@ function create(user, body) {
   let passMark = null;
 
   switch (mode) {
-    case 'exam':
+    case 'exam': {
       practice = false;
-      questionIds = drawExam(settings.exam_question_count);
+      // Support d'un categoryId optionnel pour les examens par catégorie (ex: cat B = 40 q, autres = 46 q)
+      const examCatId = body.categoryId ? Number(body.categoryId) : null;
+      if (examCatId) {
+        const catRow = d.prepare('SELECT id FROM categories WHERE id = ?').get(examCatId);
+        if (!catRow) throw notFound('category_not_found');
+        categoryId = examCatId;
+      }
+      questionIds = drawExam(settings.exam_question_count, examCatId);
       passMark = Math.round((settings.exam_pass_mark / settings.exam_question_count) * questionIds.length);
       break;
+    }
     case 'series': {
       seriesId = Number(body.seriesId);
       const s = d.prepare('SELECT id FROM series WHERE id = ? AND published = 1').get(seriesId);

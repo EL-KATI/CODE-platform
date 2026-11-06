@@ -12,7 +12,7 @@ const db = require('../db');
 const config = require('../config');
 const auth = require('../auth');
 const progress = require('../services/progress');
-const { wrap, str, int, optInt, bad, notFound } = require('../http');
+const { wrap, str, int, optInt, bad, notFound, EMAIL_RE, HttpError } = require('../http');
 
 const router = express.Router();
 const staff = auth.requireRole('instructor', 'admin');
@@ -320,9 +320,10 @@ router.post('/categories', adminOnly, wrap(async (req, res) => {
   const b = req.body || {};
   const slug = str(b.slug, { min: 2, max: 60, field: 'slug' }).toLowerCase();
   if (!/^[a-z0-9-]+$/.test(slug)) throw bad('invalid_field', { field: 'slug' });
-  const info = db.get().prepare('INSERT INTO categories (slug, name_ar, name_fr, icon, exam_weight, sort) VALUES (?,?,?,?,?,?)')
+  const examCount = b.exam_count != null ? int(b.exam_count, { min: 1, max: 200, field: 'exam_count' }) : null;
+  const info = db.get().prepare('INSERT INTO categories (slug, name_ar, name_fr, icon, exam_weight, exam_count, sort) VALUES (?,?,?,?,?,?,?)')
     .run(slug, str(b.name_ar, { min: 2, max: 100, field: 'name_ar' }), str(b.name_fr, { min: 2, max: 100, field: 'name_fr' }),
-      str(b.icon || '', { max: 8, field: 'icon' }), int(b.exam_weight ?? 1, { min: 0, max: 40, field: 'exam_weight' }), int(b.sort ?? 99, { min: 0, max: 1000 }));
+      str(b.icon || '', { max: 8, field: 'icon' }), int(b.exam_weight ?? 1, { min: 0, max: 40, field: 'exam_weight' }), examCount, int(b.sort ?? 99, { min: 0, max: 1000 }));
   db.audit(req.user.id, 'create', 'category', info.lastInsertRowid);
   res.status(201).json({ id: info.lastInsertRowid });
 }));
@@ -330,9 +331,10 @@ router.post('/categories', adminOnly, wrap(async (req, res) => {
 router.put('/categories/:id', adminOnly, wrap(async (req, res) => {
   const id = int(req.params.id, { min: 1 });
   const b = req.body || {};
-  const r = db.get().prepare('UPDATE categories SET name_ar=?, name_fr=?, icon=?, exam_weight=?, sort=? WHERE id=?')
+  const examCount = b.exam_count != null ? int(b.exam_count, { min: 1, max: 200, field: 'exam_count' }) : null;
+  const r = db.get().prepare('UPDATE categories SET name_ar=?, name_fr=?, icon=?, exam_weight=?, exam_count=?, sort=? WHERE id=?')
     .run(str(b.name_ar, { min: 2, max: 100, field: 'name_ar' }), str(b.name_fr, { min: 2, max: 100, field: 'name_fr' }),
-      str(b.icon || '', { max: 8, field: 'icon' }), int(b.exam_weight, { min: 0, max: 40, field: 'exam_weight' }), int(b.sort ?? 0, { min: 0, max: 1000 }), id);
+      str(b.icon || '', { max: 8, field: 'icon' }), int(b.exam_weight, { min: 0, max: 40, field: 'exam_weight' }), examCount, int(b.sort ?? 0, { min: 0, max: 1000 }), id);
   if (!r.changes) throw notFound();
   db.audit(req.user.id, 'update', 'category', id);
   res.json({ ok: true });
@@ -344,6 +346,23 @@ router.get('/users', adminOnly, (req, res) => {
   res.json(db.get().prepare(`SELECT id, name, email, role, active, locale, created_at, last_login_at FROM users
     WHERE name LIKE ? OR email LIKE ? ORDER BY id DESC LIMIT 500`).all(q, q));
 });
+
+router.post('/users', adminOnly, wrap(async (req, res) => {
+  const { password } = require('./auth');
+  const body = req.body || {};
+  const name = str(body.name, { min: 2, max: 80, field: 'name' });
+  const email = str(body.email, { min: 5, max: 160, field: 'email' }).toLowerCase();
+  if (!EMAIL_RE.test(email)) throw bad('invalid_email');
+  const pw = password(body.password);
+  const role = body.role && ['student', 'instructor', 'admin'].includes(body.role) ? body.role : 'student';
+  const locale = body.locale === 'fr' ? 'fr' : 'ar';
+  const d = db.get();
+  if (d.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) throw new HttpError(409, 'email_taken');
+  const info = d.prepare('INSERT INTO users (email, name, password_hash, role, locale) VALUES (?,?,?,?,?)')
+    .run(email, name, await auth.hashPassword(pw), role, locale);
+  db.audit(req.user.id, 'create', 'user', info.lastInsertRowid, { name, email, role });
+  res.status(201).json({ id: info.lastInsertRowid, name, email, role, active: 1 });
+}));
 
 router.patch('/users/:id', adminOnly, wrap(async (req, res) => {
   const id = int(req.params.id, { min: 1 });

@@ -57,7 +57,7 @@ export async function quizView(root, { params }) {
       autoRead.set(reading);
       drawAr();
       toast(reading ? t('quiz.autoReadOn') : t('quiz.autoReadOff'));
-      if (reading) speak(speechText(q()), { silent: true }); else stopSpeaking();
+      if (reading) speak(speechText(q(), idx + 1), { silent: true }); else stopSpeaking();
     };
     root.querySelector('#quit').onclick = async () => {
       const left = a.questions.length - answeredCount();
@@ -123,7 +123,7 @@ export async function quizView(root, { params }) {
       </div>`.s;
 
     card.querySelectorAll('.option:not([disabled])').forEach((b) => (b.onclick = () => toggle(Number(b.dataset.n))));
-    card.querySelector('#speak').onclick = () => speak(speechText(cur));
+    card.querySelector('#speak').onclick = () => speak(speechText(cur, idx + 1));
     card.querySelector('#bm').onclick = toggleBookmark;
     const v = card.querySelector('#validate'); if (v) v.onclick = validate;
     const cl = card.querySelector('#clear'); if (cl) cl.onclick = () => { selected.clear(); syncOptions(); };
@@ -133,7 +133,7 @@ export async function quizView(root, { params }) {
     shownAt = Date.now();
     if (exam && !ans) startTimer();
     // Lecture automatique : seulement pour une nouvelle question pas encore répondue.
-    if (reading && !ans) speak(speechText(cur), { silent: true });
+    if (reading && !ans) speak(speechText(cur, idx + 1), { silent: true });
   }
 
   function feedback(cur) {

@@ -51,11 +51,23 @@ export function videoBlock(q) {
   return html`<video class="scene" src="${q.video}" controls preload="metadata" playsinline style="width:100%;max-height:380px;margin:0 0 16px;background:#000"></video>`;
 }
 
-/** Texte lu à voix haute : narration de l'auteur, sinon énoncé + choix. */
-// Texte lu à voix haute, avec les numéros des choix en darija (« الجواب واحد… »)
-// pour que la voix arabe ne les lise pas comme de simples chiffres.
-const DARIJA_NUM = ['واحد', 'جوج', 'تلاتة', 'ربعة'];
-export function speechText(q) {
-  if (q.audioText) return q.audioText;
-  return `${q.text}. ${q.options.map((o, i) => `الجواب ${DARIJA_NUM[i] || i + 1}: ${o}`).join('. ')}.`;
+/** Texte lu à voix haute : narration de l'auteur, sinon numéro + énoncé + choix. */
+// الأرقام بالدارجة المغربية حتى لا تُقرأ كأرقام إنجليزية
+const DARIJA_NUM = ['واحد', 'جوج', 'تلاتة', 'ربعة', 'خمسة', 'ستة', 'سبعة', 'تمنية', 'تسعود', 'عشرة'];
+// أرقام الأسئلة بالدارجة
+const DARIJA_Q_NUM = [
+  'السؤال الأول', 'السؤال الثاني', 'السؤال الثالث', 'السؤال الرابع', 'السؤال الخامس',
+  'السؤال السادس', 'السؤال السابع', 'السؤال الثامن', 'السؤال التاسع', 'السؤال العاشر',
+];
+function darijaQNum(n) {
+  // n is 1-based
+  if (n >= 1 && n <= 10) return DARIJA_Q_NUM[n - 1];
+  return `السؤال رقم ${n}`;
+}
+export function speechText(q, questionNumber) {
+  // إلا كان فيه نص صوتي خاص، نضيفو رقم السؤال قبلو
+  const numPrefix = questionNumber ? `${darijaQNum(questionNumber)}. ` : '';
+  if (q.audioText) return `${numPrefix}${q.audioText}`;
+  const opts = q.options.map((o, i) => `الجواب ${DARIJA_NUM[i] || i + 1}: ${o}`).join('. ');
+  return `${numPrefix}${q.text}. ${opts}.`;
 }

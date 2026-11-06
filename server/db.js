@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS categories (
   description TEXT NOT NULL DEFAULT '',
   icon        TEXT NOT NULL DEFAULT '',
   exam_weight INTEGER NOT NULL DEFAULT 1,
+  exam_count  INTEGER,                     -- NULL = use global exam_question_count
   sort        INTEGER NOT NULL DEFAULT 0
 );
 
@@ -151,6 +152,9 @@ function open(file = config.dbFile) {
   const cols = db.prepare('PRAGMA table_info(questions)').all().map((c) => c.name);
   if (!cols.includes('video')) db.exec('ALTER TABLE questions ADD COLUMN video TEXT');
   if (!cols.includes('audio_text')) db.exec("ALTER TABLE questions ADD COLUMN audio_text TEXT NOT NULL DEFAULT ''");
+  // Migration: add exam_count to categories (NULL = use global setting)
+  const catCols = db.prepare('PRAGMA table_info(categories)').all().map((c) => c.name);
+  if (!catCols.includes('exam_count')) db.exec('ALTER TABLE categories ADD COLUMN exam_count INTEGER');
   return db;
 }
 
