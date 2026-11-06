@@ -2,6 +2,7 @@
 
 const express = require('express');
 const rateLimit = require('express-rate-limit');
+const { ipKeyGenerator } = rateLimit;
 const { requireAuth } = require('../auth');
 const { wrap, str, HttpError } = require('../http');
 const { askAI, availableModels } = require('../services/ai');
@@ -12,7 +13,7 @@ const router = express.Router();
 const aiLimit = rateLimit({
   windowMs: 60_000,
   max: 10,
-  keyGenerator: req => req.user?.id ?? req.ip,
+  keyGenerator: (req) => (req.user ? `u${req.user.id}` : ipKeyGenerator(req.ip)),
   message: { error: 'Too many AI requests, please wait a minute.' },
 });
 
@@ -23,12 +24,12 @@ router.get('/status', wrap(async (req, res) => {
 
 // POST /api/ai/ask – ask the AI tutor a question
 router.post('/ask', requireAuth, aiLimit, wrap(async (req, res) => {
-  const question = str(req.body, 'question', 1, 1000);
-  const context  = req.body.context  ? str(req.body, 'context',  0, 2000) : '';
-  const model    = req.body.model    ? str(req.body, 'model',    1, 20)   : 'auto';
+  const question = str(req.body.question, { min: 1, max: 1000, field: 'question' });
+  const context  = req.body.context  ? str(req.body.context, { max: 2000, field: 'context' }) : '';
+  const model    = req.body.model    ? str(req.body.model, { min: 1, max: 20, field: 'model' })   : 'auto';
 
   if (!['auto', 'claude', 'gemini'].includes(model)) {
-    throw new HttpError(400, 'model must be auto, claude, or gemini');
+    throw new HttpError(400, 'invalid_field', { field: 'model' });
   }
 
   const result = await askAI(question, context, model);
