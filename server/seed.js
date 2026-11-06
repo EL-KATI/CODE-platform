@@ -24,7 +24,8 @@ const CATEGORIES = [
 ];
 
 function parseLesson(file) {
-  const raw = fs.readFileSync(file, 'utf8');
+  // Supprime le BOM éventuel et normalise les sauts de ligne Windows (\r\n -> \n)
+  const raw = fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
   const m = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
   if (!m) throw new Error(`Front-matter manquant: ${file}`);
   const meta = {};
