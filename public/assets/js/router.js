@@ -5,6 +5,7 @@ let onNavigate = () => {};
 
 export function route(pattern, view, opts = {}) {
   const keys = [];
+  if (pattern === '*') { routes.push({ re: /(?!)/, keys, view, opts, pattern }); return; }
   const re = new RegExp('^' + pattern.replace(/\/:(\w+)/g, (_, k) => { keys.push(k); return '/([^/]+)'; }) + '/?$');
   routes.push({ re, keys, view, opts, pattern });
 }
