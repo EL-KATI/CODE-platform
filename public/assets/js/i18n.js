@@ -69,7 +69,7 @@ const ar = {
   'privacy.h5': 'تنبيه', 'privacy.p5': 'المنصة للتدريب فقط ولا تغني عن الامتحان الرسمي.',
   'admin.media': 'الوسائط والصوت', 'admin.uploadImage': 'تحميل صورة', 'admin.removeImage': 'حذف الصورة', 'admin.imageUrl': 'رابط الصورة', 'admin.orPaste': 'أو ألصق صورة بـ Ctrl+V', 'admin.imageAlt': 'وصف الصورة (لضعاف البصر)',
   'admin.uploadVideo': 'تحميل فيديو (mp4/webm)', 'admin.removeVideo': 'حذف الفيديو', 'admin.videoUrl': 'رابط فيديو (يوتيوب أو ملف mp4)', 'admin.videoTooBig': 'الفيديو أكبر من 30 ميغابايت',
-  'admin.audioText': 'نص للقراءة الصوتية', 'admin.audioHelp': 'يُحوَّل هذا النص إلى صوت عند ضغط المتعلم على «استمع». اتركه فارغا لقراءة السؤال تلقائيا.', 'admin.audioTest': 'تجربة الصوت',
+  'admin.audioText': 'نص للقراءة الصوتية', 'admin.audioHelp': 'هذا النص كيتقرا بالصوت فبلاصة السؤال. كتبو بالدارجة إلا بغيتي المتعلم يسمع الدارجة. إلا خليتيه خاوي كيتقرا السؤال والأجوبة.', 'admin.audioTest': 'تجربة الصوت',
   'err.invalid_video': 'ملف فيديو غير صالح (mp4 أو webm).',
   'admin.title': 'لوحة الإدارة', 'admin.stats': 'إحصائيات', 'admin.questions': 'الأسئلة', 'admin.series': 'السلاسل', 'admin.lessons': 'الدروس', 'admin.students': 'المتعلمون',
   'admin.users': 'المستخدمون', 'admin.settings': 'الإعدادات', 'admin.audit': 'سجل العمليات', 'admin.users_count': 'المستخدمون', 'admin.new30': 'جدد (30 يوما)', 'admin.active7': 'نشطون (7 أيام)',
@@ -83,7 +83,7 @@ const ar = {
   'admin.seriesQuestions': 'أسئلة السلسلة ({n}/100)', 'admin.addQuestions': 'إضافة أسئلة', 'admin.noneSelected': 'لم تختر أي سؤال بعد. أضف أسئلة من القائمة.', 'admin.maxQuestions': 'الحد الأقصى 100 سؤال في السلسلة',
   'admin.allCategories': 'كل المحاور', 'admin.allStatuses': 'كل الحالات', 'admin.add': 'إضافة', 'admin.remove': 'إزالة', 'admin.up': 'أعلى', 'admin.down': 'أسفل', 'admin.addAll': 'إضافة الكل', 'admin.results': '{n} سؤال',
   'status.published': 'منشور', 'status.draft': 'مسودة', 'status.archived': 'مؤرشف',
-  'quiz.autoRead': 'قراءة تلقائية', 'quiz.autoReadOn': 'القراءة التلقائية مفعّلة', 'quiz.autoReadOff': 'القراءة التلقائية متوقفة',
+  'quiz.noArabicVoice': 'ما كاين حتى صوت عربي فهاد المتصفح. استعمل Microsoft Edge، ولا زيد اللغة العربية (المغرب) مع الصوت فإعدادات Windows ← الوقت واللغة ← الكلام.', 'quiz.autoRead': 'قراءة تلقائية', 'quiz.autoReadOn': 'القراءة التلقائية مفعّلة', 'quiz.autoReadOff': 'القراءة التلقائية متوقفة',
 };
 
 const fr = {
@@ -170,7 +170,7 @@ const fr = {
   'admin.seriesQuestions': 'Questions de la série ({n}/100)', 'admin.addQuestions': 'Ajouter des questions', 'admin.noneSelected': 'Aucune question choisie. Ajoutez-en depuis la liste.', 'admin.maxQuestions': '100 questions maximum par série',
   'admin.allCategories': 'Tous les thèmes', 'admin.allStatuses': 'Tous les statuts', 'admin.add': 'Ajouter', 'admin.remove': 'Retirer', 'admin.up': 'Monter', 'admin.down': 'Descendre', 'admin.addAll': 'Tout ajouter', 'admin.results': '{n} question(s)',
   'status.published': 'Publiée', 'status.draft': 'Brouillon', 'status.archived': 'Archivée',
-  'quiz.autoRead': 'Lecture auto', 'quiz.autoReadOn': 'Lecture automatique activée', 'quiz.autoReadOff': 'Lecture automatique désactivée',
+  'quiz.noArabicVoice': 'Aucune voix arabe dans ce navigateur. Utilisez Microsoft Edge ou installez la voix arabe (Maroc) dans Paramètres Windows → Heure et langue → Voix.', 'quiz.autoRead': 'Lecture auto', 'quiz.autoReadOn': 'Lecture automatique activée', 'quiz.autoReadOff': 'Lecture automatique désactivée',
 };
 
 const DICT = { ar, fr };

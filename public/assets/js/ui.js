@@ -102,6 +102,7 @@ export const sound = {
 
 // --- Lecture vocale de la question (accessibilité / apprenants peu lecteurs) --------
 export function stopSpeaking() {
+  speakSeq++;
   if ('speechSynthesis' in window) window.speechSynthesis.cancel();
 }
 
@@ -111,13 +112,56 @@ export const autoRead = {
   set(on) { try { localStorage.setItem('autoRead', on ? '1' : '0'); } catch { /* stockage indisponible */ } },
 };
 
-export function speak(text, { silent = false } = {}) {
+// Choix de la voix : le navigateur prend sinon la voix par défaut (souvent anglaise),
+// qui saute les lettres arabes et ne lit que les chiffres « one, two, three ».
+let voices = [];
+const loadVoices = () => { voices = window.speechSynthesis.getVoices(); };
+if ('speechSynthesis' in window) {
+  loadVoices();
+  window.speechSynthesis.addEventListener?.('voiceschanged', loadVoices);
+}
+function waitVoices(ms = 1500) {
+  if (voices.length) return Promise.resolve();
+  return new Promise((resolve) => {
+    const done = () => { loadVoices(); window.speechSynthesis.removeEventListener?.('voiceschanged', done); resolve(); };
+    window.speechSynthesis.addEventListener?.('voiceschanged', done);
+    setTimeout(done, ms);
+  });
+}
+const norm = (l) => (l || '').toLowerCase().replace('_', '-');
+// Arabe : marocain (ar-MA, ex. « Microsoft Jamal/Mouna » dans Edge) d'abord, puis voix « naturelles », puis toute voix arabe.
+function pickVoice(lang) {
+  const list = voices.filter((v) => norm(v.lang).startsWith(lang));
+  const local = (lang === 'ar' ? 'ar-ma' : 'fr-fr');
+  return list.find((v) => norm(v.lang) === local && /natural|online/i.test(v.name))
+    || list.find((v) => norm(v.lang) === local)
+    || list.find((v) => /natural|online|google/i.test(v.name))
+    || list[0] || null;
+}
+export const isArabic = (text) => /[\u0600-\u06FF]/.test(text || '');
+let warnedNoVoice = false;
+let speakSeq = 0;
+
+export async function speak(text, { silent = false } = {}) {
   if (!('speechSynthesis' in window)) { if (!silent) toast(t('quiz.noSpeech'), 'error'); return; }
-  window.speechSynthesis.cancel();
+  const synth = window.speechSynthesis;
+  synth.cancel();
+  const seq = ++speakSeq;
+  await waitVoices();
+  if (seq !== speakSeq) return; // une autre lecture (ou un arrêt) a été demandée entre-temps
+  const lang = isArabic(text) ? 'ar' : (getLocale() === 'fr' ? 'fr' : 'ar');
+  const voice = pickVoice(lang);
+  if (!voice && lang === 'ar') {
+    // Pas de voix arabe : mieux vaut ne rien lire qu'une voix anglaise qui lit seulement les chiffres.
+    if (!silent || !warnedNoVoice) toast(t('quiz.noArabicVoice'), 'error');
+    warnedNoVoice = true;
+    return;
+  }
   const u = new SpeechSynthesisUtterance(text);
-  u.lang = getLocale() === 'fr' ? 'fr-FR' : 'ar-MA';
-  u.rate = 0.95;
-  window.speechSynthesis.speak(u);
+  if (voice) u.voice = voice;
+  u.lang = voice ? voice.lang : (lang === 'fr' ? 'fr-FR' : 'ar-MA');
+  u.rate = 0.9;
+  synth.speak(u);
 }
 
 export const fmtDate = (iso) => {

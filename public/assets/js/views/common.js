@@ -52,6 +52,10 @@ export function videoBlock(q) {
 }
 
 /** Texte lu à voix haute : narration de l'auteur, sinon énoncé + choix. */
+// Texte lu à voix haute, avec les numéros des choix en darija (« الجواب واحد… »)
+// pour que la voix arabe ne les lise pas comme de simples chiffres.
+const DARIJA_NUM = ['واحد', 'جوج', 'تلاتة', 'ربعة'];
 export function speechText(q) {
-  return q.audioText || `${q.text} ${q.options.map((o, i) => `${i + 1}: ${o}`).join('. ')}`;
+  if (q.audioText) return q.audioText;
+  return `${q.text}. ${q.options.map((o, i) => `الجواب ${DARIJA_NUM[i] || i + 1}: ${o}`).join('. ')}.`;
 }
