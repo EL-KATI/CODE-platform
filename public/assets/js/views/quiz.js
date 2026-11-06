@@ -1,6 +1,6 @@
 // Simulateur : examen blanc (chronométré, sans retour, correction à la fin)
 // ou entraînement (correction immédiate avec explication, navigation libre).
-import { html, raw, loading, toast, errorMessage, sound, speak, confirmDialog } from '../ui.js';
+import { html, raw, loading, toast, errorMessage, sound, speak, stopSpeaking, autoRead, confirmDialog } from '../ui.js';
 import { t, catName } from '../i18n.js';
 import { api } from '../api.js';
 import { store } from '../store.js';
@@ -25,6 +25,7 @@ export async function quizView(root, { params }) {
   let remaining = 0;
   let shownAt = Date.now();
   let finished = false;
+  let reading = autoRead.get();
 
   const q = () => a.questions[idx];
   const answeredCount = () => a.questions.filter((x) => x.answer).length;
@@ -36,6 +37,7 @@ export async function quizView(root, { params }) {
         <span class="pill ${exam ? 'pill-warning' : 'pill-success'}">${exam ? t('mode.examConditions') : t('mode.practice')}</span>
         <span class="spacer"></span>
         <span class="pill" id="counter" aria-live="polite"></span>
+        <button class="btn btn-ghost btn-sm" id="autoread" type="button" aria-pressed="${reading}" title="${t('quiz.autoRead')}"></button>
         <button class="btn btn-secondary btn-sm" id="quit">${exam ? t('quiz.finishNow') : t('quiz.finish')}</button>
       </div>
       <div class="quiz">
@@ -47,6 +49,16 @@ export async function quizView(root, { params }) {
           <p class="small muted" style="margin:14px 0 0">${t('quiz.kbdHelp')} <span class="kbd">1</span>–<span class="kbd">4</span> · <span class="kbd">Enter</span>${exam ? '' : html` · <span class="kbd">←</span><span class="kbd">→</span>`}</p>
         </aside>
       </div>`.s;
+    const ar = root.querySelector('#autoread');
+    const drawAr = () => { ar.textContent = `${reading ? '🔊' : '🔇'} ${t('quiz.autoRead')}`; ar.setAttribute('aria-pressed', String(reading)); };
+    drawAr();
+    ar.onclick = () => {
+      reading = !reading;
+      autoRead.set(reading);
+      drawAr();
+      toast(reading ? t('quiz.autoReadOn') : t('quiz.autoReadOff'));
+      if (reading) speak(speechText(q()), { silent: true }); else stopSpeaking();
+    };
     root.querySelector('#quit').onclick = async () => {
       const left = a.questions.length - answeredCount();
       if (left > 0 && !(await confirmDialog(t('quiz.confirmFinish', { n: left }), { okLabel: t('quiz.finish') }))) return;
@@ -120,6 +132,8 @@ export async function quizView(root, { params }) {
     renderNav();
     shownAt = Date.now();
     if (exam && !ans) startTimer();
+    // Lecture automatique : seulement pour une nouvelle question pas encore répondue.
+    if (reading && !ans) speak(speechText(cur), { silent: true });
   }
 
   function feedback(cur) {
@@ -145,6 +159,7 @@ export async function quizView(root, { params }) {
     if (!selected.size && !timeout && !exam) { toast(t('quiz.pickOne')); return; }
     busy = true;
     stopTimer();
+    stopSpeaking();
     try {
       const res = await api.post(`/attempts/${a.id}/answers`, { questionId: cur.id, selected: [...selected], timeMs: Date.now() - shownAt });
       cur.answer = { selected: [...selected] };
@@ -179,6 +194,7 @@ export async function quizView(root, { params }) {
     if (i < 0 || i >= a.questions.length) return;
     if (exam && i < idx) return;
     stopTimer();
+    stopSpeaking();
     idx = i;
     renderQuestion();
     root.querySelector('#qtext')?.focus?.();
@@ -250,6 +266,6 @@ export async function quizView(root, { params }) {
     stopTimer();
     document.removeEventListener('keydown', onKey);
     window.removeEventListener('beforeunload', beforeUnload);
-    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    stopSpeaking();
   };
 }

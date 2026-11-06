@@ -122,6 +122,7 @@ route('/admin', view(admin.statsView), staff);
 route('/admin/questions', view(admin.questionsView), staff);
 route('/admin/questions/:id', view(admin.questionEditView), staff);
 route('/admin/series', view(admin.seriesView), staff);
+route('/admin/series/:id', view(admin.seriesEditView), staff);
 route('/admin/lessons', view(admin.lessonsAdminView), staff);
 route('/admin/lessons/:id', view(admin.lessonEditView), staff);
 route('/admin/students', view(admin.studentsView), staff);
