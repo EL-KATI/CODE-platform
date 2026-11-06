@@ -117,7 +117,7 @@ export async function questionEditView(root, { params }) {
   const isNew = params.id === 'new';
   await load(root, '/admin/questions', async () => {
     const cats = await store.getCategories();
-    const q = isNew ? { categoryId: cats[0]?.id, text: '', options: ['', '', ''], correct: [1], explanation: '', difficulty: 2, status: 'published' } : await api.get(`/admin/questions/${params.id}`);
+    const q = isNew ? { categoryId: cats[0]?.id, text: '', options: ['', '', ''], correct: [1], explanation: '', difficulty: 2, status: 'published', question_type: '3/../', skill_type: 'معرفية' } : await api.get(`/admin/questions/${params.id}`);
     const catId = q.category_id ?? q.categoryId;
     shell(root, '/admin/questions', html`
       <form class="card stack" id="q-form" style="max-width:760px">
@@ -146,6 +146,18 @@ export async function questionEditView(root, { params }) {
           <label>${t('admin.audioText')}<textarea class="input" name="audioText" rows="3" placeholder="${t('admin.audioHelp')}">${q.audio_text || ''}</textarea></label>
           <div><button class="btn btn-secondary" type="button" id="audio-test">🔊 ${t('admin.audioTest')}</button></div>
         </fieldset>
+        <div class="row">
+          <label>${t('admin.questionType')}
+            <select class="input" name="question_type">
+              ${[['½','½'],['½½','½½'],['3/../','3/../'],['4/../','4/../']].map(([v,l]) => html`<option value="${v}" ${v === (q.question_type || '3/../') ? raw('selected') : ''}>${l}</option>`)}
+            </select>
+          </label>
+          <label>${t('admin.skillType')}
+            <select class="input" name="skill_type">
+              ${[['معرفية','معرفية'],['سلوكية','سلوكية'],['اجتماعية','اجتماعية']].map(([v,l]) => html`<option value="${v}" ${v === (q.skill_type || 'معرفية') ? raw('selected') : ''}>${l}</option>`)}
+            </select>
+          </label>
+        </div>
         <div class="row">
           <label>${t('admin.difficulty')}<select class="input" name="difficulty">${[1, 2, 3].map((d) => html`<option ${d === q.difficulty ? raw('selected') : ''}>${d}</option>`)}</select></label>
           <label>${t('admin.status')}<select class="input" name="status">${['draft', 'published', 'archived'].map((s) => html`<option ${s === q.status ? raw('selected') : ''}>${s}</option>`)}</select></label>
@@ -190,6 +202,7 @@ export async function questionEditView(root, { params }) {
         options: val(form, 'options').split('\n').map((s) => s.trim()).filter(Boolean),
         correct: val(form, 'correct').split(',').map((s) => Number(s.trim())).filter(Boolean),
         difficulty: Number(val(form, 'difficulty')), status: val(form, 'status'),
+        question_type: val(form, 'question_type'), skill_type: val(form, 'skill_type'),
         visual: q.visual || null, image: val(form, 'image').trim() || null, imageAlt: val(form, 'imageAlt'),
         video: val(form, 'video').trim() || null, audioText: val(form, 'audioText'),
       };

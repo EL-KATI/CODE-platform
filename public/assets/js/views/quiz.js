@@ -89,16 +89,21 @@ export async function quizView(root, { params }) {
     const c = cats.get(cur.categoryId);
     const card = root.querySelector('#qcard');
     card.innerHTML = html`
-      <div class="row" style="margin-bottom:10px">
+      <div class="row" style="margin-bottom:10px;flex-wrap:wrap;gap:6px">
         ${c ? html`<span class="pill">${c.icon} ${catName(c)}</span>` : ''}
+        ${cur.question_type ? html`<span class="pill pill-info" title="${t('admin.questionType')}">${cur.question_type}</span>` : ''}
+        ${cur.skill_type ? html`<span class="pill pill-muted" style="font-size:.75rem">${cur.skill_type}</span>` : ''}
         <span class="spacer"></span>
         <button class="btn btn-ghost btn-sm" id="speak" type="button" aria-label="${t('quiz.listen')}">🔊 ${t('quiz.listen')}</button>
         <button class="btn btn-ghost btn-sm" id="bm" type="button" aria-pressed="${!!cur.bookmarked}">${cur.bookmarked ? '★' : '☆'} ${t('quiz.bookmark')}</button>
       </div>
       ${raw(videoBlock(cur).s || '')}
       ${cur.image || cur.visual ? html`<figure class="scene" style="margin:0 0 16px">${raw(renderVisual(cur))}</figure>` : ''}
+      ${cur.question_type === '½½'
+        ? html`<div class="halfhalf-notice pill pill-info" style="margin-bottom:8px;display:block;text-align:center" lang="ar" dir="rtl">⚡ ${t('quiz.halfhalfHint')}</div>`
+        : ''}
       <h2 class="question-text" id="qtext" lang="ar" dir="rtl">${cur.text}</h2>
-      <p class="small muted" style="margin-top:-6px">${t('quiz.multiHint')}</p>
+      <p class="small muted" style="margin-top:-6px">${cur.correct && cur.correct.length > 1 ? t('quiz.multiHint') : ''}</p>
       <div class="options" role="group" aria-labelledby="qtext">
         ${cur.options.map((o, i) => {
           const n = i + 1;

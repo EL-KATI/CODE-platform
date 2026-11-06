@@ -106,6 +106,8 @@ function validateQuestion(b) {
     audio_text: str(b.audioText || '', { max: 3000, field: 'audioText' }),
     difficulty: optInt(b.difficulty, { min: 1, max: 3, field: 'difficulty' }) || 2,
     status,
+    question_type: ['½', '½½', '3/../', '4/../'].includes(b.question_type) ? b.question_type : '3/../',
+    skill_type: ['معرفية', 'سلوكية', 'اجتماعية'].includes(b.skill_type) ? b.skill_type : 'معرفية',
   };
 }
 
@@ -136,8 +138,8 @@ router.get('/questions/:id', wrap(async (req, res) => {
 
 router.post('/questions', wrap(async (req, res) => {
   const v = validateQuestion(req.body || {});
-  const info = db.get().prepare(`INSERT INTO questions (category_id, text, options, correct, explanation, visual, image, image_alt, video, audio_text, difficulty, status)
-    VALUES (@category_id, @text, @options, @correct, @explanation, @visual, @image, @image_alt, @video, @audio_text, @difficulty, @status)`).run(v);
+  const info = db.get().prepare(`INSERT INTO questions (category_id, text, options, correct, explanation, visual, image, image_alt, video, audio_text, difficulty, status, question_type, skill_type)
+    VALUES (@category_id, @text, @options, @correct, @explanation, @visual, @image, @image_alt, @video, @audio_text, @difficulty, @status, @question_type, @skill_type)`).run(v);
   db.audit(req.user.id, 'create', 'question', info.lastInsertRowid);
   res.status(201).json(rowToAdmin(db.get().prepare('SELECT * FROM questions WHERE id = ?').get(info.lastInsertRowid)));
 }));
@@ -147,7 +149,8 @@ router.put('/questions/:id', wrap(async (req, res) => {
   if (!db.get().prepare('SELECT 1 FROM questions WHERE id = ?').get(id)) throw notFound();
   const v = validateQuestion(req.body || {});
   db.get().prepare(`UPDATE questions SET category_id=@category_id, text=@text, options=@options, correct=@correct, explanation=@explanation,
-    visual=@visual, image=@image, image_alt=@image_alt, video=@video, audio_text=@audio_text, difficulty=@difficulty, status=@status, updated_at=datetime('now') WHERE id=@id`).run({ ...v, id });
+    visual=@visual, image=@image, image_alt=@image_alt, video=@video, audio_text=@audio_text, difficulty=@difficulty, status=@status,
+    question_type=@question_type, skill_type=@skill_type, updated_at=datetime('now') WHERE id=@id`).run({ ...v, id });
   db.audit(req.user.id, 'update', 'question', id);
   res.json(rowToAdmin(db.get().prepare('SELECT * FROM questions WHERE id = ?').get(id)));
 }));

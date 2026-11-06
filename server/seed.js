@@ -14,13 +14,13 @@ const config = require('./config');
 
 const SEED_DIR = path.join(config.ROOT, 'seed');
 
+// محاور NARSA الرسمية الخمسة (نظام بيرميناو للرخصة السياقة)
 const CATEGORIES = [
-  { slug: 'signs', name_ar: 'التشوير الطرقي', name_fr: 'Signalisation', icon: '🚸', exam_weight: 8 },
-  { slug: 'priority', name_ar: 'الأسبقية والملتقيات', name_fr: 'Priorités et intersections', icon: '🔀', exam_weight: 8 },
-  { slug: 'speed-distance', name_ar: 'السرعة والمسافات', name_fr: 'Vitesse et distances', icon: '⏱️', exam_weight: 7 },
-  { slug: 'overtaking', name_ar: 'التجاوز والتقابل', name_fr: 'Dépassement et croisement', icon: '🚗', exam_weight: 6 },
-  { slug: 'driver-offences', name_ar: 'السائق والمخالفات', name_fr: 'Conducteur et infractions', icon: '🪪', exam_weight: 6 },
-  { slug: 'vehicle-safety', name_ar: 'الميكانيك والسلامة', name_fr: 'Véhicule, sécurité et secours', icon: '🛠️', exam_weight: 5 },
+  { slug: 'road',        name_ar: 'الطريق',                   name_fr: 'La route',                       icon: '🛣️',  exam_weight: 8,  exam_count: 9  },
+  { slug: 'traffic',     name_ar: 'قواعد السير',              name_fr: 'Règles de circulation',           icon: '🚦',  exam_weight: 10, exam_count: 12 },
+  { slug: 'driver',      name_ar: 'السائق',                   name_fr: 'Le conducteur',                  icon: '🧑‍✈️', exam_weight: 8,  exam_count: 9  },
+  { slug: 'vehicle',     name_ar: 'المركبة',                  name_fr: 'Le véhicule',                    icon: '🚗',  exam_weight: 7,  exam_count: 8  },
+  { slug: 'offences',   name_ar: 'المخالفات والعقوبات',      name_fr: 'Infractions et sanctions',        icon: '⚖️',  exam_weight: 7,  exam_count: 8  },
 ];
 
 function parseLesson(file) {
@@ -54,17 +54,28 @@ function seedContent(d, { force = false } = {}) {
       d.exec('DELETE FROM series_questions; DELETE FROM series; DELETE FROM lessons; DELETE FROM user_questions; DELETE FROM questions; DELETE FROM categories;');
     }
     const catIds = {};
-    const insCat = d.prepare('INSERT INTO categories (slug, name_ar, name_fr, icon, exam_weight, sort) VALUES (?,?,?,?,?,?)');
+    const insCat = d.prepare('INSERT INTO categories (slug, name_ar, name_fr, icon, exam_weight, exam_count, sort) VALUES (?,?,?,?,?,?,?)');
     CATEGORIES.forEach((c, i) => {
-      catIds[c.slug] = insCat.run(c.slug, c.name_ar, c.name_fr, c.icon, c.exam_weight, i).lastInsertRowid;
+      catIds[c.slug] = insCat.run(c.slug, c.name_ar, c.name_fr, c.icon, c.exam_weight, c.exam_count ?? null, i).lastInsertRowid;
     });
 
     const questions = JSON.parse(fs.readFileSync(path.join(SEED_DIR, 'questions.json'), 'utf8'));
-    const insQ = d.prepare(`INSERT INTO questions (id, category_id, text, options, correct, explanation, visual, image)
-                            VALUES (?,?,?,?,?,?,?,?)`);
+    const insQ = d.prepare(`INSERT INTO questions (id, category_id, text, options, correct, explanation, visual, image, question_type, skill_type, difficulty)
+                            VALUES (?,?,?,?,?,?,?,?,?,?,?)`);
     for (const q of questions) {
-      insQ.run(q.id, catIds[q.category], q.text, JSON.stringify(q.options), JSON.stringify(q.correct),
-        q.explanation || '', q.visual ? JSON.stringify(q.visual) : null, q.image || null);
+      insQ.run(
+        q.id,
+        catIds[q.category],
+        q.text,
+        JSON.stringify(q.options),
+        JSON.stringify(q.correct),
+        q.explanation || '',
+        q.visual ? JSON.stringify(q.visual) : null,
+        q.image || null,
+        q.question_type || (q.options.length === 2 ? '½' : q.options.length === 4 ? '4/../' : '3/../'),
+        q.skill_type || 'معرفية',
+        q.difficulty || 2,
+      );
     }
 
     const series = JSON.parse(fs.readFileSync(path.join(SEED_DIR, 'series.json'), 'utf8'));

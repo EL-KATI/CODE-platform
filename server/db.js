@@ -49,6 +49,8 @@ CREATE TABLE IF NOT EXISTS questions (
   audio_text  TEXT NOT NULL DEFAULT '',    -- narration text read aloud (speech synthesis)
   difficulty  INTEGER NOT NULL DEFAULT 2 CHECK (difficulty BETWEEN 1 AND 3),
   status      TEXT NOT NULL DEFAULT 'published' CHECK (status IN ('draft','published','archived')),
+  question_type TEXT NOT NULL DEFAULT '3/../' CHECK (question_type IN ('½','½½','3/../','4/../')),
+  skill_type    TEXT NOT NULL DEFAULT 'معرفية' CHECK (skill_type IN ('معرفية','سلوكية','اجتماعية')),
   created_at  TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -155,6 +157,9 @@ function open(file = config.dbFile) {
   // Migration: add exam_count to categories (NULL = use global setting)
   const catCols = db.prepare('PRAGMA table_info(categories)').all().map((c) => c.name);
   if (!catCols.includes('exam_count')) db.exec('ALTER TABLE categories ADD COLUMN exam_count INTEGER');
+  // Migration: add NARSA question_type and skill_type to questions
+  if (!cols.includes('question_type')) db.exec("ALTER TABLE questions ADD COLUMN question_type TEXT NOT NULL DEFAULT '3/../'");
+  if (!cols.includes('skill_type')) db.exec("ALTER TABLE questions ADD COLUMN skill_type TEXT NOT NULL DEFAULT 'معرفية'")
   return db;
 }
 
