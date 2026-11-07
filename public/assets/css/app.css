@@ -2004,3 +2004,13 @@ dialog::backdrop { background: rgb(12 10 9 / .7); backdrop-filter: blur(4px); }
   .qz-window .qcard { overflow: visible; }
   .qz-window .q-actions { position: sticky; bottom: -1px; background: var(--surface); padding: 10px 0 calc(10px + env(safe-area-inset-bottom)); margin-top: 12px; border-top: 1px solid var(--border); z-index: 2; }
 }
+
+/* ── الشريط الجانبي المبسّط: الوقت + رقم السؤال فقط ── */
+.q-current { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0 2px; }
+.q-current-label { font-size: .8rem; font-weight: 700; color: var(--muted); }
+.q-current-num { font-size: 1.9rem; font-weight: 800; line-height: 1.1; color: var(--text); }
+@media (max-width: 1000px) {
+  .qz-window .quiz-sidebar { display: flex; flex-direction: row; align-items: center; justify-content: space-around; gap: 16px; padding: 10px 14px; }
+  .qz-window .quiz-sidebar .q-timer-wrap { margin: 0; padding: 0; border: 0; }
+  .qz-window .quiz-sidebar .q-current { padding: 0; }
+}

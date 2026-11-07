@@ -88,13 +88,9 @@ export async function quizView(appRoot, { params }) {
                 <span class="q-timer-label">${t('quiz.timeLeft')}</span>
               </div>
             </div>` : ''}
-          <h3>${t('quiz.questions')}</h3>
-          <div class="q-nav-grid" id="qnav"></div>
-          <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
-            <p class="small muted" style="margin:0;line-height:1.7">
-              <span class="kbd">1</span>–<span class="kbd">4</span> ${t('quiz.kbdHelp')}
-              ${!exam ? html` · <span class="kbd">←</span><span class="kbd">→</span>` : ''}
-            </p>
+          <div class="q-current" aria-live="polite">
+            <span class="q-current-label">${t('quiz.qLabel')}</span>
+            <span class="q-current-num" id="q-current-num"></span>
           </div>
         </aside>
       </div>`.s;
@@ -124,17 +120,8 @@ export async function quizView(appRoot, { params }) {
 
   // ── شريط التنقل بين الأسئلة ───────────────────────────────────────
   function renderNav() {
-    const nav = root.querySelector('#qnav');
-    nav.innerHTML = html`${a.questions.map((x, i) => {
-      let cls = '';
-      if (x.answer) cls = x.answer.isCorrect === true ? 'nav-ok' : x.answer.isCorrect === false ? 'nav-ko' : 'nav-done';
-      if (i === idx) cls += ' nav-cur';
-      const label = t('quiz.qn', { n: i + 1 });
-      return exam
-        ? html`<span class="${cls}" aria-label="${label}">${i + 1}</span>`
-        : html`<button type="button" class="${cls}" data-i="${i}" aria-label="${label}" ${i === idx ? html`aria-current="step"` : ''}>${i + 1}</button>`;
-    })}`.s;
-    if (!exam) nav.querySelectorAll('button').forEach((b) => (b.onclick = () => go(Number(b.dataset.i))));
+    const cn = root.querySelector('#q-current-num');
+    if (cn) cn.textContent = `${idx + 1} / ${a.questions.length}`;
 
     // تحديث العداد والشريط
     const answered = answeredCount();
