@@ -320,13 +320,18 @@ function open(file = config.dbFile) {
   if (!userCols.includes('pc_num'))                 db.exec("ALTER TABLE users ADD COLUMN pc_num TEXT DEFAULT ''");
   if (!userCols.includes('cap_num'))                db.exec("ALTER TABLE users ADD COLUMN cap_num TEXT DEFAULT ''");
   if (!userCols.includes('instructor_categories'))  db.exec("ALTER TABLE users ADD COLUMN instructor_categories TEXT DEFAULT ''");
-  // Migration: نظّف أي جداول مؤقتة تُركت من migrations فاشلة سابقة
+  // Migration: نظّف كل الجداول المؤقتة تُركت من migrations فاشلة سابقة
   try {
-    const tmpTables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '_users_old%'").all();
+    const tmpTables = db.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND (name LIKE '_users_old%' OR name LIKE '_users_migrate%' OR name = '_users_old')"
+    ).all();
     for (const t of tmpTables) {
       db.exec(`DROP TABLE IF EXISTS "${t.name}"`);
       console.log('[db] migration: cleaned up tmp table', t.name);
     }
+    // تنظيف صريح للجداول المعروفة
+    db.exec('DROP TABLE IF EXISTS _users_old');
+    db.exec('DROP TABLE IF EXISTS _users_migrate_sid');
   } catch (e) { console.warn('[db] cleanup tmp tables:', e.message); }
 
   // Migration: إنشاء جدول schools إذا لم يكن موجوداً (قد لا يكون موجوداً في قواعد البيانات القديمة)
