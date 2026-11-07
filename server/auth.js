@@ -30,11 +30,15 @@ const checkPassword = (p, hash) => bcrypt.compare(p, hash);
 
 function publicUser(u) {
   if (!u) return null;
+  // school_id يُحوَّل إلى INTEGER دائماً (قد يكون TEXT في قواعد البيانات القديمة)
+  const rawSchoolId = u.school_id;
+  const schoolId = (rawSchoolId === null || rawSchoolId === undefined || rawSchoolId === '')
+    ? null
+    : Number(rawSchoolId);
   return {
     id: u.id, email: u.email, name: u.name, role: u.role,
     locale: u.locale, examDate: u.exam_date, createdAt: u.created_at,
-    schoolId: u.school_id ?? null,
-    // للمدرب: معرّف المؤسسة التي ينتمي إليها (school_id = رمز المؤسسة)
+    schoolId,
   };
 }
 
@@ -49,7 +53,15 @@ function loadUser(req, _res, next) {
     try {
       const payload = jwt.verify(token, config.jwtSecret);
       const u = db.get().prepare('SELECT * FROM users WHERE id = ? AND active = 1').get(payload.sub);
-      if (u) req.user = u;
+      if (u) {
+        // تطبيع school_id إلى INTEGER (قد يكون TEXT في قواعد البيانات القديمة)
+        if (u.school_id !== null && u.school_id !== undefined && u.school_id !== '') {
+          u.school_id = Number(u.school_id);
+        } else {
+          u.school_id = null;
+        }
+        req.user = u;
+      }
     } catch { /* jeton invalide ou expiré : on l'ignore */ }
   }
   next();

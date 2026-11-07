@@ -524,8 +524,8 @@ router.get('/audit', adminOnly, (req, res) => {
    مؤسسات تعليم السياقة — Schools (أدمين فقط للإضافة/التعديل/الحذف)
    ══════════════════════════════════════════════════════════════════════════ */
 
-/** GET /admin/schools — قائمة المؤسسات مع عدد المستخدمين */
-router.get('/schools', wrap(async (req, res) => {
+/** GET /admin/schools — قائمة المؤسسات مع عدد المستخدمين (أدمين + مؤسسة) */
+router.get('/schools', schoolOrAdmin, wrap(async (req, res) => {
   const d = db.get();
   d.exec(`CREATE TABLE IF NOT EXISTS schools (
     id INTEGER PRIMARY KEY, name TEXT NOT NULL, code TEXT NOT NULL UNIQUE,
@@ -536,14 +536,20 @@ router.get('/schools', wrap(async (req, res) => {
   )`);
   try { d.exec("ALTER TABLE schools ADD COLUMN email TEXT DEFAULT ''"); } catch (_) {}
   try { d.exec('ALTER TABLE schools ADD COLUMN owner_id INTEGER'); } catch (_) {}
+  // المؤسسة ترى نفسها فقط، الأدمين يرى الكل
+  const whereClause = req.user.role === 'school'
+    ? `WHERE CAST(s.id AS TEXT) = CAST(? AS TEXT)`
+    : '';
+  const params = req.user.role === 'school' ? [req.user.school_id] : [];
   const rows = d.prepare(`
     SELECT s.*,
-      (SELECT COUNT(*) FROM users u WHERE u.school_id = s.id AND u.role = 'student') AS students_count,
-      (SELECT COUNT(*) FROM users u WHERE u.school_id = s.id AND u.role = 'instructor') AS instructors_count,
-      (SELECT COUNT(*) FROM users u WHERE u.school_id = s.id AND u.role = 'school') AS managers_count
+      (SELECT COUNT(*) FROM users u WHERE CAST(u.school_id AS TEXT) = CAST(s.id AS TEXT) AND u.role = 'student') AS students_count,
+      (SELECT COUNT(*) FROM users u WHERE CAST(u.school_id AS TEXT) = CAST(s.id AS TEXT) AND u.role = 'instructor') AS instructors_count,
+      (SELECT COUNT(*) FROM users u WHERE CAST(u.school_id AS TEXT) = CAST(s.id AS TEXT) AND u.role = 'school') AS managers_count
     FROM schools s
+    ${whereClause}
     ORDER BY s.name
-  `).all();
+  `).all(...params);
   res.json({ schools: rows });
 }));
 
@@ -562,14 +568,16 @@ router.get('/schools/search-students', schoolOrAdmin, wrap(async (req, res) => {
 }));
 
 /** GET /admin/schools/:id — تفاصيل مؤسسة واحدة */
-router.get('/schools/:id', wrap(async (req, res) => {
+router.get('/schools/:id', schoolOrAdmin, wrap(async (req, res) => {
   const d = db.get();
   const id = int(req.params.id, { min: 1 });
+  // المؤسسة لا تستطيع رؤية مؤسسة أخرى
+  if (req.user.role === 'school' && String(req.user.school_id) !== String(id)) throw bad('forbidden');
   const school = d.prepare('SELECT * FROM schools WHERE id = ?').get(id);
   if (!school) throw notFound();
   const members = d.prepare(`
     SELECT id, name, email, role, active, created_at, last_login_at
-    FROM users WHERE school_id = ? ORDER BY role, name
+    FROM users WHERE CAST(school_id AS TEXT) = CAST(? AS TEXT) ORDER BY role, name
   `).all(id);
   res.json({ school, members });
 }));
@@ -680,8 +688,9 @@ router.patch('/schools/:id', adminOnly, wrap(async (req, res) => {
 router.delete('/schools/:id', adminOnly, wrap(async (req, res) => {
   const id = int(req.params.id, { min: 1 });
   const d = db.get();
-  // فصل جميع أعضاء المؤسسة (school_id = NULL)
-  d.prepare('UPDATE users SET school_id = NULL WHERE school_id = ?').run(id);
+  if (!d.prepare('SELECT id FROM schools WHERE id = ?').get(id)) throw notFound();
+  // فصل جميع أعضاء المؤسسة — CAST للتوافق مع school_id TEXT أو INTEGER
+  d.prepare('UPDATE users SET school_id = NULL WHERE CAST(school_id AS TEXT) = CAST(? AS TEXT)').run(id);
   d.prepare('DELETE FROM schools WHERE id = ?').run(id);
   db.audit(req.user.id, 'delete', 'school', id);
   res.json({ ok: true });
@@ -693,11 +702,11 @@ router.delete('/schools/:id', adminOnly, wrap(async (req, res) => {
 router.get('/schools/:id/members', schoolOrAdmin, wrap(async (req, res) => {
   const id = int(req.params.id, { min: 1 });
   const d = db.get();
-  // المؤسسة لا تستطيع الاطلاع على مؤسسة أخرى
-  if (req.user.role === 'school' && req.user.school_id !== id) throw bad('forbidden');
+  // المؤسسة لا تستطيع الاطلاع على مؤسسة أخرى — CAST للتوافق مع TEXT/INTEGER
+  if (req.user.role === 'school' && String(req.user.school_id) !== String(id)) throw bad('forbidden');
   const members = d.prepare(`
     SELECT id, name, email, role, active, created_at, last_login_at
-    FROM users WHERE school_id = ? ORDER BY role, name
+    FROM users WHERE CAST(school_id AS TEXT) = CAST(? AS TEXT) ORDER BY role, name
   `).all(id);
   res.json({ members });
 }));
@@ -705,7 +714,7 @@ router.get('/schools/:id/members', schoolOrAdmin, wrap(async (req, res) => {
 /** POST /admin/schools/:id/instructors — إضافة مدرب للمؤسسة */
 router.post('/schools/:id/instructors', schoolOrAdmin, wrap(async (req, res) => {
   const schoolId = int(req.params.id, { min: 1 });
-  if (req.user.role === 'school' && req.user.school_id !== schoolId) throw bad('forbidden');
+  if (req.user.role === 'school' && String(req.user.school_id) !== String(schoolId)) throw bad('forbidden');
   const d = db.get();
   const school = d.prepare('SELECT id FROM schools WHERE id = ?').get(schoolId);
   if (!school) throw notFound();
@@ -731,7 +740,7 @@ router.post('/schools/:id/instructors', schoolOrAdmin, wrap(async (req, res) => 
 /** POST /admin/schools/:id/students — إضافة متعلم جديد للمؤسسة */
 router.post('/schools/:id/students', schoolOrAdmin, wrap(async (req, res) => {
   const schoolId = int(req.params.id, { min: 1 });
-  if (req.user.role === 'school' && req.user.school_id !== schoolId) throw bad('forbidden');
+  if (req.user.role === 'school' && String(req.user.school_id) !== String(schoolId)) throw bad('forbidden');
   const d = db.get();
   const school = d.prepare('SELECT id FROM schools WHERE id = ?').get(schoolId);
   if (!school) throw notFound();
@@ -757,7 +766,7 @@ router.post('/schools/:id/students', schoolOrAdmin, wrap(async (req, res) => {
 /** POST /admin/schools/:id/enroll — نسب متعلم موجود للمؤسسة (بحث + ربط) */
 router.post('/schools/:id/enroll', schoolOrAdmin, wrap(async (req, res) => {
   const schoolId = int(req.params.id, { min: 1 });
-  if (req.user.role === 'school' && req.user.school_id !== schoolId) throw bad('forbidden');
+  if (req.user.role === 'school' && String(req.user.school_id) !== String(schoolId)) throw bad('forbidden');
   const d = db.get();
   const school = d.prepare('SELECT id FROM schools WHERE id = ?').get(schoolId);
   if (!school) throw notFound();
@@ -766,7 +775,8 @@ router.post('/schools/:id/enroll', schoolOrAdmin, wrap(async (req, res) => {
   const user = d.prepare("SELECT id, role, school_id FROM users WHERE id = ?").get(userId);
   if (!user) throw notFound();
   if (user.role !== 'student') throw bad('invalid_field', { field: 'user_id', reason: 'not_student' });
-  if (user.school_id && user.school_id !== schoolId) throw bad('already_enrolled');
+  // CAST للتوافق مع school_id TEXT أو INTEGER
+  if (user.school_id && String(user.school_id) !== String(schoolId)) throw bad('already_enrolled');
   d.prepare('UPDATE users SET school_id = ? WHERE id = ?').run(schoolId, userId);
   db.audit(req.user.id, 'enroll', 'student', userId, { school_id: schoolId });
   res.json({ ok: true, user_id: userId, school_id: schoolId });
@@ -776,10 +786,10 @@ router.post('/schools/:id/enroll', schoolOrAdmin, wrap(async (req, res) => {
 router.delete('/schools/:id/members/:userId', schoolOrAdmin, wrap(async (req, res) => {
   const schoolId = int(req.params.id, { min: 1 });
   const userId = int(req.params.userId, { min: 1 });
-  if (req.user.role === 'school' && req.user.school_id !== schoolId) throw bad('forbidden');
+  if (req.user.role === 'school' && String(req.user.school_id) !== String(schoolId)) throw bad('forbidden');
   const d = db.get();
   const user = d.prepare('SELECT id, school_id, role FROM users WHERE id = ?').get(userId);
-  if (!user || user.school_id !== schoolId) throw notFound();
+  if (!user || String(user.school_id) !== String(schoolId)) throw notFound();
   if (user.role === 'admin') throw bad('forbidden');
   d.prepare('UPDATE users SET school_id = NULL WHERE id = ?').run(userId);
   db.audit(req.user.id, 'unenroll', 'member', userId, { school_id: schoolId });
