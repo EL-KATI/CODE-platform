@@ -13,7 +13,7 @@ export async function practiceView(root) {
     <div class="grid grid-3">
       ${series.map((s, i) => html`<div class="card">
         <div class="row"><span class="pill">${t('practice.seriesN', { n: i + 1 })}</span><span class="spacer"></span>
-          ${s.best !== null ? html`<span class="pill ${s.best >= 80 ? 'pill-success' : 'pill-warning'}">${t('practice.best', { v: s.best })}</span>` : ''}</div>
+          <span class="pill ${s.best === null ? '' : s.best >= 80 ? 'pill-success' : 'pill-warning'}">${t('practice.best', { v: s.best === null ? '—' : s.best + '%' })}</span></div>
         <h3 style="margin-top:10px">${s.title.replace(/^السلسلة\s*\d+\s*:\s*/, '')}</h3>
         <p class="small muted">${t('practice.questions', { n: s.question_count })}</p>
         <div class="row"><button class="btn btn-secondary btn-sm" data-series="${s.id}" data-practice="1">🎯 ${t('mode.practice')}</button>
