@@ -767,15 +767,11 @@ export async function studentView(root, { params }) {
 function roleExtraFields(role, schools) {
   const esc = (s) => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const lPhone   = t('admin.phone')   || 'الهاتف';
-  const lSchool  = t('admin.school')  || 'المؤسسة';
-  const lNoSch   = t('admin.noSchool')|| 'بدون مؤسسة';
   const lAddr    = t('admin.address') || 'العنوان';
   const lAddrPh  = t('admin.addressPlaceholder') || 'عنوان المؤسسة';
   const phoneField = `<label>${lPhone}<input class="input" name="phone" type="tel" placeholder="06xxxxxxxx"></label>`;
-  const schoolOpts = schools.map((s) => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('');
-  const schoolField = `<label>${lSchool}<select class="input" name="school_id"><option value="">— ${lNoSch}</option>${schoolOpts}</select></label>`;
-  if (role === 'student')    return phoneField + schoolField;
-  if (role === 'instructor') return phoneField + schoolField;
+  if (role === 'student')    return phoneField;
+  if (role === 'instructor') return phoneField;
   if (role === 'school')     return phoneField + `<label>${lAddr}<input class="input" name="address" placeholder="${esc(lAddrPh)}"></label>`;
   if (role === 'admin')      return phoneField;
   return '';
