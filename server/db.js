@@ -361,6 +361,33 @@ function open(file = config.dbFile) {
 
   // ملاحظة: exam_journey و schools جداول مستخدمة في routes/exams.js — لا تحذفهم
 
+  // Migration (une seule fois) : les questions laissées sans réponse à la fin d'une tentative
+  // étaient comptées « vues » et « fausses » → on recalcule user_questions depuis les vraies réponses.
+  try {
+    const done = db.prepare("SELECT 1 FROM settings WHERE key = 'stats_fix_v1'").get();
+    if (!done) {
+      db.transaction(() => {
+        db.exec(`
+CREATE TEMP TABLE _real AS
+  SELECT a.user_id AS u, aa.question_id AS q, aa.is_correct AS ok, aa.answered_at AS t
+  FROM attempt_answers aa JOIN attempts a ON a.id = aa.attempt_id
+  WHERE aa.selected NOT IN ('[]', '{"a":[],"b":[]}');
+UPDATE user_questions SET
+  seen    = (SELECT COUNT(*) FROM _real r WHERE r.u = user_questions.user_id AND r.q = user_questions.question_id),
+  correct = (SELECT COALESCE(SUM(r.ok), 0) FROM _real r WHERE r.u = user_questions.user_id AND r.q = user_questions.question_id),
+  wrong   = (SELECT COUNT(*) - COALESCE(SUM(r.ok), 0) FROM _real r WHERE r.u = user_questions.user_id AND r.q = user_questions.question_id),
+  last_result = (SELECT r.ok FROM _real r WHERE r.u = user_questions.user_id AND r.q = user_questions.question_id ORDER BY r.t DESC LIMIT 1);
+DELETE FROM user_questions WHERE seen = 0 AND bookmarked = 0;
+UPDATE user_questions SET box = 0, due_at = NULL, last_result = NULL WHERE seen = 0;
+UPDATE user_questions SET box = 1 WHERE seen > 0 AND correct = 0;
+DROP TABLE _real;
+`);
+        db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('stats_fix_v1', '1')").run();
+      })();
+      console.log('[db] statistiques recalculées à partir des vraies réponses');
+    }
+  } catch (e) { console.warn('[db] stats_fix_v1:', e.message); }
+
   return db;
 }
 

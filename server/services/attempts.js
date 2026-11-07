@@ -190,7 +190,8 @@ function finish(user, attemptId) {
       const answered = new Set(d.prepare('SELECT question_id FROM attempt_answers WHERE attempt_id = ?').all(a.id).map((r) => r.question_id));
       const ins = d.prepare("INSERT INTO attempt_answers (attempt_id, question_id, selected, is_correct) VALUES (?, ?, '[]', 0)");
       for (const qid of ids) {
-        if (!answered.has(qid)) { ins.run(a.id, qid); progress.recordResult(user.id, qid, false); }
+        // سؤال بلا جواب: خاطئ في نتيجة المحاولة فقط، ولا يدخل في إحصاءات المشاهدة والأخطاء
+        if (!answered.has(qid)) ins.run(a.id, qid);
       }
       const score = d.prepare('SELECT COUNT(*) AS n FROM attempt_answers WHERE attempt_id = ? AND is_correct = 1').get(a.id).n;
       const passed = a.pass_mark === null ? null : score >= a.pass_mark ? 1 : 0;

@@ -4,6 +4,10 @@ const db = require('../db');
 // Système de Leitner : intervalle (en jours) avant la prochaine révision selon la boîte atteinte.
 const LEITNER_DAYS = { 1: 1, 2: 3, 3: 7, 4: 16, 5: 35 };
 const MASTERED_BOX = 3;
+// جواب حقيقي = سؤال اختار فيه المتعلم شيئاً (الأسئلة المتروكة تُخزَّن بجواب فارغ)
+const REAL_ANSWER = `aa.selected NOT IN ('[]', '{"a":[],"b":[]}')`;
+// محاولة حقيقية = أجاب المتعلم فيها عن سؤال واحد على الأقل
+const REAL_ATTEMPT = `EXISTS (SELECT 1 FROM attempt_answers aa WHERE aa.attempt_id = a.id AND ${REAL_ANSWER})`;
 
 function addDays(days) {
   return new Date(Date.now() + days * 86400000).toISOString();
@@ -35,7 +39,7 @@ function dueQuestionIds(userId, limit = 20) {
 function streakDays(userId) {
   const days = db.get().prepare(`
     SELECT DISTINCT substr(aa.answered_at, 1, 10) AS d FROM attempt_answers aa
-    JOIN attempts a ON a.id = aa.attempt_id WHERE a.user_id = ? ORDER BY d DESC LIMIT 400`).all(userId).map((r) => r.d);
+    JOIN attempts a ON a.id = aa.attempt_id WHERE a.user_id = ? AND ${REAL_ANSWER} ORDER BY d DESC LIMIT 400`).all(userId).map((r) => r.d);
   if (!days.length) return 0;
   let streak = 0;
   const cursor = new Date();
@@ -78,11 +82,11 @@ function dashboard(userId) {
   const recent = d.prepare(`
     SELECT a.id, a.mode, a.practice, a.score, a.total, a.passed, a.finished_at, a.series_id, a.category_id, s.title AS series_title
     FROM attempts a LEFT JOIN series s ON s.id = a.series_id
-    WHERE a.user_id = ? AND a.finished_at IS NOT NULL ORDER BY a.finished_at DESC LIMIT 8`).all(userId);
+    WHERE a.user_id = ? AND a.finished_at IS NOT NULL AND ${REAL_ATTEMPT} ORDER BY a.finished_at DESC LIMIT 8`).all(userId);
 
   const window = settings.readiness_window;
-  const lastExams = d.prepare(`SELECT score, total, passed FROM attempts
-    WHERE user_id = ? AND mode = 'exam' AND finished_at IS NOT NULL ORDER BY finished_at DESC LIMIT ?`).all(userId, window);
+  const lastExams = d.prepare(`SELECT a.score, a.total, a.passed FROM attempts a
+    WHERE a.user_id = ? AND a.mode = 'exam' AND a.finished_at IS NOT NULL AND ${REAL_ATTEMPT} ORDER BY a.finished_at DESC LIMIT ?`).all(userId, window);
   const examsPassed = lastExams.filter((e) => e.passed).length;
   const avgExam = lastExams.length ? Math.round((10 * lastExams.reduce((s, e) => s + (e.score * settings.exam_question_count) / e.total, 0)) / lastExams.length) / 10 : null;
   const minMastery = categories.length ? Math.min(...categories.map((c) => c.mastery)) : 0;
@@ -106,7 +110,7 @@ function dashboard(userId) {
         WHERE uq.user_id = @u AND uq.due_at <= @now AND uq.box < 5) AS due,
       (SELECT COUNT(*) FROM user_questions WHERE user_id = @u AND bookmarked = 1) AS bookmarks,
       (SELECT COUNT(*) FROM user_questions WHERE user_id = @u AND last_result = 0) AS mistakes,
-      (SELECT COUNT(*) FROM attempts WHERE user_id = @u AND finished_at IS NOT NULL) AS attempts,
+      (SELECT COUNT(*) FROM attempts a WHERE a.user_id = @u AND a.finished_at IS NOT NULL AND ${REAL_ATTEMPT}) AS attempts,
       (SELECT COUNT(*) FROM questions WHERE status='published') AS questions,
       (SELECT COUNT(*) FROM user_questions uq JOIN questions q ON q.id = uq.question_id AND q.status='published' WHERE uq.user_id = @u) AS seen`)
     .get({ u: userId, now: new Date().toISOString() });
@@ -123,4 +127,4 @@ function dashboard(userId) {
   };
 }
 
-module.exports = { recordResult, dueQuestionIds, dashboard, LEITNER_DAYS };
+module.exports = { REAL_ANSWER, recordResult, dueQuestionIds, dashboard, LEITNER_DAYS };
