@@ -171,6 +171,7 @@ router.post('/questions', wrap(async (req, res) => {
 router.put('/questions/:id', wrap(async (req, res) => {
   const id = int(req.params.id, { min: 1 });
   if (!db.get().prepare('SELECT 1 FROM questions WHERE id = ?').get(id)) throw notFound();
+  console.log('[PUT /questions] body:', JSON.stringify(req.body, null, 2));
   const v = validateQuestion(req.body || {});
   db.get().prepare(`UPDATE questions SET category_id=@category_id, text=@text, options=@options, correct=@correct, explanation=@explanation,
     visual=@visual, image=@image, image_alt=@image_alt, video=@video, audio_text=@audio_text, difficulty=@difficulty, status=@status,
