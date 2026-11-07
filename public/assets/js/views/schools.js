@@ -61,6 +61,7 @@ export async function schoolsView(root) {
               <tr>
                 <th>${t('schools.name')}</th>
                 <th>${t('schools.code')}</th>
+                <th>${t('common.email')}</th>
                 <th>${t('schools.phone')}</th>
                 <th>${t('schools.students')}</th>
                 <th>${t('schools.instructors')}</th>
@@ -73,11 +74,13 @@ export async function schoolsView(root) {
                   <td><a class="link" href="/admin/schools/${s.id}">${esc(s.name)}</a>
                     ${!s.active ? `<span class="badge badge-error">${t('schools.inactive')}</span>` : ''}</td>
                   <td><code>${esc(s.code)}</code></td>
+                  <td><small>${esc(s.email) || '—'}</small></td>
                   <td>${esc(s.phone) || '—'}</td>
                   <td>${s.students_count}</td>
                   <td>${s.instructors_count}</td>
-                  <td class="row" style="gap:6px">
+                  <td class="row" style="gap:6px;flex-wrap:wrap">
                     <button class="btn btn-xs btn-secondary edit-btn" data-id="${s.id}">${t('common.edit')}</button>
+                    <button class="btn btn-xs btn-warning reset-pwd-btn" data-id="${s.id}" data-name="${esc(s.name)}">${t('schools.resetPassword')}</button>
                     <button class="btn btn-xs btn-error del-btn" data-id="${s.id}" data-name="${esc(s.name)}">${t('common.delete')}</button>
                   </td>
                 </tr>`).join('')}
@@ -89,6 +92,16 @@ export async function schoolsView(root) {
         btn.addEventListener('click', () => {
           const school = data.schools.find(s => s.id == btn.dataset.id);
           openSchoolModal(root, school, reload);
+        });
+      });
+
+      list.querySelectorAll('.reset-pwd-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm(t('schools.confirmResetPassword', { name: btn.dataset.name }))) return;
+          try {
+            const res = await api.post(`/admin/schools/${btn.dataset.id}/reset-password`, {});
+            alert(`${t('schools.newPassword')}: ${res.temp_password}\n\n${t('schools.savePasswordWarning')}`);
+          } catch (e) { alert(errMsg(e)); }
         });
       });
 

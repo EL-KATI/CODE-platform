@@ -587,7 +587,6 @@ router.get('/schools/:id', schoolOrAdmin, wrap(async (req, res) => {
 /** POST /admin/schools — إضافة مؤسسة جديدة (أدمين فقط) */
 router.post('/schools', adminOnly, wrap(async (req, res) => {
   const b = req.body || {};
-  console.log('[POST /schools] body keys:', Object.keys(b), '| name type:', typeof b.name, '| email type:', typeof b.email);
   const name    = str(b.name,  { min: 2, max: 120, field: 'name' });
   const code    = str(b.code,  { min: 2, max: 30,  field: 'code' }).toUpperCase().replace(/\s+/g, '_');
   const email   = str(b.email, { min: 5, max: 200, field: 'email' }).toLowerCase();
@@ -634,33 +633,30 @@ router.post('/schools', adminOnly, wrap(async (req, res) => {
       `INSERT INTO users (email, name, password_hash, role) VALUES (?, ?, ?, 'school')`
     ).run(email, name, hash);
     ownerId = userRes.lastInsertRowid;
-    console.log('[POST /schools] user created, ownerId:', ownerId);
   } catch(e) {
-    console.error('[POST /schools] user INSERT error:', e.message);
-    throw e;
+    if (e.message && e.message.includes('UNIQUE')) throw bad('email_taken', { field: 'email' });
+    throw new HttpError(500, 'server_error');
   }
 
   try {
     // بناء INSERT ديناميكياً بناءً على الأعمدة الموجودة فعلاً
     const cols = d.prepare('PRAGMA table_info(schools)').all().map(c => c.name);
-    console.log('[POST /schools] schools cols:', cols.join(','));
+        const cols = d.prepare('PRAGMA table_info(schools)').all().map(c => c.name);
     const insertCols = ['name', 'code', 'phone', 'address', 'created_by'];
     const insertVals = [name, code, phone, address, req.user.id];
-    if (cols.includes('email'))        { insertCols.push('email');        insertVals.push(email); }
-    if (cols.includes('owner_id'))     { insertCols.push('owner_id');     insertVals.push(ownerId); }
-    if (cols.includes('agrement_num')) { insertCols.push('agrement_num'); insertVals.push(agrementNum); }
+    if (cols.includes('email'))          { insertCols.push('email');          insertVals.push(email); }
+    if (cols.includes('owner_id'))       { insertCols.push('owner_id');       insertVals.push(ownerId); }
+    if (cols.includes('agrement_num'))   { insertCols.push('agrement_num');   insertVals.push(agrementNum); }
     if (cols.includes('raison_sociale')) { insertCols.push('raison_sociale'); insertVals.push(raisonSociale); }
 
     const placeholders = insertCols.map(() => '?').join(', ');
-    console.log('[POST /schools] INSERT SQL cols:', insertCols.join(','));
     const r = d.prepare(`INSERT INTO schools (${insertCols.join(', ')}) VALUES (${placeholders})`).run(...insertVals);
     schoolId = r.lastInsertRowid;
-    console.log('[POST /schools] school created, schoolId:', schoolId);
   } catch(e) {
-    console.error('[POST /schools] school INSERT error:', e.message);
     // تراجع: حذف المستخدم الذي أُنشئ
-    d.prepare('DELETE FROM users WHERE id = ?').run(ownerId);
-    throw e;
+    try { d.prepare('DELETE FROM users WHERE id = ?').run(ownerId); } catch(_) {}
+    if (e.message && e.message.includes('UNIQUE')) throw bad('slug_taken', { field: 'code' });
+    throw new HttpError(500, 'server_error');
   }
 
   // ربط حساب المؤسسة بالمؤسسة نفسها
@@ -691,6 +687,23 @@ router.patch('/schools/:id', adminOnly, wrap(async (req, res) => {
   if (b.raison_sociale !== undefined) d.prepare('UPDATE schools SET raison_sociale = ? WHERE id = ?').run(b.raison_sociale.toString().trim().slice(0, 120), id);
   db.audit(req.user.id, 'update', 'school', id, b);
   res.json({ school: d.prepare('SELECT * FROM schools WHERE id = ?').get(id) });
+}));
+
+/** POST /admin/schools/:id/reset-password — تعيين كلمة سر جديدة لحساب المؤسسة */
+router.post('/schools/:id/reset-password', adminOnly, wrap(async (req, res) => {
+  const id = int(req.params.id, { min: 1 });
+  const d = db.get();
+  const school = d.prepare('SELECT * FROM schools WHERE id = ?').get(id);
+  if (!school) throw notFound();
+  // ابحث عن المستخدم المرتبط (owner_id أو أول مستخدم school مرتبط)
+  let owner = school.owner_id ? d.prepare('SELECT id FROM users WHERE id = ? AND role = ?').get(school.owner_id, 'school') : null;
+  if (!owner) owner = d.prepare('SELECT id FROM users WHERE school_id = ? AND role = ? LIMIT 1').get(id, 'school');
+  if (!owner) throw new HttpError(404, 'no_school_user');
+  const rawPwd = Math.random().toString(36).slice(2, 6) + Math.random().toString(36).slice(2, 6).toUpperCase() + Math.floor(Math.random() * 90 + 10);
+  const hash = await auth.hashPassword(rawPwd);
+  d.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, owner.id);
+  db.audit(req.user.id, 'reset_password', 'school', id);
+  res.json({ temp_password: rawPwd });
 }));
 
 /** DELETE /admin/schools/:id — حذف مؤسسة (أدمين فقط، يفصل أعضاءها) */

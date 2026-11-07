@@ -182,6 +182,9 @@ const ar = {
   'schools.credentialsInfo': 'تم إنشاء حساب المؤسسة. احفظ بيانات الدخول:',
   'schools.tempPassword': 'كلمة المرور المؤقتة',
   'schools.savePasswordWarning': '⚠️ احفظ كلمة المرور الآن — لن تظهر مرة أخرى.',
+  'schools.resetPassword': 'تعيين كلمة سر',
+  'schools.confirmResetPassword': 'هل تريد تعيين كلمة سر جديدة للمؤسسة "{name}"؟',
+  'schools.newPassword': 'كلمة السر الجديدة',
   // حقول NARSA للمتعلم
   'student.firstNameFr': 'الاسم الشخصي (فرنسية)', 'student.lastNameFr': 'النسب (فرنسية)',
   'student.firstNameAr': 'الاسم الشخصي (عربية)',  'student.lastNameAr': 'النسب (عربية)',
@@ -446,6 +449,9 @@ const fr = {
   'schools.credentialsInfo': 'Le compte établissement a été créé. Conservez les identifiants :',
   'schools.tempPassword': 'Mot de passe temporaire',
   'schools.savePasswordWarning': '⚠️ Notez le mot de passe maintenant — il ne sera plus affiché.',
+  'schools.resetPassword': 'Réinitialiser MDP',
+  'schools.confirmResetPassword': 'Réinitialiser le mot de passe de "{name}" ?',
+  'schools.newPassword': 'Nouveau mot de passe',
   // Champs NARSA pour l'élève
   'student.firstNameFr': 'Prénom', 'student.lastNameFr': 'Nom',
   'student.firstNameAr': 'Prénom (arabe)', 'student.lastNameAr': 'Nom (arabe)',
