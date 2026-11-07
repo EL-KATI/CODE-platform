@@ -10,12 +10,13 @@ CREATE TABLE IF NOT EXISTS users (
   email         TEXT NOT NULL UNIQUE COLLATE NOCASE,
   name          TEXT NOT NULL,
   password_hash TEXT NOT NULL,
-  role          TEXT NOT NULL DEFAULT 'student' CHECK (role IN ('student','instructor','admin')),
+  role          TEXT NOT NULL DEFAULT 'student' CHECK (role IN ('student','instructor','admin','school')),
   locale        TEXT NOT NULL DEFAULT 'ar',
   exam_date     TEXT,
   active        INTEGER NOT NULL DEFAULT 1,
   created_at    TEXT NOT NULL DEFAULT (datetime('now')),
-  last_login_at TEXT
+  last_login_at TEXT,
+  school_id     TEXT  -- معرّف مدرسة القيادة (null = غير مسجّل في مدرسة)
 );
 
 CREATE TABLE IF NOT EXISTS settings (
@@ -142,6 +143,95 @@ CREATE TABLE IF NOT EXISTS audit_log (
   details   TEXT,
   at        TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+/* ── مؤسسات تعليم السياقة ────────────────────────────────────────────────
+   يقوم الأدمين بإضافة المؤسسات، وتستخدم school_id في جدول users للربط.
+   school_id في users = id من هذا الجدول (INTEGER, وليس TEXT).
+   ─────────────────────────────────────────────────────────────────────── */
+CREATE TABLE IF NOT EXISTS schools (
+  id          INTEGER PRIMARY KEY,
+  name        TEXT    NOT NULL,
+  code        TEXT    NOT NULL UNIQUE,   -- رمز المؤسسة (مختصر فريد)
+  phone       TEXT    NOT NULL DEFAULT '',
+  address     TEXT    NOT NULL DEFAULT '',
+  active      INTEGER NOT NULL DEFAULT 1,
+  created_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+/* ── مسار امتحان رخصة السياقة ──────────────────────────────────────────
+   مراحل الامتحان (صنف B — المغرب):
+     theory_1   : الامتحان النظري الأول
+     theory_2   : الامتحان النظري الاستدراكي (إذا رسب في theory_1)
+     practical_1: الامتحان التطبيقي الأول
+     practical_2: الامتحان التطبيقي الثاني (إذا رسب في practical_1)
+   النتيجة النهائية (archived_status):
+     licensed   : حصل على الرخصة
+     failed     : لم يحصل على الرخصة
+   ─────────────────────────────────────────────────────────────────────── */
+CREATE TABLE IF NOT EXISTS exam_journey (
+  id              INTEGER PRIMARY KEY,
+  student_id      INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+  school_id       INTEGER NOT NULL REFERENCES schools(id) ON DELETE CASCADE, -- مؤسسة القيادة
+
+  -- الامتحان النظري الأول
+  theory1_date    TEXT,                          -- YYYY-MM-DD
+  theory1_result  TEXT CHECK (theory1_result IN ('passed','failed') OR theory1_result IS NULL),
+
+  -- الامتحان النظري الاستدراكي (فقط إذا رسب في theory_1)
+  theory2_date    TEXT,
+  theory2_result  TEXT CHECK (theory2_result IN ('passed','failed') OR theory2_result IS NULL),
+
+  -- الامتحان التطبيقي الأول
+  practical1_date TEXT,
+  practical1_result TEXT CHECK (practical1_result IN ('passed','failed') OR practical1_result IS NULL),
+
+  -- الامتحان التطبيقي الثاني (فقط إذا رسب في practical_1)
+  practical2_date TEXT,
+  practical2_result TEXT CHECK (practical2_result IN ('passed','failed') OR practical2_result IS NULL),
+
+  -- الحالة العامة
+  status          TEXT    NOT NULL DEFAULT 'active'
+                  CHECK (status IN ('active','archived')),
+  archived_status TEXT    CHECK (archived_status IN ('licensed','failed') OR archived_status IS NULL),
+  note            TEXT,
+
+  created_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+/* ── حجوزات حصص التدريب التطبيقي ─────────────────────────────────────── */
+CREATE TABLE IF NOT EXISTS training_slots (
+  id          INTEGER PRIMARY KEY,
+  slot_date   TEXT    NOT NULL,          -- YYYY-MM-DD
+  slot_hour   INTEGER NOT NULL,          -- 9 | 11 | 15 | 17
+  capacity    INTEGER NOT NULL DEFAULT 3,
+  created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (slot_date, slot_hour)
+);
+
+CREATE TABLE IF NOT EXISTS training_bookings (
+  id          INTEGER PRIMARY KEY,
+  slot_id     INTEGER NOT NULL REFERENCES training_slots(id) ON DELETE CASCADE,
+  student_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status      TEXT    NOT NULL DEFAULT 'pending',  -- pending | approved | rejected | cancelled | rescheduled
+  note        TEXT,                                -- ملاحظة المدرب/المشرف
+  reviewed_by INTEGER REFERENCES users(id),
+  reviewed_at TEXT,
+  created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (slot_id, student_id)
+);
+
+CREATE TABLE IF NOT EXISTS booking_notifications (
+  id          INTEGER PRIMARY KEY,
+  booking_id  INTEGER NOT NULL REFERENCES training_bookings(id) ON DELETE CASCADE,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type        TEXT    NOT NULL,   -- booking_requested | booking_approved | booking_rejected | booking_rescheduled | booking_cancelled
+  message     TEXT    NOT NULL,
+  read        INTEGER NOT NULL DEFAULT 0,
+  created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
 `;
 
 let db;
@@ -162,7 +252,72 @@ function open(file = config.dbFile) {
   if (!cols.includes('question_type')) db.exec("ALTER TABLE questions ADD COLUMN question_type TEXT NOT NULL DEFAULT '3/../'"); // legacy – kept for safety
   if (!cols.includes('is_double')) db.exec('ALTER TABLE questions ADD COLUMN is_double INTEGER NOT NULL DEFAULT 0');
   if (!cols.includes('sub_questions')) db.exec('ALTER TABLE questions ADD COLUMN sub_questions TEXT');
-  if (!cols.includes('skill_type')) db.exec("ALTER TABLE questions ADD COLUMN skill_type TEXT NOT NULL DEFAULT 'معرفية'")
+  if (!cols.includes('skill_type')) db.exec("ALTER TABLE questions ADD COLUMN skill_type TEXT NOT NULL DEFAULT 'معرفية'");
+  // Migration: add school_id to users (NULL = not enrolled in a driving school)
+  const userCols = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
+  if (!userCols.includes('school_id')) db.exec('ALTER TABLE users ADD COLUMN school_id TEXT');
+  // Migration: allow 'school' role — rebuild users table to update CHECK constraint
+  try {
+    const roleCheck = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'").get()?.sql || '';
+    if (!roleCheck.includes("'school'")) {
+      db.exec(`
+        PRAGMA foreign_keys = OFF;
+        BEGIN;
+        ALTER TABLE users RENAME TO _users_old;
+        CREATE TABLE users (
+          id            INTEGER PRIMARY KEY,
+          email         TEXT NOT NULL UNIQUE COLLATE NOCASE,
+          name          TEXT NOT NULL,
+          password_hash TEXT NOT NULL,
+          role          TEXT NOT NULL DEFAULT 'student' CHECK (role IN ('student','instructor','admin','school')),
+          locale        TEXT NOT NULL DEFAULT 'ar',
+          exam_date     TEXT,
+          active        INTEGER NOT NULL DEFAULT 1,
+          created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+          last_login_at TEXT,
+          school_id     TEXT
+        );
+        INSERT INTO users SELECT id,email,name,password_hash,role,locale,exam_date,active,created_at,last_login_at,school_id FROM _users_old;
+        DROP TABLE _users_old;
+        COMMIT;
+        PRAGMA foreign_keys = ON;
+      `);
+    }
+  } catch (e) { console.warn('[db] migration school role:', e.message); }
+
+  // Migration: تأكد أن عمود school_id هو INTEGER (قد كان TEXT في نسخ سابقة)
+  // نتحقق من نوع العمود — إذا كان TEXT نعيد بناء الجدول
+  try {
+    const userColInfo = db.prepare('PRAGMA table_info(users)').all();
+    const schoolIdCol = userColInfo.find(c => c.name === 'school_id');
+    if (schoolIdCol && schoolIdCol.type.toUpperCase() !== 'INTEGER') {
+      db.exec(`
+        PRAGMA foreign_keys = OFF;
+        BEGIN;
+        ALTER TABLE users RENAME TO _users_old2;
+        CREATE TABLE users (
+          id            INTEGER PRIMARY KEY,
+          email         TEXT NOT NULL UNIQUE COLLATE NOCASE,
+          name          TEXT NOT NULL,
+          password_hash TEXT NOT NULL,
+          role          TEXT NOT NULL DEFAULT 'student' CHECK (role IN ('student','instructor','admin','school')),
+          locale        TEXT NOT NULL DEFAULT 'ar',
+          exam_date     TEXT,
+          active        INTEGER NOT NULL DEFAULT 1,
+          created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+          last_login_at TEXT,
+          school_id     INTEGER REFERENCES schools(id) ON DELETE SET NULL
+        );
+        INSERT INTO users SELECT id,email,name,password_hash,role,locale,exam_date,active,created_at,last_login_at,
+          CASE WHEN school_id IS NULL OR school_id = '' THEN NULL ELSE CAST(school_id AS INTEGER) END
+          FROM _users_old2;
+        DROP TABLE _users_old2;
+        COMMIT;
+        PRAGMA foreign_keys = ON;
+      `);
+    }
+  } catch (e) { console.warn('[db] migration school_id integer:', e.message); }
+
   return db;
 }
 

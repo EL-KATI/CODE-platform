@@ -30,8 +30,17 @@ const checkPassword = (p, hash) => bcrypt.compare(p, hash);
 
 function publicUser(u) {
   if (!u) return null;
-  return { id: u.id, email: u.email, name: u.name, role: u.role, locale: u.locale, examDate: u.exam_date, createdAt: u.created_at };
+  return {
+    id: u.id, email: u.email, name: u.name, role: u.role,
+    locale: u.locale, examDate: u.exam_date, createdAt: u.created_at,
+    schoolId: u.school_id ?? null,
+    // للمدرب: معرّف المؤسسة التي ينتمي إليها (school_id = رمز المؤسسة)
+  };
 }
+
+/** الأدوار المتاحة */
+const ROLES = ['student', 'instructor', 'admin', 'school'];
+module.exports.ROLES = ROLES;
 
 /** Charge l'utilisateur à partir du cookie (si présent et valide). */
 function loadUser(req, _res, next) {
@@ -69,4 +78,4 @@ function csrfGuard(req, res, next) {
   next();
 }
 
-module.exports = { issueSession, clearSession, hashPassword, checkPassword, publicUser, loadUser, requireAuth, requireRole, csrfGuard };
+module.exports = { issueSession, clearSession, hashPassword, checkPassword, publicUser, loadUser, requireAuth, requireRole, csrfGuard, ROLES };

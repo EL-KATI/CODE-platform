@@ -15,9 +15,20 @@ const progress = require('../services/progress');
 const { wrap, str, int, optInt, bad, notFound, EMAIL_RE, HttpError } = require('../http');
 
 const router = express.Router();
-const staff = auth.requireRole('instructor', 'admin');
+// الوصول للوحة الإدارة: المدرب، المؤسسة، الأدمن
+const staff = auth.requireRole('instructor', 'admin', 'school');
 const adminOnly = auth.requireRole('admin');
+const schoolOrAdmin = auth.requireRole('admin', 'school');
 router.use(staff);
+
+/** المدرب والمؤسسة: قراءة فقط للمحتوى التعليمي (أسئلة/سلاسل/دروس). */
+function contentReadOnly(req, res, next) {
+  if (['instructor', 'school'].includes(req.user.role))
+    return res.status(403).json({ error: 'forbidden', details: { reason: 'instructor_readonly' } });
+  next();
+}
+// اسم قديم للتوافق مع الكود الموجود
+const instructorReadOnly = contentReadOnly;
 
 const VISUAL_TYPES = ['sign', 'junction', 'driver', 'overtake', 'distance', 'road', 'parking', 'speed', 'dashboard', 'lights', 'mechanic', 'firstaid', 'safety', 'photo'];
 
@@ -45,18 +56,88 @@ router.get('/stats', (req, res) => {
 // --- Élèves -------------------------------------------------------------------
 router.get('/students', (req, res) => {
   const q = `%${(req.query.q || '').toString().slice(0, 80)}%`;
-  res.json(db.get().prepare(`SELECT u.id, u.name, u.email, u.created_at, u.last_login_at, u.exam_date, u.active,
-      (SELECT COUNT(*) FROM attempts a WHERE a.user_id = u.id AND a.finished_at IS NOT NULL) AS attempts,
-      (SELECT COUNT(*) FROM attempts a WHERE a.user_id = u.id AND a.mode='exam' AND a.passed = 1) AS exams_passed,
-      (SELECT COUNT(*) FROM attempts a WHERE a.user_id = u.id AND a.mode='exam' AND a.finished_at IS NOT NULL) AS exams,
-      (SELECT MAX(a.finished_at) FROM attempts a WHERE a.user_id = u.id) AS last_activity
-    FROM users u WHERE u.role = 'student' AND (u.name LIKE ? OR u.email LIKE ?) ORDER BY last_activity DESC NULLS LAST, u.id DESC LIMIT 500`).all(q, q));
+  const d = db.get();
+  // المؤسسة والمدرب يريان فقط طلابهم (school_id = school.school_id أو instructor.school_id)
+  const viewerSchoolId = req.user.role === 'student' ? null
+    : (req.user.role === 'admin' ? null : req.user.school_id);
+  let rows;
+  if (viewerSchoolId) {
+    rows = d.prepare(`SELECT u.id, u.name, u.email, u.created_at, u.last_login_at, u.exam_date, u.active, u.school_id,
+        (SELECT COUNT(*) FROM attempts a WHERE a.user_id = u.id AND a.finished_at IS NOT NULL) AS attempts,
+        (SELECT COUNT(*) FROM attempts a WHERE a.user_id = u.id AND a.mode='exam' AND a.passed = 1) AS exams_passed,
+        (SELECT COUNT(*) FROM attempts a WHERE a.user_id = u.id AND a.mode='exam' AND a.finished_at IS NOT NULL) AS exams,
+        (SELECT MAX(a.finished_at) FROM attempts a WHERE a.user_id = u.id) AS last_activity
+      FROM users u WHERE u.role = 'student' AND u.school_id = ?
+        AND (u.name LIKE ? OR u.email LIKE ?)
+      ORDER BY last_activity DESC NULLS LAST, u.id DESC LIMIT 500`).all(viewerSchoolId, q, q);
+  } else {
+    rows = d.prepare(`SELECT u.id, u.name, u.email, u.created_at, u.last_login_at, u.exam_date, u.active, u.school_id,
+        (SELECT COUNT(*) FROM attempts a WHERE a.user_id = u.id AND a.finished_at IS NOT NULL) AS attempts,
+        (SELECT COUNT(*) FROM attempts a WHERE a.user_id = u.id AND a.mode='exam' AND a.passed = 1) AS exams_passed,
+        (SELECT COUNT(*) FROM attempts a WHERE a.user_id = u.id AND a.mode='exam' AND a.finished_at IS NOT NULL) AS exams,
+        (SELECT MAX(a.finished_at) FROM attempts a WHERE a.user_id = u.id) AS last_activity
+      FROM users u WHERE u.role = 'student' AND (u.name LIKE ? OR u.email LIKE ?)
+      ORDER BY last_activity DESC NULLS LAST, u.id DESC LIMIT 500`).all(q, q);
+  }
+  res.json(rows);
 });
 
 router.get('/students/:id', wrap(async (req, res) => {
   const u = db.get().prepare('SELECT * FROM users WHERE id = ?').get(int(req.params.id, { min: 1 }));
   if (!u) throw notFound();
+  // المؤسسة والمدرب لا يريان إلا طلاب مؤسستهم
+  const viewerSchoolId = ['school','instructor'].includes(req.user.role) ? req.user.school_id : null;
+  if (viewerSchoolId && u.school_id !== viewerSchoolId) return res.status(403).json({ error: 'forbidden' });
   res.json({ user: auth.publicUser(u), dashboard: progress.dashboard(u.id) });
+}));
+
+// --- إدارة طلاب المؤسسة (school + admin) ------------------------------------
+// إضافة طالب وربطه بالمؤسسة
+router.post('/school/students', schoolOrAdmin, wrap(async (req, res) => {
+  const { hashPassword } = require('./auth');
+  const body = req.body || {};
+  const name = str(body.name, { min: 2, max: 80, field: 'name' });
+  const email = str(body.email, { min: 5, max: 160, field: 'email' }).toLowerCase();
+  if (!EMAIL_RE.test(email)) throw bad('invalid_email');
+  const pw = str(body.password || '', { min: 8, max: 128, field: 'password' });
+  if (!/\d/.test(pw)) throw bad('weak_password');
+  const d = db.get();
+  if (d.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) throw new HttpError(409, 'email_taken');
+  // المؤسسة تربط الطالب بـ school_id الخاص بها تلقائياً
+  const schoolId = req.user.role === 'school' ? req.user.school_id : (body.school_id || null);
+  const info = d.prepare('INSERT INTO users (email, name, password_hash, role, locale, school_id) VALUES (?,?,?,?,?,?)')
+    .run(email, name, await auth.hashPassword(pw), 'student', body.locale || 'ar', schoolId);
+  db.audit(req.user.id, 'create', 'user', info.lastInsertRowid, { name, email, school_id: schoolId });
+  res.status(201).json({ id: info.lastInsertRowid, name, email, school_id: schoolId });
+}));
+
+// تعديل بيانات طالب (المؤسسة)
+router.patch('/school/students/:id', schoolOrAdmin, wrap(async (req, res) => {
+  const id = int(req.params.id, { min: 1 });
+  const d = db.get();
+  const u = d.prepare('SELECT * FROM users WHERE id = ? AND role = ?').get(id, 'student');
+  if (!u) throw notFound();
+  const viewerSchoolId = req.user.role === 'school' ? req.user.school_id : null;
+  if (viewerSchoolId && u.school_id !== viewerSchoolId) return res.status(403).json({ error: 'forbidden' });
+  const b = req.body || {};
+  if (b.name) d.prepare('UPDATE users SET name = ? WHERE id = ?').run(str(b.name, { min: 2, max: 80, field: 'name' }), id);
+  if (b.active !== undefined) d.prepare('UPDATE users SET active = ? WHERE id = ?').run(b.active ? 1 : 0, id);
+  if (b.exam_date !== undefined) d.prepare('UPDATE users SET exam_date = ? WHERE id = ?').run(b.exam_date || null, id);
+  db.audit(req.user.id, 'update', 'student', id, b);
+  res.json({ ok: true });
+}));
+
+// حذف طالب (المؤسسة)
+router.delete('/school/students/:id', schoolOrAdmin, wrap(async (req, res) => {
+  const id = int(req.params.id, { min: 1 });
+  const d = db.get();
+  const u = d.prepare('SELECT * FROM users WHERE id = ? AND role = ?').get(id, 'student');
+  if (!u) throw notFound();
+  const viewerSchoolId = req.user.role === 'school' ? req.user.school_id : null;
+  if (viewerSchoolId && u.school_id !== viewerSchoolId) return res.status(403).json({ error: 'forbidden' });
+  d.prepare('DELETE FROM users WHERE id = ?').run(id);
+  db.audit(req.user.id, 'delete', 'student', id);
+  res.json({ ok: true });
 }));
 
 // --- Questions ----------------------------------------------------------------
@@ -160,7 +241,7 @@ router.get('/questions/:id', wrap(async (req, res) => {
   res.json(out);
 }));
 
-router.post('/questions', wrap(async (req, res) => {
+router.post('/questions', instructorReadOnly, wrap(async (req, res) => {
   const v = validateQuestion(req.body || {});
   const info = db.get().prepare(`INSERT INTO questions (category_id, text, options, correct, explanation, visual, image, image_alt, video, audio_text, difficulty, status, is_double, sub_questions, skill_type)
     VALUES (@category_id, @text, @options, @correct, @explanation, @visual, @image, @image_alt, @video, @audio_text, @difficulty, @status, @is_double, @sub_questions, @skill_type)`).run(v);
@@ -168,10 +249,9 @@ router.post('/questions', wrap(async (req, res) => {
   res.status(201).json(rowToAdmin(db.get().prepare('SELECT * FROM questions WHERE id = ?').get(info.lastInsertRowid)));
 }));
 
-router.put('/questions/:id', wrap(async (req, res) => {
+router.put('/questions/:id', instructorReadOnly, wrap(async (req, res) => {
   const id = int(req.params.id, { min: 1 });
   if (!db.get().prepare('SELECT 1 FROM questions WHERE id = ?').get(id)) throw notFound();
-  console.log('[PUT /questions] body:', JSON.stringify(req.body, null, 2));
   const v = validateQuestion(req.body || {});
   db.get().prepare(`UPDATE questions SET category_id=@category_id, text=@text, options=@options, correct=@correct, explanation=@explanation,
     visual=@visual, image=@image, image_alt=@image_alt, video=@video, audio_text=@audio_text, difficulty=@difficulty, status=@status,
@@ -180,7 +260,7 @@ router.put('/questions/:id', wrap(async (req, res) => {
   res.json(rowToAdmin(db.get().prepare('SELECT * FROM questions WHERE id = ?').get(id)));
 }));
 
-router.delete('/questions/:id', wrap(async (req, res) => {
+router.delete('/questions/:id', instructorReadOnly, wrap(async (req, res) => {
   const id = int(req.params.id, { min: 1 });
   const d = db.get();
   // Une question déjà utilisée dans des tentatives est archivée (pour garder l'historique), sinon supprimée.
@@ -203,7 +283,7 @@ router.get('/questions-export', (req, res) => {
   res.json({ format: 'code-platform/questions@1', exportedAt: new Date().toISOString(), questions: items });
 });
 
-router.post('/questions-import', wrap(async (req, res) => {
+router.post('/questions-import', instructorReadOnly, wrap(async (req, res) => {
   const list = Array.isArray(req.body) ? req.body : (req.body && req.body.questions);
   if (!Array.isArray(list) || !list.length) throw bad('invalid_import');
   if (list.length > 5000) throw bad('import_too_large');
@@ -291,13 +371,13 @@ function saveSeries(id, b, userId) {
   })();
 }
 
-router.post('/series', wrap(async (req, res) => res.status(201).json({ id: saveSeries(null, req.body || {}, req.user.id) })));
-router.put('/series/:id', wrap(async (req, res) => {
+router.post('/series', instructorReadOnly, wrap(async (req, res) => res.status(201).json({ id: saveSeries(null, req.body || {}, req.user.id) })));
+router.put('/series/:id', instructorReadOnly, wrap(async (req, res) => {
   const id = int(req.params.id, { min: 1 });
   if (!db.get().prepare('SELECT 1 FROM series WHERE id = ?').get(id)) throw notFound();
   res.json({ id: saveSeries(id, req.body || {}, req.user.id) });
 }));
-router.delete('/series/:id', wrap(async (req, res) => {
+router.delete('/series/:id', instructorReadOnly, wrap(async (req, res) => {
   const id = int(req.params.id, { min: 1 });
   db.get().prepare('DELETE FROM series WHERE id = ?').run(id);
   db.audit(req.user.id, 'delete', 'series', id);
@@ -330,13 +410,13 @@ function saveLesson(id, b, userId) {
   return id;
 }
 
-router.post('/lessons', wrap(async (req, res) => res.status(201).json({ id: saveLesson(null, req.body || {}, req.user.id) })));
-router.put('/lessons/:id', wrap(async (req, res) => {
+router.post('/lessons', instructorReadOnly, wrap(async (req, res) => res.status(201).json({ id: saveLesson(null, req.body || {}, req.user.id) })));
+router.put('/lessons/:id', instructorReadOnly, wrap(async (req, res) => {
   const id = int(req.params.id, { min: 1 });
   if (!db.get().prepare('SELECT 1 FROM lessons WHERE id = ?').get(id)) throw notFound();
   res.json({ id: saveLesson(id, req.body || {}, req.user.id) });
 }));
-router.delete('/lessons/:id', wrap(async (req, res) => {
+router.delete('/lessons/:id', instructorReadOnly, wrap(async (req, res) => {
   const id = int(req.params.id, { min: 1 });
   db.get().prepare('DELETE FROM lessons WHERE id = ?').run(id);
   db.audit(req.user.id, 'delete', 'lesson', id);
@@ -371,7 +451,7 @@ router.put('/categories/:id', adminOnly, wrap(async (req, res) => {
 // --- Utilisateurs : admin uniquement -------------------------------------------
 router.get('/users', adminOnly, (req, res) => {
   const q = `%${(req.query.q || '').toString().slice(0, 80)}%`;
-  res.json(db.get().prepare(`SELECT id, name, email, role, active, locale, created_at, last_login_at FROM users
+  res.json(db.get().prepare(`SELECT id, name, email, role, active, locale, school_id, created_at, last_login_at FROM users
     WHERE name LIKE ? OR email LIKE ? ORDER BY id DESC LIMIT 500`).all(q, q));
 });
 
@@ -382,7 +462,7 @@ router.post('/users', adminOnly, wrap(async (req, res) => {
   const email = str(body.email, { min: 5, max: 160, field: 'email' }).toLowerCase();
   if (!EMAIL_RE.test(email)) throw bad('invalid_email');
   const pw = password(body.password);
-  const role = body.role && ['student', 'instructor', 'admin'].includes(body.role) ? body.role : 'student';
+  const role = body.role && ['student', 'instructor', 'admin', 'school'].includes(body.role) ? body.role : 'student';
   const locale = body.locale === 'fr' ? 'fr' : 'ar';
   const d = db.get();
   if (d.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) throw new HttpError(409, 'email_taken');
@@ -400,11 +480,15 @@ router.patch('/users/:id', adminOnly, wrap(async (req, res) => {
   const b = req.body || {};
   if (id === req.user.id && (b.role && b.role !== 'admin' || b.active === false)) throw bad('cannot_demote_self');
   if (b.role !== undefined) {
-    if (!['student', 'instructor', 'admin'].includes(b.role)) throw bad('invalid_field', { field: 'role' });
+    if (!['student', 'instructor', 'admin', 'school'].includes(b.role)) throw bad('invalid_field', { field: 'role' });
     d.prepare('UPDATE users SET role = ? WHERE id = ?').run(b.role, id);
   }
   if (b.active !== undefined) d.prepare('UPDATE users SET active = ? WHERE id = ?').run(b.active ? 1 : 0, id);
-  db.audit(req.user.id, 'update', 'user', id, { role: b.role, active: b.active });
+  if ('school_id' in b) {
+    const sid = b.school_id ? int(b.school_id, { min: 1 }) : null;
+    d.prepare('UPDATE users SET school_id = ? WHERE id = ?').run(sid, id);
+  }
+  db.audit(req.user.id, 'update', 'user', id, { role: b.role, active: b.active, school_id: b.school_id });
   res.json({ ok: true });
 }));
 
@@ -435,5 +519,192 @@ router.put('/settings', adminOnly, wrap(async (req, res) => {
 router.get('/audit', adminOnly, (req, res) => {
   res.json(db.get().prepare(`SELECT a.*, u.name AS user_name FROM audit_log a LEFT JOIN users u ON u.id = a.user_id ORDER BY a.id DESC LIMIT 200`).all());
 });
+
+/* ══════════════════════════════════════════════════════════════════════════
+   مؤسسات تعليم السياقة — Schools (أدمين فقط للإضافة/التعديل/الحذف)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/** GET /admin/schools — قائمة المؤسسات مع عدد المستخدمين */
+router.get('/schools', wrap(async (req, res) => {
+  const d = db.get();
+  const rows = d.prepare(`
+    SELECT s.*,
+      (SELECT COUNT(*) FROM users u WHERE u.school_id = s.id AND u.role = 'student') AS students_count,
+      (SELECT COUNT(*) FROM users u WHERE u.school_id = s.id AND u.role = 'instructor') AS instructors_count,
+      (SELECT COUNT(*) FROM users u WHERE u.school_id = s.id AND u.role = 'school') AS managers_count
+    FROM schools s
+    ORDER BY s.name
+  `).all();
+  res.json({ schools: rows });
+}));
+
+/** GET /admin/schools/search-students — البحث عن متعلمين غير مرتبطين (قبل /:id لتجنب التعارض) */
+router.get('/schools/search-students', schoolOrAdmin, wrap(async (req, res) => {
+  const q = `%${(req.query.q || '').toString().slice(0, 80)}%`;
+  const d = db.get();
+  const rows = d.prepare(`
+    SELECT id, name, email
+    FROM users
+    WHERE role = 'student' AND school_id IS NULL
+      AND (name LIKE ? OR email LIKE ?)
+    ORDER BY name LIMIT 20
+  `).all(q, q);
+  res.json({ users: rows });
+}));
+
+/** GET /admin/schools/:id — تفاصيل مؤسسة واحدة */
+router.get('/schools/:id', wrap(async (req, res) => {
+  const d = db.get();
+  const id = int(req.params.id, { min: 1 });
+  const school = d.prepare('SELECT * FROM schools WHERE id = ?').get(id);
+  if (!school) throw notFound();
+  const members = d.prepare(`
+    SELECT id, name, email, role, active, created_at, last_login_at
+    FROM users WHERE school_id = ? ORDER BY role, name
+  `).all(id);
+  res.json({ school, members });
+}));
+
+/** POST /admin/schools — إضافة مؤسسة جديدة (أدمين فقط) */
+router.post('/schools', adminOnly, wrap(async (req, res) => {
+  const b = req.body || {};
+  const name = str(b.name, { min: 2, max: 120, field: 'name' });
+  const code = str(b.code, { min: 2, max: 30, field: 'code' }).toUpperCase().replace(/\s+/g, '_');
+  const phone = (b.phone || '').toString().trim().slice(0, 30);
+  const address = (b.address || '').toString().trim().slice(0, 200);
+  const d = db.get();
+  if (d.prepare('SELECT id FROM schools WHERE code = ?').get(code)) throw bad('slug_taken', { field: 'code' });
+  const r = d.prepare(`
+    INSERT INTO schools (name, code, phone, address, created_by)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(name, code, phone, address, req.user.id);
+  db.audit(req.user.id, 'create', 'school', r.lastInsertRowid, { name, code });
+  const school = d.prepare('SELECT * FROM schools WHERE id = ?').get(r.lastInsertRowid);
+  res.status(201).json({ school });
+}));
+
+/** PATCH /admin/schools/:id — تعديل بيانات مؤسسة (أدمين فقط) */
+router.patch('/schools/:id', adminOnly, wrap(async (req, res) => {
+  const id = int(req.params.id, { min: 1 });
+  const b = req.body || {};
+  const d = db.get();
+  if (!d.prepare('SELECT id FROM schools WHERE id = ?').get(id)) throw notFound();
+  if (b.name !== undefined) d.prepare('UPDATE schools SET name = ? WHERE id = ?').run(str(b.name, { min: 2, max: 120 }), id);
+  if (b.phone !== undefined) d.prepare('UPDATE schools SET phone = ? WHERE id = ?').run(b.phone.toString().trim().slice(0, 30), id);
+  if (b.address !== undefined) d.prepare('UPDATE schools SET address = ? WHERE id = ?').run(b.address.toString().trim().slice(0, 200), id);
+  if (b.active !== undefined) d.prepare('UPDATE schools SET active = ? WHERE id = ?').run(b.active ? 1 : 0, id);
+  db.audit(req.user.id, 'update', 'school', id, b);
+  res.json({ school: d.prepare('SELECT * FROM schools WHERE id = ?').get(id) });
+}));
+
+/** DELETE /admin/schools/:id — حذف مؤسسة (أدمين فقط، يفصل أعضاءها) */
+router.delete('/schools/:id', adminOnly, wrap(async (req, res) => {
+  const id = int(req.params.id, { min: 1 });
+  const d = db.get();
+  // فصل جميع أعضاء المؤسسة (school_id = NULL)
+  d.prepare('UPDATE users SET school_id = NULL WHERE school_id = ?').run(id);
+  d.prepare('DELETE FROM schools WHERE id = ?').run(id);
+  db.audit(req.user.id, 'delete', 'school', id);
+  res.json({ ok: true });
+}));
+
+/* ── إدارة أعضاء المؤسسة (المؤسسة نفسها أو الأدمين) ── */
+
+/** GET /admin/schools/:id/members — قائمة أعضاء المؤسسة */
+router.get('/schools/:id/members', schoolOrAdmin, wrap(async (req, res) => {
+  const id = int(req.params.id, { min: 1 });
+  const d = db.get();
+  // المؤسسة لا تستطيع الاطلاع على مؤسسة أخرى
+  if (req.user.role === 'school' && req.user.school_id !== id) throw bad('forbidden');
+  const members = d.prepare(`
+    SELECT id, name, email, role, active, created_at, last_login_at
+    FROM users WHERE school_id = ? ORDER BY role, name
+  `).all(id);
+  res.json({ members });
+}));
+
+/** POST /admin/schools/:id/instructors — إضافة مدرب للمؤسسة */
+router.post('/schools/:id/instructors', schoolOrAdmin, wrap(async (req, res) => {
+  const schoolId = int(req.params.id, { min: 1 });
+  if (req.user.role === 'school' && req.user.school_id !== schoolId) throw bad('forbidden');
+  const d = db.get();
+  const school = d.prepare('SELECT id FROM schools WHERE id = ?').get(schoolId);
+  if (!school) throw notFound();
+  const b = req.body || {};
+  const name = str(b.name, { min: 2, max: 100, field: 'name' });
+  const email = str(b.email, { min: 5, max: 200, field: 'email' });
+  if (!EMAIL_RE.test(email)) throw bad('invalid_email', { field: 'email' });
+  if (d.prepare('SELECT id FROM users WHERE email = ?').get(email)) throw bad('email_taken', { field: 'email' });
+  const { hashPassword } = auth;
+  const rawPwd = b.password || Math.random().toString(36).slice(2, 10);
+  const hash = await hashPassword(rawPwd);
+  const r = d.prepare(`
+    INSERT INTO users (email, name, password_hash, role, school_id)
+    VALUES (?, ?, ?, 'instructor', ?)
+  `).run(email, name, hash, schoolId);
+  db.audit(req.user.id, 'create', 'instructor', r.lastInsertRowid, { school_id: schoolId });
+  res.status(201).json({
+    user: d.prepare('SELECT id, name, email, role, school_id FROM users WHERE id = ?').get(r.lastInsertRowid),
+    temp_password: b.password ? undefined : rawPwd,
+  });
+}));
+
+/** POST /admin/schools/:id/students — إضافة متعلم جديد للمؤسسة */
+router.post('/schools/:id/students', schoolOrAdmin, wrap(async (req, res) => {
+  const schoolId = int(req.params.id, { min: 1 });
+  if (req.user.role === 'school' && req.user.school_id !== schoolId) throw bad('forbidden');
+  const d = db.get();
+  const school = d.prepare('SELECT id FROM schools WHERE id = ?').get(schoolId);
+  if (!school) throw notFound();
+  const b = req.body || {};
+  const name = str(b.name, { min: 2, max: 100, field: 'name' });
+  const email = str(b.email, { min: 5, max: 200, field: 'email' });
+  if (!EMAIL_RE.test(email)) throw bad('invalid_email', { field: 'email' });
+  if (d.prepare('SELECT id FROM users WHERE email = ?').get(email)) throw bad('email_taken', { field: 'email' });
+  const { hashPassword } = auth;
+  const rawPwd = b.password || Math.random().toString(36).slice(2, 10);
+  const hash = await hashPassword(rawPwd);
+  const r = d.prepare(`
+    INSERT INTO users (email, name, password_hash, role, school_id)
+    VALUES (?, ?, ?, 'student', ?)
+  `).run(email, name, hash, schoolId);
+  db.audit(req.user.id, 'create', 'student', r.lastInsertRowid, { school_id: schoolId });
+  res.status(201).json({
+    user: d.prepare('SELECT id, name, email, role, school_id FROM users WHERE id = ?').get(r.lastInsertRowid),
+    temp_password: b.password ? undefined : rawPwd,
+  });
+}));
+
+/** POST /admin/schools/:id/enroll — نسب متعلم موجود للمؤسسة (بحث + ربط) */
+router.post('/schools/:id/enroll', schoolOrAdmin, wrap(async (req, res) => {
+  const schoolId = int(req.params.id, { min: 1 });
+  if (req.user.role === 'school' && req.user.school_id !== schoolId) throw bad('forbidden');
+  const d = db.get();
+  const school = d.prepare('SELECT id FROM schools WHERE id = ?').get(schoolId);
+  if (!school) throw notFound();
+  const b = req.body || {};
+  const userId = int(b.user_id, { min: 1, field: 'user_id' });
+  const user = d.prepare("SELECT id, role, school_id FROM users WHERE id = ?").get(userId);
+  if (!user) throw notFound();
+  if (user.role !== 'student') throw bad('invalid_field', { field: 'user_id', reason: 'not_student' });
+  if (user.school_id && user.school_id !== schoolId) throw bad('already_enrolled');
+  d.prepare('UPDATE users SET school_id = ? WHERE id = ?').run(schoolId, userId);
+  db.audit(req.user.id, 'enroll', 'student', userId, { school_id: schoolId });
+  res.json({ ok: true, user_id: userId, school_id: schoolId });
+}));
+
+/** DELETE /admin/schools/:id/members/:userId — فصل عضو من المؤسسة */
+router.delete('/schools/:id/members/:userId', schoolOrAdmin, wrap(async (req, res) => {
+  const schoolId = int(req.params.id, { min: 1 });
+  const userId = int(req.params.userId, { min: 1 });
+  if (req.user.role === 'school' && req.user.school_id !== schoolId) throw bad('forbidden');
+  const d = db.get();
+  const user = d.prepare('SELECT id, school_id, role FROM users WHERE id = ?').get(userId);
+  if (!user || user.school_id !== schoolId) throw notFound();
+  if (user.role === 'admin') throw bad('forbidden');
+  d.prepare('UPDATE users SET school_id = NULL WHERE id = ?').run(userId);
+  db.audit(req.user.id, 'unenroll', 'member', userId, { school_id: schoolId });
+  res.json({ ok: true });
+}));
 
 module.exports = router;

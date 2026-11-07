@@ -939,13 +939,97 @@ dialog::backdrop { background: rgb(12 10 9 / .7); backdrop-filter: blur(4px); }
 }
 
 /* ── Responsive helpers ──────────────────────────────────────────────── */
+
+/* ── Tablette (641px – 960px) ──────────────────────────────────────── */
+@media (min-width: 641px) and (max-width: 960px) {
+  main { padding: 20px 18px 56px; }
+  .header-inner { padding: 0 16px; }
+  .hero { padding: 32px 24px; }
+  .card { padding: 18px; }
+  .grid-3 { grid-template-columns: repeat(2, 1fr); }
+  .grid-4 { grid-template-columns: repeat(2, 1fr); }
+  .quiz-layout { grid-template-columns: 1fr; }
+  .quiz-sidebar { position: static; }
+  .q-nav-grid { grid-template-columns: repeat(10, 1fr); }
+  .verdict-card { padding: 24px; }
+  .table-wrap { font-size: .88rem; }
+  th, td { padding: 9px 12px; }
+}
+
+/* ── Mobile standard (max 640px) ──────────────────────────────────── */
 @media (max-width: 640px) {
-  main { padding: 16px 14px 48px; }
-  .card { padding: 16px; }
-  .question-text { font-size: 1.1rem; }
-  h1 { font-size: 1.5rem; }
-  .hero { padding: 24px 20px; }
-  .btn-lg { font-size: 1rem; padding: 12px 20px; }
+  main { padding: 14px 12px 56px; }
+  .header-inner { height: 56px; padding: 0 12px; gap: 8px; }
+  .brand { font-size: 1rem; gap: 8px; }
+  .brand-logo { width: 36px; height: 36px; border-radius: 10px; }
+  .brand small { display: none; }
+  .header-actions { gap: 6px; }
+  .icon-btn { height: 36px; min-width: 36px; padding: 0 10px; font-size: .8rem; }
+
+  .card { padding: 14px; border-radius: 12px; }
+  h1 { font-size: 1.4rem; }
+  h2 { font-size: 1.15rem; }
+  .hero { padding: 20px 16px; border-radius: 14px; }
+  .hero p { font-size: 1rem; }
+  .question-text { font-size: 1.05rem; }
+  .btn-lg { font-size: 1rem; padding: 12px 18px; min-height: 48px; }
+  .btn { min-height: 44px; }
+  .btn-sm { min-height: 36px; }
+
+  .page-head { gap: 10px; margin-bottom: 16px; }
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+
+  .stat-value { font-size: 1.6rem; }
+  .ring { width: 110px; height: 110px; }
+  .ring > div { width: 86px; height: 86px; font-size: 1.4rem; }
+
+  /* Tableaux — scroll horizontal + taille réduite */
+  .table-wrap { border-radius: 10px; font-size: .82rem; }
+  th { font-size: .72rem; padding: 8px 10px; }
+  td { padding: 8px 10px; }
+
+  /* Toolbar empilée */
+  .toolbar { flex-direction: column; align-items: stretch; }
+  .toolbar input, .toolbar select { min-width: 100%; flex: none; }
+
+  /* Tabs scrollables */
+  .tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
+          scrollbar-width: none; gap: 2px; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabs a { white-space: nowrap; padding: 9px 13px; font-size: .88rem; }
+
+  /* Dialog plein écran sur mobile */
+  dialog { width: 100vw; max-width: 100vw; border-radius: 20px 20px 0 0;
+           position: fixed; bottom: 0; margin: 0; max-height: 92vh; }
+  .dialog-body { padding: 18px 16px; }
+  .dialog-foot { padding: 14px 16px; }
+
+  /* Toasts plus larges */
+  .toasts { width: 96vw; bottom: 16px; }
+  .toast { padding: 12px 16px; font-size: .9rem; }
+
+  /* Auth card */
+  .auth-card { margin: 16px auto; }
+}
+
+/* ── Très petit mobile (max 400px) ────────────────────────────────── */
+@media (max-width: 400px) {
+  main { padding: 12px 10px 52px; }
+  .header-inner { padding: 0 10px; }
+  .card { padding: 12px; }
+  h1 { font-size: 1.25rem; }
+  .hero { padding: 16px 12px; }
+  .btn { padding: 10px 14px; font-size: .9rem; }
+  .icon-btn { height: 34px; min-width: 34px; padding: 0 8px; font-size: .78rem; }
+}
+
+/* ── Large desktop (> 1240px) ────────────────────────────────────── */
+@media (min-width: 1240px) {
+  main { max-width: 1360px; padding: 32px 32px 72px; }
+  .header-inner { max-width: 1360px; padding: 0 32px; }
+  .hero { padding: 60px 48px; }
+  .grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid-4 { grid-template-columns: repeat(4, 1fr); }
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -1398,18 +1482,53 @@ dialog::backdrop { background: rgb(12 10 9 / .7); backdrop-filter: blur(4px); }
   display: grid; place-items: center; font-size: .95rem;
 }
 
-/* ── Responsive quiz ──────────────────────────────────────────────── */
-@media (max-width: 640px) {
-  .qcard-body { padding: 16px 14px; }
-  .q-text { font-size: 1.1rem; }
-  .q-option { padding: 12px 14px; min-height: 52px; font-size: 1rem; }
-  .q-option-num { width: 32px; height: 32px; }
+/* ── Responsive quiz — tablette ──────────────────────────────────── */
+@media (min-width: 641px) and (max-width: 1000px) {
+  .quiz-layout { grid-template-columns: 1fr; }
   .quiz-sidebar { position: static; }
-  .q-nav-grid { grid-template-columns: repeat(8, 1fr); }
-  .verdict-card { padding: 20px; }
-  .verdict-label { font-size: 1.4rem; }
+  .q-nav-grid { grid-template-columns: repeat(10, 1fr); }
+  .quiz-header { padding: 12px 16px; }
+}
+
+/* ── Responsive quiz — mobile ─────────────────────────────────────── */
+@media (max-width: 640px) {
+  .quiz-header { padding: 10px 12px; border-radius: 10px; gap: 8px; }
+  .quiz-header .quiz-title { font-size: .9rem; }
+  .qcard-body { padding: 14px 12px; }
+  .qcard-header { padding: 10px 12px; }
+  .q-text { font-size: 1.08rem; }
+  .q-number { font-size: .72rem; }
+  .q-option { padding: 11px 12px; min-height: 52px; font-size: .97rem; gap: 10px; }
+  .q-option-num { width: 32px; height: 32px; border-radius: 8px; font-size: .85rem; }
+  .q-feedback { padding: 12px 14px; }
+  .q-actions { gap: 8px; padding-top: 12px; }
+  .q-actions .btn { flex: 1; justify-content: center; }
+
+  /* Sidebar en bas sur mobile */
+  .quiz-sidebar { position: static; padding: 14px 12px; border-radius: 10px; }
+  .quiz-sidebar h3 { font-size: .72rem; }
+  .q-nav-grid { grid-template-columns: repeat(8, 1fr); gap: 4px; }
+  .q-nav-grid button, .q-nav-grid span { font-size: .7rem; border-radius: 6px; }
+  .q-timer-wrap { margin-bottom: 14px; padding-bottom: 14px; }
+  .q-timer { width: 68px; height: 68px; }
+  .q-timer-val { font-size: 1.2rem; }
+
+  /* Résultats */
+  .verdict-card { padding: 18px 14px; gap: 18px; border-radius: 14px; }
+  .verdict-label { font-size: 1.3rem; }
   .verdict-score-ring { width: 110px; height: 110px; }
   .verdict-score-inner { width: 86px; height: 86px; font-size: 1.5rem; }
+  .verdict-info { min-width: unset; }
+
+  /* Sous-questions double */
+  .sub-q-text { font-size: 1rem; padding: 12px 12px 0; }
+  .sub-q-options { padding: 8px 10px 10px; }
+
+  /* Navigation quiz */
+  .quiz-layout { gap: 14px; }
+
+  /* Scène image */
+  .scene { max-height: 240px; border-radius: 10px; margin-bottom: 14px; }
 }
 
 /* ══ Results page ═══════════════════════════════════════════════════ */
@@ -1528,9 +1647,320 @@ dialog::backdrop { background: rgb(12 10 9 / .7); backdrop-filter: blur(4px); }
 }
 
 /* responsive results */
-@media (max-width: 600px) {
-  .results-summary { gap: 8px; }
-  .summary-item { padding: 12px 16px; min-width: 72px; }
+@media (max-width: 640px) {
+  .results-summary { gap: 8px; justify-content: space-between; }
+  .summary-item { padding: 12px 10px; min-width: 70px; flex: 1; }
   .summary-num { font-size: 1.5rem; }
+  .summary-lbl { font-size: .7rem; }
   .results-actions { flex-direction: column; align-items: stretch; }
+
+  /* Révision mobile */
+  .review-card-body { padding: 14px 12px; }
+  .review-card-header { padding: 10px 12px; }
+  .cat-result-row { padding: 10px 12px; border-radius: 10px; }
+  .cat-result-name { font-size: .88rem; }
+  .section-title { font-size: 1rem; margin-bottom: 12px; }
 }
+
+@media (min-width: 641px) and (max-width: 960px) {
+  .results-summary { justify-content: center; gap: 10px; }
+  .results-actions { justify-content: center; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   ADMIN — Responsive amélioré
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* Boutons d'action en ligne (statut questions) */
+.q-status-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 4px 8px; border-radius: 6px;
+  font-size: .78rem; font-weight: 700;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  cursor: pointer; min-height: 30px;
+  transition: background var(--dur), border-color var(--dur);
+  white-space: nowrap;
+}
+.q-status-btn:hover { background: var(--surface-3); border-color: var(--border-strong); }
+
+/* Tablette admin */
+@media (min-width: 641px) and (max-width: 960px) {
+  .toolbar { gap: 8px; }
+  .toolbar input, .toolbar select { min-width: 130px; }
+  th { font-size: .74rem; padding: 8px 10px; }
+  td { padding: 8px 10px; font-size: .88rem; }
+  .thumb { width: 56px; height: 46px; }
+  .tabs a { padding: 9px 13px; font-size: .9rem; }
+}
+
+/* Mobile admin */
+@media (max-width: 640px) {
+  /* Tableau admin scrollable, colonnes moins larges */
+  .table-wrap table { min-width: 540px; }
+  .admin-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* Boutons statut plus petits */
+  .q-status-btn { padding: 3px 6px; font-size: .72rem; min-height: 26px; }
+
+  /* Toolbar admin empilée */
+  .toolbar { flex-direction: column; align-items: stretch; gap: 8px; }
+  .toolbar input, .toolbar select { width: 100%; min-width: auto; flex: none; }
+  .toolbar .row { flex-wrap: nowrap; overflow-x: auto; gap: 6px; }
+
+  /* Vignette plus petite */
+  .thumb { width: 48px; height: 40px; border-radius: 8px; }
+
+  /* Page head admin */
+  .page-head { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .page-head .row { width: 100%; }
+  .page-head .btn { width: 100%; justify-content: center; }
+
+  /* Tabs admin scrollables */
+  .tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+  .tabs a { white-space: nowrap; }
+
+  /* Formulaire édition question */
+  .auth-card { max-width: 100%; margin: 10px 0; }
+
+  /* Paginateur */
+  .pager { flex-wrap: wrap; gap: 6px; }
+  .pager .btn { padding: 8px 12px; min-height: 38px; }
+
+  /* Verdict card résultats admin */
+  .verdict-card { flex-direction: column; align-items: center; text-align: center; }
+}
+
+/* Très petit mobile admin */
+@media (max-width: 400px) {
+  .table-wrap table { min-width: 480px; }
+  .q-status-btn { padding: 2px 5px; font-size: .68rem; }
+  .thumb { width: 40px; height: 34px; }
+}
+
+/* ── إبراز الحقل الخاطئ في النماذج ──────────────────────────────── */
+.field-error-msg {
+  color: var(--danger);
+  font-size: .8rem;
+  font-weight: 700;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  animation: fade-in .2s var(--ease);
+}
+[data-field-error] {
+  border-color: var(--danger) !important;
+  box-shadow: 0 0 0 3px rgb(185 28 28 / .18) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   نظام تتبع امتحانات رخصة السياقة — Exam Journey System
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── الشارات (badges) ── */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 999px; font-size: .75rem; font-weight: 700;
+}
+.badge-success { background: #d1fae5; color: #065f46; }
+.badge-error   { background: #fee2e2; color: #991b1b; }
+.badge-warning { background: #fef3c7; color: #92400e; }
+.badge-info    { background: #dbeafe; color: #1e40af; }
+.badge-neutral { background: var(--surface-2, #f1f5f9); color: var(--text-2, #64748b); }
+[data-theme="dark"] .badge-success { background: #064e3b; color: #6ee7b7; }
+[data-theme="dark"] .badge-error   { background: #7f1d1d; color: #fca5a5; }
+[data-theme="dark"] .badge-warning { background: #78350f; color: #fcd34d; }
+[data-theme="dark"] .badge-info    { background: #1e3a5f; color: #93c5fd; }
+
+/* ── واجهة الامتحانات العامة ── */
+.exams-view { max-width: 860px; margin: 0 auto; }
+.exams-view .page-header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 20px;
+}
+.exams-view .page-header h2 { margin: 0; font-size: 1.3rem; }
+
+/* ── تبويبات الامتحانات ── */
+.exam-tabs {
+  display: flex; gap: 4px; border-bottom: 2px solid var(--border, #e2e8f0);
+  margin-bottom: 20px; overflow-x: auto;
+}
+.exam-tabs .tab-btn {
+  padding: 8px 18px; border: none; background: transparent; cursor: pointer;
+  font-size: .9rem; font-weight: 600; color: var(--text-2, #64748b);
+  border-bottom: 3px solid transparent; margin-bottom: -2px;
+  white-space: nowrap; transition: all .15s;
+}
+.exam-tabs .tab-btn.active,
+.exam-tabs .tab-btn:hover {
+  color: var(--primary, #2563eb);
+  border-bottom-color: var(--primary, #2563eb);
+}
+
+/* ── لوحات التبويبات ── */
+.exam-panel { animation: fade-in .2s var(--ease); }
+.exam-panel.hidden { display: none; }
+
+/* ── بطاقة مسار الامتحان ── */
+.exam-journey-card {
+  background: var(--card, #fff); border: 1px solid var(--border, #e2e8f0);
+  border-radius: 12px; padding: 18px 20px; margin-bottom: 14px;
+  transition: box-shadow .15s;
+}
+.exam-journey-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.08); }
+.exam-journey-card--archived { opacity: .85; border-style: dashed; }
+
+.exam-journey-top {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 10px; margin-bottom: 14px;
+}
+.exam-student-name { display: block; font-weight: 700; font-size: 1rem; }
+.exam-student-email { font-size: .8rem; color: var(--text-2, #64748b); }
+
+/* ── خطوات المسار ── */
+.exam-steps { display: flex; flex-direction: column; gap: 10px; }
+
+.exam-step {
+  background: var(--surface-2, #f8fafc); border: 1px solid var(--border, #e2e8f0);
+  border-radius: 8px; padding: 10px 14px;
+}
+.exam-step--next {
+  border-color: var(--primary, #2563eb);
+  box-shadow: 0 0 0 2px rgba(37,99,235,.12);
+}
+.exam-step--done { background: var(--surface, #f0fdf4); }
+
+.exam-step-header {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.exam-step-header strong { font-size: .9rem; }
+
+.exam-step-date {
+  font-size: .82rem; color: var(--text-2, #64748b);
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+
+.exam-step-actions { display: flex; gap: 6px; margin-top: 8px; }
+
+/* ── عنوان تاريخ اليوم ── */
+.exam-day-title {
+  font-size: 1rem; font-weight: 700; margin-bottom: 14px;
+  color: var(--primary, #2563eb);
+}
+
+/* ── قسم الأرشيف ── */
+.archive-section-title {
+  font-size: 1rem; font-weight: 700; margin: 18px 0 10px;
+  padding-bottom: 6px; border-bottom: 2px solid var(--border, #e2e8f0);
+}
+
+/* ── الحالة النهائية ── */
+.exam-final-status {
+  margin-top: 20px; padding: 18px; border-radius: 12px; text-align: center;
+  font-size: 1.3rem; font-weight: 800;
+}
+.exam-final-status.licensed { background: #d1fae5; color: #065f46; }
+.exam-final-status.not-licensed { background: #fee2e2; color: #991b1b; }
+
+/* ── الخطوة القادمة (تاغ) ── */
+.next-step-tag {
+  font-size: .78rem; background: #eff6ff; color: #1d4ed8;
+  padding: 2px 8px; border-radius: 6px; font-weight: 600;
+}
+
+/* ── ملاحظة ── */
+.exam-note {
+  margin-top: 10px; font-size: .82rem; color: var(--text-2, #64748b);
+  font-style: italic;
+}
+.exam-enroll-hint { font-size: .82rem; margin-top: 10px; }
+
+/* ── تأكيد النتيجة في المودال ── */
+.exam-result-confirm-value { font-size: 1.2rem; font-weight: 800; margin: 10px 0; }
+.text-success { color: #059669; }
+.text-error   { color: #dc2626; }
+
+/* ── النموذج المودال (مشترك) ── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.45);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000; padding: 16px;
+  animation: fade-in .15s var(--ease);
+}
+.modal-overlay .modal {
+  background: var(--card, #fff); border-radius: 14px; padding: 28px 24px;
+  max-width: 440px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,.2);
+  animation: slide-up .18s var(--ease);
+}
+.modal-overlay .modal h3 { margin: 0 0 18px; font-size: 1.1rem; }
+.modal-overlay .modal-actions { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+.form-error { color: var(--danger, #dc2626); font-size: .82rem; margin-top: 8px; }
+.form-error.hidden { display: none; }
+
+/* ── Btn utilitaires ── */
+.btn-xs { padding: 3px 8px; font-size: .75rem; min-height: 26px; border-radius: 5px; }
+.btn-success {
+  background: #059669; color: #fff; border: none; cursor: pointer;
+  font-weight: 600; border-radius: 7px; padding: 6px 14px; transition: background .15s;
+}
+.btn-success:hover { background: #047857; }
+.btn-error {
+  background: #dc2626; color: #fff; border: none; cursor: pointer;
+  font-weight: 600; border-radius: 7px; padding: 6px 14px; transition: background .15s;
+}
+.btn-error:hover { background: #b91c1c; }
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  .exam-journey-top { flex-direction: column; }
+  .exam-step-actions { flex-direction: column; }
+  .exam-tabs { gap: 2px; }
+  .exam-tabs .tab-btn { padding: 7px 10px; font-size: .8rem; }
+}
+
+[data-theme="dark"] .exam-journey-card { background: var(--card, #1e293b); border-color: var(--border, #334155); }
+[data-theme="dark"] .exam-step { background: rgba(255,255,255,.04); }
+[data-theme="dark"] .exam-step--done { background: rgba(5,150,105,.1); }
+[data-theme="dark"] .modal-overlay .modal { background: var(--card, #1e293b); }
+[data-theme="dark"] .exam-final-status.licensed { background: #064e3b; color: #6ee7b7; }
+[data-theme="dark"] .exam-final-status.not-licensed { background: #7f1d1d; color: #fca5a5; }
+[data-theme="dark"] .next-step-tag { background: #1e3a5f; color: #93c5fd; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   مؤسسات تعليم السياقة — Schools Management
+   ═══════════════════════════════════════════════════════════════════════ */
+.schools-view { max-width: 960px; margin: 0 auto; }
+
+/* إحصاءات سريعة */
+.school-stats-row {
+  display: flex; gap: 12px; flex-wrap: wrap; margin: 16px 0;
+}
+.school-stat {
+  flex: 1; min-width: 100px;
+  background: var(--surface-2, #f8fafc); border: 1px solid var(--border, #e2e8f0);
+  border-radius: 10px; padding: 14px 16px; text-align: center;
+}
+.school-stat strong { display: block; font-size: 1.5rem; font-weight: 800; color: var(--primary, #2563eb); }
+.school-stat span { font-size: .82rem; color: var(--text-2, #64748b); }
+
+/* قسم داخل تفاصيل المؤسسة */
+.school-section { margin-top: 24px; }
+.school-section h3 {
+  font-size: 1rem; font-weight: 700; margin-bottom: 10px;
+  padding-bottom: 6px; border-bottom: 2px solid var(--border, #e2e8f0);
+}
+
+/* نتائج البحث في مودال النسب */
+.enroll-result-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 8px 10px; border-bottom: 1px solid var(--border, #e2e8f0); font-size: .88rem;
+}
+.enroll-result-row:last-child { border-bottom: none; }
+.enroll-result-row:hover { background: var(--surface-2, #f8fafc); }
+
+/* حقل صف (checkbox + label) */
+.field-row { display: flex; align-items: center; gap: 8px; margin: 8px 0; cursor: pointer; }
+
+[data-theme="dark"] .school-stat { background: var(--surface-2, #1e293b); border-color: var(--border, #334155); }

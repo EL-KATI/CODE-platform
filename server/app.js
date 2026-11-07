@@ -24,7 +24,7 @@ function createApp() {
         'img-src': ["'self'", 'data:', 'https:'],
         'media-src': ["'self'", 'https:'],
         'frame-src': ['https://www.youtube-nocookie.com'],
-        'connect-src': ["'self'"],
+        'connect-src': ["'self'", 'https://fonts.googleapis.com', 'https://fonts.gstatic.com'],
         'object-src': ["'none'"],
         'frame-ancestors': ["'none'"],
         'upgrade-insecure-requests': config.isProd ? [] : null,
@@ -46,6 +46,8 @@ function createApp() {
   api.use('/admin', require('./routes/admin'));
   api.use('/', require('./routes/learner'));
   api.use('/ai', require('./routes/ai'));
+  api.use('/bookings', require('./routes/bookings'));
+  api.use('/exams', require('./routes/exams'));
   api.use((req, res) => res.status(404).json({ error: 'not_found' }));
   app.use('/api', api);
 

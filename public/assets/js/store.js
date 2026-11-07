@@ -18,6 +18,10 @@ export const store = {
     if (!this.settings || force) this.settings = await api.get('/settings');
     return this.settings;
   },
-  isStaff() { return this.user && ['admin', 'instructor'].includes(this.user.role); },
-  isAdmin() { return this.user && this.user.role === 'admin'; },
+  isStaff()    { return this.user && ['admin', 'instructor', 'school'].includes(this.user.role); },
+  isAdmin()    { return this.user && this.user.role === 'admin'; },
+  isSchool()   { return this.user && this.user.role === 'school'; },
+  isInstructor() { return this.user && this.user.role === 'instructor'; },
+  // المتعلم المرتبط بمدرسة قيادة (school_id غير null) أو أي عضو من الطاقم
+  isEnrolled() { return this.isStaff() || (this.user && this.user.schoolId != null); },
 };

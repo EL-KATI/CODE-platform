@@ -16,6 +16,10 @@ import { mistakesView, historyView } from './views/mistakes.js';
 import { profileView } from './views/profile.js';
 import { privacyView, notFoundView } from './views/static.js';
 import * as admin from './views/admin.js';
+import { bookingsView, adminBookingsView } from './views/bookings.js';
+import { schoolStudentsView } from './views/school.js';
+import { schoolExamsView, studentExamView } from './views/exams.js';
+import { schoolsView, schoolDetailView } from './views/schools.js';
 
 const app = document.getElementById('app');
 
@@ -29,12 +33,12 @@ applyTheme(getTheme());
 // --- En-tête -----------------------------------------------------------------------
 function navLinks() {
   const u = store.user;
-  // الأدمن: يرى فقط لوحة الإدارة وليس صفحات المتعلم
-  if (u && store.isAdmin()) return [['/admin', 'nav.admin']];
+  // الأدمن والمؤسسة والمدرب: يتجهون مباشرة للوحة الإدارة
+  if (u && (store.isAdmin() || store.isSchool() || store.isInstructor())) return [['/admin', 'nav.admin']];
+  // المتعلم: دروس + تمارين + (حجوزات إذا مرتبط بمؤسسة)
   const links = u
-    ? [['/dashboard', 'nav.dashboard'], ['/lessons', 'nav.lessons'], ['/practice', 'nav.practice'], ['/exam', 'nav.exam'], ['/mistakes', 'nav.mistakes']]
+    ? [['/dashboard', 'nav.dashboard'], ['/lessons', 'nav.lessons'], ['/practice', 'nav.practice'], ['/exam', 'nav.exam'], ['/mistakes', 'nav.mistakes'], ...(store.isEnrolled() ? [['/bookings', 'nav.bookings']] : [])]
     : [['/', 'nav.home'], ['/lessons', 'nav.lessons'], ['/login', 'nav.login']];
-  if (store.isStaff()) links.push(['/admin', 'nav.admin']);
   return links;
 }
 
@@ -104,26 +108,32 @@ export function renderShell() {
 }
 
 // --- Gardes de navigation ---------------------------------------------------------
+// الوجهة الافتراضية حسب الدور
+function defaultRoute() {
+  if (!store.user) return '/';
+  if (['admin', 'school', 'instructor'].includes(store.user.role)) return '/admin';
+  return '/dashboard';
+}
+
 setNavigateHook(async ({ route: r, path }) => {
   if (r.opts.auth && !store.user) { navigate(`/login?next=${encodeURIComponent(path + location.search)}`, { replace: true }); return false; }
   if (r.opts.roles && !r.opts.roles.includes(store.user?.role)) {
-    // الأدمن يُوجَّه للوحة الإدارة، غيره للداشبورد
-    navigate(store.isAdmin() ? '/admin' : '/dashboard', { replace: true }); return false;
+    navigate(defaultRoute(), { replace: true }); return false;
   }
-  if (r.opts.guest && store.user) { navigate(store.isAdmin() ? '/admin' : '/dashboard', { replace: true }); return false; }
+  if (r.opts.guest && store.user) { navigate(defaultRoute(), { replace: true }); return false; }
   renderShell();
   app.innerHTML = '';
   window.scrollTo(0, 0);
-  // Accessibilité : le focus passe au contenu principal après chaque navigation.
   requestAnimationFrame(() => app.focus({ preventScroll: true }));
   return true;
 });
 
 const view = (fn) => (ctx) => fn(app, ctx);
-const staff = { auth: true, roles: ['instructor', 'admin'] };
+const staff    = { auth: true, roles: ['instructor', 'admin', 'school'] };
 const adminOnly = { auth: true, roles: ['admin'] };
-// صفحات المتعلم: مسموح للجميع ما عدا الأدمن
-const learner = { auth: true, roles: ['student', 'instructor'] };
+const schoolOrAdmin = { auth: true, roles: ['admin', 'school'] };
+// صفحات المتعلم فقط
+const learner  = { auth: true, roles: ['student'] };
 
 route('/', view(homeView));
 route('/login', view(loginView), { guest: true });
@@ -139,6 +149,12 @@ route('/mistakes', view(mistakesView), learner);
 route('/history', view(historyView), learner);
 route('/profile', view(profileView), { auth: true });
 route('/privacy', view(privacyView));
+// الحجز: للمتعلمين المنتسبين لمدرسة قيادة فقط (school_id != null)
+route('/bookings', (ctx) => {
+  if (!store.user) return navigate('/login?next=/bookings', { replace: true });
+  if (!store.isEnrolled()) return navigate('/dashboard', { replace: true });
+  return bookingsView(app, ctx);
+});
 route('/admin', view(admin.statsView), staff);
 route('/admin/questions', view(admin.questionsView), staff);
 route('/admin/questions/:id', view(admin.questionEditView), staff);
@@ -151,6 +167,12 @@ route('/admin/students/:id', view(admin.studentView), staff);
 route('/admin/users', view(admin.usersView), adminOnly);
 route('/admin/settings', view(admin.settingsView), adminOnly);
 route('/admin/audit', view(admin.auditView), adminOnly);
+route('/admin/bookings', view(adminBookingsView), staff);
+route('/admin/school/students', view(schoolStudentsView), { auth: true, roles: ['admin', 'school'] });
+route('/admin/exams', view(schoolExamsView), { auth: true, roles: ['admin', 'school'] });
+route('/admin/schools', view(schoolsView), { auth: true, roles: ['admin'] });
+route('/admin/schools/:id', view(schoolDetailView), { auth: true, roles: ['admin', 'school'] });
+route('/my-exams', view(studentExamView), { auth: true, roles: ['student'] });
 route('*', view(notFoundView));
 
 (async function boot() {

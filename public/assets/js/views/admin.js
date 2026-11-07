@@ -7,14 +7,93 @@ import { navigate } from '../router.js';
 import { progressBar, videoBlock } from './common.js';
 import { speak } from '../ui.js';
 
-const TABS = [
-  ['/admin', 'admin.stats'], ['/admin/questions', 'admin.questions'], ['/admin/series', 'admin.series'],
-  ['/admin/lessons', 'admin.lessons'], ['/admin/students', 'admin.students'],
-];
-const ADMIN_TABS = [['/admin/users', 'admin.users'], ['/admin/settings', 'admin.settings'], ['/admin/audit', 'admin.audit']];
+/**
+ * يُبرز الحقل الخاطئ في النموذج عند وجود خطأ من السيرفر يحتوي على details.field
+ * — يضيف border حمراء + scroll إلى الحقل + رسالة خطأ صغيرة تحته
+ */
+function highlightField(form, err) {
+  // أزل أي تمييز سابق
+  form.querySelectorAll('.field-error-msg').forEach((el) => el.remove());
+  form.querySelectorAll('[data-field-error]').forEach((el) => {
+    el.style.borderColor = '';
+    el.style.boxShadow = '';
+    delete el.dataset.fieldError;
+  });
 
-function shell(root, current, body) {
-  const tabs = [...TABS, ...(store.isAdmin() ? ADMIN_TABS : [])];
+  const rawField = err?.details?.field;
+  if (!rawField || !form) return;
+
+  // خريطة أسماء الحقول من السيرفر إلى أسماء الحقول في النموذج
+  const fieldMap = {
+    text: 'text',
+    options: 'options',
+    correct: 'correct',
+    categoryId: 'categoryId',
+    image: 'image',
+    imageAlt: 'imageAlt',
+    video: 'video',
+    audioText: 'audioText',
+    explanation: 'explanation',
+    'sub_questions[0].text': 'sq1_text',
+    'sub_questions[0].options': 'sq1_options',
+    'sub_questions[0].correct': 'sq1_correct',
+    'sub_questions[1].text': 'sq2_text',
+    'sub_questions[1].options': 'sq2_options',
+    'sub_questions[1].correct': 'sq2_correct',
+    sub_questions: 'sq1_text',
+  };
+  const fieldName = fieldMap[rawField] || rawField;
+  const el = form.elements[fieldName];
+  if (!el) return;
+
+  el.style.borderColor = 'var(--danger)';
+  el.style.boxShadow = '0 0 0 3px rgb(185 28 28 / .2)';
+  el.dataset.fieldError = '1';
+
+  // أضف رسالة خطأ صغيرة أسفل الحقل
+  const msg = document.createElement('span');
+  msg.className = 'field-error-msg';
+  msg.style.cssText = 'color:var(--danger);font-size:.8rem;font-weight:700;margin-top:4px;display:block';
+  const labelMap = {
+    text: t('admin.text'), options: t('admin.options'), correct: t('admin.correct'),
+    categoryId: t('admin.category'), image: t('admin.imageUrl'), imageAlt: t('admin.imageAlt'),
+    video: t('admin.videoUrl'), audioText: t('admin.audioText'), explanation: t('admin.explanation'),
+    sq1_text: t('admin.text') + ' — ' + t('admin.subQ1'), sq1_options: t('admin.options') + ' — ' + t('admin.subQ1'),
+    sq1_correct: t('admin.correct') + ' — ' + t('admin.subQ1'),
+    sq2_text: t('admin.text') + ' — ' + t('admin.subQ2'), sq2_options: t('admin.options') + ' — ' + t('admin.subQ2'),
+    sq2_correct: t('admin.correct') + ' — ' + t('admin.subQ2'),
+  };
+  msg.textContent = '⚠ ' + (labelMap[fieldName] || fieldName) + ' — ' + t('err.invalid_field');
+
+  el.after(msg);
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  el.focus();
+
+  // أزل التمييز عند تعديل الحقل
+  el.addEventListener('input', () => {
+    el.style.borderColor = '';
+    el.style.boxShadow = '';
+    msg.remove();
+  }, { once: true });
+}
+
+// تبويبات حسب الدور
+const ADMIN_TABS_CONTENT = [
+  ['/admin', 'admin.stats'], ['/admin/questions', 'admin.questions'], ['/admin/series', 'admin.series'],
+  ['/admin/lessons', 'admin.lessons'], ['/admin/students', 'admin.students'], ['/admin/bookings', 'nav.bookings'],
+];
+const ADMIN_TABS_MANAGE = [['/admin/schools', 'admin.schools'], ['/admin/users', 'admin.users'], ['/admin/settings', 'admin.settings'], ['/admin/audit', 'admin.audit']];
+// المؤسسة: طلابها + حجوزاتهم
+const SCHOOL_TABS = [['/admin/students', 'admin.students'], ['/admin/school/students', 'school.manageStudents'], ['/admin/bookings', 'nav.bookings'], ['/admin/exams', 'nav.exams']];
+// المدرب: طلابه + حجوزاتهم
+const INSTRUCTOR_TABS = [['/admin/students', 'admin.students'], ['/admin/bookings', 'nav.bookings']];
+
+export function shell(root, current, body) {
+  let tabs;
+  if (store.isSchool()) tabs = SCHOOL_TABS;
+  else if (store.isInstructor()) tabs = INSTRUCTOR_TABS;
+  else tabs = [...ADMIN_TABS_CONTENT, ...(store.isAdmin() ? ADMIN_TABS_MANAGE : [])];
+
   root.innerHTML = html`<div class="page-head"><div><h1>${t('admin.title')}</h1></div></div>
     <nav class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:20px" aria-label="${t('admin.title')}">
       ${tabs.map(([href, key]) => html`<a class="btn ${href === current ? 'btn-primary' : 'btn-secondary'}" href="${href}">${t(key)}</a>`)}
@@ -30,6 +109,9 @@ const val = (form, name) => form.elements[name]?.value ?? '';
 
 // --- Statistiques ----------------------------------------------------------------
 export async function statsView(root) {
+  // المؤسسة والمدرب يُوجَّهان مباشرة لقائمة طلابهم
+  if (store.isSchool()) { import('./school.js').then((m) => m.schoolStudentsView(root)); return; }
+  if (store.isInstructor()) { studentsView(root); return; }
   await load(root, '/admin', async () => {
     const s = await api.get('/admin/stats');
     const total = s.users.reduce((a, u) => a + u.n, 0);
@@ -386,7 +468,10 @@ function renderForm(root, cats, q, catId, startDouble, isNew, params) {
     try {
       if (isNew) await api.post('/admin/questions', body); else await api.put(`/admin/questions/${params.id}`, body);
       toast(t('common.saved')); navigate('/admin/questions');
-    } catch (err) { toast(errorMessage(err), 'error'); }
+    } catch (err) {
+      toast(errorMessage(err), 'error');
+      highlightField(form, err);
+    }
   };
   root.querySelector('#q-preview-inline').onclick = () => {
     const isDoubleNow = val(form, 'is_double') === '1';
@@ -563,7 +648,7 @@ export async function seriesEditView(root, { params }) {
       try {
         if (isNew) await api.post('/admin/series', body); else await api.put(`/admin/series/${params.id}`, body);
         toast(t('common.saved')); navigate('/admin/series');
-      } catch (err) { toast(errorMessage(err), 'error'); }
+      } catch (err) { toast(errorMessage(err), 'error'); highlightField(form, err); }
     };
     const del = root.querySelector('#s-del');
     if (del) del.onclick = async () => {
@@ -645,7 +730,7 @@ export async function lessonEditView(root, { params }) {
       try {
         if (isNew) await api.post('/admin/lessons', body); else await api.put(`/admin/lessons/${params.id}`, body);
         toast(t('common.saved')); navigate('/admin/lessons');
-      } catch (err) { toast(errorMessage(err), 'error'); }
+      } catch (err) { toast(errorMessage(err), 'error'); highlightField(form, err); }
     };
     const del = root.querySelector('#l-del');
     if (del) del.onclick = async () => {
@@ -678,7 +763,11 @@ export async function studentView(root, { params }) {
 // --- Utilisateurs (admin) --------------------------------------------------------
 export async function usersView(root) {
   await load(root, '/admin/users', async () => {
-    const list = await api.get('/admin/users');
+    const [list, schoolsData] = await Promise.all([
+      api.get('/admin/users'),
+      api.get('/admin/schools').catch(() => ({ schools: [] })),
+    ]);
+    const schools = schoolsData.schools || [];
     let showAddForm = false;
 
     function render() {
@@ -696,7 +785,7 @@ export async function usersView(root) {
             <label>${t('admin.password')}<input class="input" name="password" type="password" required minlength="8" placeholder="${t('admin.passwordHint')}"></label>
             <label>${t('admin.role')}
               <select class="input" name="role">
-                ${['student', 'instructor', 'admin'].map((r) => html`<option value="${r}">${t('role.' + r)}</option>`)}
+                ${['student', 'instructor', 'school', 'admin'].map((r) => html`<option value="${r}">${t('role.' + r)}</option>`)}
               </select>
             </label>
             <div style="display:flex;gap:8px">
@@ -705,14 +794,21 @@ export async function usersView(root) {
             </div>
           </form>
         </div>` : ''}
-        <div class="card" style="overflow:auto"><table class="table"><thead><tr>
-          <th>${t('admin.name')}</th><th>${t('admin.email')}</th><th>${t('admin.role')}</th><th>${t('admin.active')}</th><th></th>
+        <div class="card table-wrap"><table class="table"><thead><tr>
+          <th>${t('admin.name')}</th><th>${t('admin.email')}</th><th>${t('admin.role')}</th><th>${t('admin.active')}</th><th>${t('admin.school')}</th><th></th>
         </tr></thead><tbody>
           ${list.map((u) => html`<tr>
             <td>${u.name}</td>
-            <td>${u.email}</td>
-            <td><select class="input" data-role="${u.id}">${['student', 'instructor', 'admin'].map((r) => html`<option value="${r}" ${r === u.role ? raw('selected') : ''}>${t('role.' + r)}</option>`)}</select></td>
+            <td style="font-size:.85rem">${u.email}</td>
+            <td><select class="input" data-role="${u.id}">${['student', 'instructor', 'school', 'admin'].map((r) => html`<option value="${r}" ${r === u.role ? raw('selected') : ''}>${t('role.' + r)}</option>`)}</select></td>
             <td><input type="checkbox" data-active="${u.id}" ${u.active ? raw('checked') : ''} aria-label="${t('admin.active')}"></td>
+            <td>
+              <select class="input" style="width:140px;font-size:.8rem" data-school="${u.id}"
+                title="${t('admin.schoolHelp')}">
+                <option value="">—</option>
+                ${schools.map((s) => html`<option value="${s.id}" ${u.school_id == s.id ? raw('selected') : ''}>${s.name}</option>`)}
+              </select>
+            </td>
             <td><button class="btn btn-danger btn-sm" data-del="${u.id}" title="${t('admin.deleteUser')}">🗑</button></td>
           </tr>`)}
         </tbody></table></div>`);
@@ -744,6 +840,9 @@ export async function usersView(root) {
       };
       root.querySelectorAll('[data-role]').forEach((s) => s.onchange = () => patch(s.dataset.role, { role: s.value }));
       root.querySelectorAll('[data-active]').forEach((c) => c.onchange = () => patch(c.dataset.active, { active: c.checked }));
+      root.querySelectorAll('[data-school]').forEach((sel) => {
+        sel.onchange = () => patch(sel.dataset.school, { school_id: sel.value ? parseInt(sel.value, 10) : null });
+      });
       root.querySelectorAll('[data-del]').forEach((b) => b.onclick = async () => {
         if (!confirm(t('admin.confirmDelete'))) return;
         try {
