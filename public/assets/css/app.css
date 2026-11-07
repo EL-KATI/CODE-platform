@@ -2014,3 +2014,53 @@ dialog::backdrop { background: rgb(12 10 9 / .7); backdrop-filter: blur(4px); }
   .qz-window .quiz-sidebar .q-timer-wrap { margin: 0; padding: 0; border: 0; }
   .qz-window .quiz-sidebar .q-current { padding: 0; }
 }
+
+/* ══ نافذة السلسلة: السؤال + الأجوبة كلها في شاشة واحدة بدون تمرير ══ */
+.qz-window > .quiz-header { padding: 8px 14px; gap: 8px; }
+.qz-window > .quiz-layout {
+  overflow: hidden; padding: 12px; gap: 12px; align-items: stretch;
+  grid-template-columns: minmax(0, 1fr) 150px; grid-template-rows: minmax(0, 1fr);
+}
+.qz-window .qcard { height: 100%; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.qz-window .qcard-header { flex: none; padding: 6px 12px; }
+.qz-window .qcard-body { flex: 1; min-height: 0; padding: 12px 14px; display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); overflow: hidden; }
+.qz-window .qcard-body.has-media { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); }
+.qz-window .qz-media { min-height: 0; display: flex; align-items: center; justify-content: center; }
+.qz-window .qz-media .scene {
+  margin: 0 !important; width: 100%; height: 100%; max-height: none; aspect-ratio: auto;
+  display: flex; align-items: center; justify-content: center;
+}
+.qz-window .qz-media .scene img, .qz-window .qz-media .scene svg, .qz-window .qz-media .scene video, .qz-window .qz-media .scene iframe { max-width: 100%; max-height: 100%; width: 100%; height: 100%; object-fit: contain; }
+.qz-window .qz-main { min-height: 0; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; overscroll-behavior: contain; }
+.qz-window .q-number { margin: 0; }
+.qz-window .q-text { font-size: clamp(1rem, 1.5vw, 1.25rem); margin: 0; line-height: 1.5; }
+.qz-window .q-options, .qz-window .sub-q-options { gap: 8px; }
+.qz-window .q-option { min-height: 44px; padding: 8px 12px; }
+.qz-window .q-actions { margin-top: auto; padding-top: 8px; position: sticky; bottom: 0; background: var(--surface); }
+/* الشريط الجانبي المصغّر */
+.qz-window .quiz-sidebar { padding: 12px 8px; display: flex; flex-direction: column; align-items: center; gap: 10px; align-self: start; }
+.qz-window .quiz-sidebar .q-timer-wrap { margin: 0; padding: 0 0 10px; width: 100%; flex-direction: column; border-bottom: 1px solid var(--border); }
+.qz-window .quiz-sidebar .q-timer { width: 72px; height: 72px; }
+.qz-window .q-current-num { font-size: 1.4rem; }
+
+/* تابلت وهاتف: الشريط في الأعلى، الصورة فوق السؤال بارتفاع محدود */
+@media (max-width: 1000px) {
+  .qz-window > .quiz-layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); padding: 8px; gap: 8px; }
+  .qz-window .quiz-sidebar { order: -1; flex-direction: row; justify-content: space-around; width: 100%; padding: 6px 10px; align-self: stretch; }
+  .qz-window .quiz-sidebar .q-timer-wrap { flex-direction: row; width: auto; padding: 0; border: 0; gap: 10px; }
+  .qz-window .quiz-sidebar .q-timer { width: 48px; height: 48px; }
+  .qz-window .quiz-sidebar .q-timer::before { inset: 5px; }
+  .qz-window .quiz-sidebar .q-timer-val { font-size: 1rem; }
+  .qz-window .q-current { flex-direction: row; gap: 8px; padding: 0; }
+  .qz-window .q-current-num { font-size: 1.15rem; }
+  .qz-window .qcard-body, .qz-window .qcard-body.has-media { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 32%) minmax(0, 1fr); gap: 8px; padding: 8px 10px; }
+  .qz-window .qcard-body:not(.has-media) { grid-template-rows: minmax(0, 1fr); }
+  .qz-window .q-option { min-height: 40px; padding: 6px 10px; font-size: .95rem; }
+  .qz-window .q-option-num { width: 28px; height: 28px; }
+}
+@media (max-width: 640px) {
+  .qz-window .qcard { overflow: hidden; }
+  .qz-window .q-actions { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+}
+.qz-window .q-timer-label { position: static; display: block; margin-top: 6px; text-align: center; }
+@media (max-width: 1000px) { .qz-window .q-timer-label { display: none; } }

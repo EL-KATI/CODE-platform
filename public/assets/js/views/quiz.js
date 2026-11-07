@@ -155,6 +155,27 @@ export async function quizView(appRoot, { params }) {
     }).join('');
   }
 
+  // ── ترتيب جسم السؤال ليظهر كله في شاشة واحدة: الصورة بجانب (أو فوق) السؤال والأجوبة ──
+  function arrangeBody(card) {
+    const body = card.querySelector('.qcard-body');
+    if (!body) return;
+    const kids = [...body.children];
+    const media = kids.filter((el) => el.classList.contains('scene'));
+    const rest = kids.filter((el) => !media.includes(el));
+    body.innerHTML = '';
+    if (media.length) {
+      const m = document.createElement('div');
+      m.className = 'qz-media';
+      media.forEach((el) => m.appendChild(el));
+      body.appendChild(m);
+    }
+    const main = document.createElement('div');
+    main.className = 'qz-main';
+    rest.forEach((el) => main.appendChild(el));
+    body.appendChild(main);
+    body.classList.toggle('has-media', media.length > 0);
+  }
+
   // ── رسم السؤال ────────────────────────────────────────────────────
   function renderQuestion() {
     const cur = q();
@@ -312,6 +333,8 @@ export async function quizView(appRoot, { params }) {
 
       card.querySelectorAll('.q-option:not([disabled])').forEach((b) => (b.onclick = () => toggle(Number(b.dataset.n))));
     }
+
+    arrangeBody(card);
 
     // ربط الأزرار المشتركة
     card.querySelector('#speak').onclick = () => speak(speechText(cur, idx + 1));
