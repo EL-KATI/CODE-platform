@@ -255,37 +255,17 @@ function open(file = config.dbFile) {
   if (!cols.includes('is_double')) db.exec('ALTER TABLE questions ADD COLUMN is_double INTEGER NOT NULL DEFAULT 0');
   if (!cols.includes('sub_questions')) db.exec('ALTER TABLE questions ADD COLUMN sub_questions TEXT');
   if (!cols.includes('skill_type')) db.exec("ALTER TABLE questions ADD COLUMN skill_type TEXT NOT NULL DEFAULT 'معرفية'");
-  // Migration: add school_id to users (NULL = not enrolled in a driving school)
+  // Migration: add school_id to users if missing
   const userCols = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
-  if (!userCols.includes('school_id')) db.exec('ALTER TABLE users ADD COLUMN school_id TEXT');
-  // Migration: allow 'school' role — rebuild users table to update CHECK constraint
+  if (!userCols.includes('school_id')) db.exec('ALTER TABLE users ADD COLUMN school_id INTEGER');
+  // Migration: نظّف أي جداول مؤقتة تُركت من migrations فاشلة سابقة
   try {
-    const roleCheck = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'").get()?.sql || '';
-    if (!roleCheck.includes("'school'")) {
-      db.exec(`
-        PRAGMA foreign_keys = OFF;
-        BEGIN;
-        ALTER TABLE users RENAME TO _users_old;
-        CREATE TABLE users (
-          id            INTEGER PRIMARY KEY,
-          email         TEXT NOT NULL UNIQUE COLLATE NOCASE,
-          name          TEXT NOT NULL,
-          password_hash TEXT NOT NULL,
-          role          TEXT NOT NULL DEFAULT 'student' CHECK (role IN ('student','instructor','admin','school')),
-          locale        TEXT NOT NULL DEFAULT 'ar',
-          exam_date     TEXT,
-          active        INTEGER NOT NULL DEFAULT 1,
-          created_at    TEXT NOT NULL DEFAULT (datetime('now')),
-          last_login_at TEXT,
-          school_id     TEXT
-        );
-        INSERT INTO users SELECT id,email,name,password_hash,role,locale,exam_date,active,created_at,last_login_at,school_id FROM _users_old;
-        DROP TABLE _users_old;
-        COMMIT;
-        PRAGMA foreign_keys = ON;
-      `);
+    const tmpTables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '_users_old%'").all();
+    for (const t of tmpTables) {
+      db.exec(`DROP TABLE IF EXISTS "${t.name}"`);
+      console.log('[db] migration: cleaned up tmp table', t.name);
     }
-  } catch (e) { console.warn('[db] migration school role:', e.message); }
+  } catch (e) { console.warn('[db] cleanup tmp tables:', e.message); }
 
   // Migration: إنشاء جدول schools إذا لم يكن موجوداً (قد لا يكون موجوداً في قواعد البيانات القديمة)
   const existingTables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(r => r.name);
@@ -319,16 +299,15 @@ function open(file = config.dbFile) {
   }
 
   // Migration: تأكد أن عمود school_id هو INTEGER (قد كان TEXT في نسخ سابقة)
-  // نتحقق من نوع العمود — إذا كان TEXT نعيد بناء الجدول
   try {
-    const userColInfo = db.prepare('PRAGMA table_info(users)').all();
-    const schoolIdCol = userColInfo.find(c => c.name === 'school_id');
+    const userColInfo2 = db.prepare('PRAGMA table_info(users)').all();
+    const schoolIdCol = userColInfo2.find(c => c.name === 'school_id');
     if (schoolIdCol && schoolIdCol.type.toUpperCase() !== 'INTEGER') {
-      db.exec(`
-        PRAGMA foreign_keys = OFF;
-        BEGIN;
-        ALTER TABLE users RENAME TO _users_old2;
-        CREATE TABLE users (
+      // استخدام transaction() بدلاً من exec() لتجنب بقاء الجدول المؤقت عند الفشل
+      db.pragma('foreign_keys = OFF');
+      const migrate = db.transaction(() => {
+        db.exec(`ALTER TABLE users RENAME TO _users_migrate_sid`);
+        db.exec(`CREATE TABLE users (
           id            INTEGER PRIMARY KEY,
           email         TEXT NOT NULL UNIQUE COLLATE NOCASE,
           name          TEXT NOT NULL,
@@ -339,18 +318,23 @@ function open(file = config.dbFile) {
           active        INTEGER NOT NULL DEFAULT 1,
           created_at    TEXT NOT NULL DEFAULT (datetime('now')),
           last_login_at TEXT,
-          school_id     INTEGER REFERENCES schools(id) ON DELETE SET NULL
-        );
-        INSERT INTO users SELECT id,email,name,password_hash,role,locale,exam_date,active,created_at,last_login_at,
+          school_id     INTEGER
+        )`);
+        db.exec(`INSERT INTO users SELECT id,email,name,password_hash,role,locale,exam_date,active,created_at,last_login_at,
           CASE WHEN school_id IS NULL OR school_id = '' THEN NULL ELSE CAST(school_id AS INTEGER) END
-          FROM _users_old2;
-        DROP TABLE _users_old2;
-        COMMIT;
-        PRAGMA foreign_keys = ON;
-      `);
+          FROM _users_migrate_sid`);
+        db.exec(`DROP TABLE _users_migrate_sid`);
+      });
+      migrate();
+      db.pragma('foreign_keys = ON');
       console.log('[db] migration: school_id converted to INTEGER');
     }
-  } catch (e) { console.warn('[db] migration school_id integer:', e.message); }
+  } catch (e) {
+    db.pragma('foreign_keys = ON');
+    // تنظيف الجدول المؤقت إذا تُرك من migration فاشلة
+    try { db.exec('DROP TABLE IF EXISTS _users_migrate_sid'); } catch (_) {}
+    console.warn('[db] migration school_id integer:', e.message);
+  }
 
   // Migration: إنشاء جدول exam_journey إذا لم يكن موجوداً
   const tablesAfter = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(r => r.name);

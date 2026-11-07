@@ -96,25 +96,37 @@ if (!schoolIdCol) {
   console.log('    ✅ Rebuilt users table with school_id INTEGER');
 }
 
-// ─── 4. فحص المستخدمين اليتامى (school بدون school_id) ───────────────────
-const orphans = db.prepare(
-  "SELECT id, email, name FROM users WHERE role='school' AND (school_id IS NULL OR school_id = '')"
-).all();
-console.log('\n[4] Orphan school users:', orphans.length);
-if (orphans.length) {
-  orphans.forEach(u => console.log('    -', u.email, '(id:', u.id + ')'));
-  // لا نحذفهم تلقائياً — فقط نُبلّغ
+// ─── 4. تنظيف الجداول المؤقتة المتبقية من migrations فاشلة ──────────────
+const tmpTables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '_users_%'").all();
+if (tmpTables.length) {
+  tmpTables.forEach(t => {
+    db.exec(`DROP TABLE IF EXISTS "${t.name}"`);
+    console.log('[4] ✅ Cleaned tmp table:', t.name);
+  });
+} else {
+  console.log('\n[4] No leftover tmp tables');
 }
 
-// ─── 5. فحص المؤسسات الموجودة ────────────────────────────────────────────
+// ─── 5. حذف المستخدمين اليتامى (school بدون school_id) ──────────────────
+const orphans = db.prepare(
+  "SELECT id, email, name FROM users WHERE role='school' AND (school_id IS NULL OR CAST(school_id AS TEXT) = '')"
+).all();
+console.log('\n[5] Orphan school users:', orphans.length);
+if (orphans.length) {
+  orphans.forEach(u => console.log('    Deleting:', u.email, '(id:', u.id + ')'));
+  db.prepare("DELETE FROM users WHERE role='school' AND (school_id IS NULL OR CAST(school_id AS TEXT) = '')").run();
+  console.log('    ✅ Deleted', orphans.length, 'orphan users');
+}
+
+// ─── 6. فحص المؤسسات الموجودة ────────────────────────────────────────────
 const schools = db.prepare('SELECT id, name, code, email, owner_id FROM schools').all();
 console.log('\n[5] Schools:', schools.length);
 schools.forEach(s => console.log('   ', s.id, s.name, '| email:', s.email, '| owner_id:', s.owner_id));
 
-// ─── 6. إعادة تفعيل foreign_keys ──────────────────────────────────────────
+// ─── 7. إعادة تفعيل foreign_keys ──────────────────────────────────────────
 db.pragma('foreign_keys = ON');
 
-// ─── 7. تقرير نهائي ───────────────────────────────────────────────────────
+// ─── 8. تقرير نهائي ───────────────────────────────────────────────────────
 console.log('\n=== تقرير نهائي ===');
 const finalCols = db.prepare('PRAGMA table_info(users)').all().find(c => c.name === 'school_id');
 const finalSchoolsCols = db.prepare('PRAGMA table_info(schools)').all().map(c => c.name);
