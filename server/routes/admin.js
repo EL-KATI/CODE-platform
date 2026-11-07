@@ -470,8 +470,22 @@ router.post('/users', adminOnly, wrap(async (req, res) => {
   const school_id = body.school_id ? parseInt(body.school_id, 10) || null : null;
   const d = db.get();
   if (d.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) throw new HttpError(409, 'email_taken');
-  const info = d.prepare('INSERT INTO users (email, name, password_hash, role, locale, phone, address, school_id) VALUES (?,?,?,?,?,?,?,?)')
-    .run(email, name, await auth.hashPassword(pw), role, locale, phone, address, school_id);
+  let info;
+  try {
+    info = d.prepare('INSERT INTO users (email, name, password_hash, role, locale, phone, address, school_id) VALUES (?,?,?,?,?,?,?,?)')
+      .run(email, name, await auth.hashPassword(pw), role, locale, phone, address, school_id);
+  } catch (e) {
+    console.error('[POST /users] INSERT error:', e.message);
+    if (e.message && e.message.includes('no column named address')) {
+      // address column missing — insert without it
+      info = d.prepare('INSERT INTO users (email, name, password_hash, role, locale, phone, school_id) VALUES (?,?,?,?,?,?,?)')
+        .run(email, name, await auth.hashPassword(pw), role, locale, phone, school_id);
+    } else if (e.message && e.message.includes('UNIQUE')) {
+      throw new HttpError(409, 'email_taken');
+    } else {
+      throw new HttpError(500, 'server_error');
+    }
+  }
   db.audit(req.user.id, 'create', 'user', info.lastInsertRowid, { name, email, role });
   res.status(201).json({ id: info.lastInsertRowid, name, email, role, active: 1 });
 }));
