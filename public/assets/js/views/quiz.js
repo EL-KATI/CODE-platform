@@ -411,6 +411,8 @@ export async function quizView(root, { params }) {
   }
 
   function next() {
+    // في الامتحان: لا ينتقل إلا بعد الإجابة أو انتهاء وقت السؤال
+    if (exam && !q().answer) return;
     const firstOpen = a.questions.findIndex((x, i) => i > idx && !x.answer);
     if (idx < a.questions.length - 1) return go(exam ? (firstOpen === -1 ? idx + 1 : firstOpen) : idx + 1);
     const pending = a.questions.findIndex((x) => !x.answer);
@@ -421,6 +423,11 @@ export async function quizView(root, { params }) {
   function go(i) {
     if (i < 0 || i >= a.questions.length) return;
     if (exam && i < idx) return;
+    // في الامتحان التجريبي: لا يمكن تخطي السؤال الحالي قبل الإجابة
+    if (exam && i !== idx && !q().answer) {
+      toast(t('quiz.mustAnswer'), 'warning');
+      return;
+    }
     stopTimer();
     stopSpeaking();
     idx = i;
