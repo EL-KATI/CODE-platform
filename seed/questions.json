@@ -17,9 +17,9 @@
       "sub": "prohibit_overtake"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 2,
@@ -40,9 +40,9 @@
       "sub": "danger_rocks"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 3,
@@ -62,9 +62,9 @@
       "sub": "mandatory_right"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 4,
@@ -84,9 +84,9 @@
       "sub": "info_parking"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 5,
@@ -106,9 +106,9 @@
       "sub": "danger_curve_right"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 6,
@@ -128,9 +128,9 @@
       "sub": "end_speed_limit"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 7,
@@ -150,9 +150,9 @@
       "sub": "prohibit_horn"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 8,
@@ -172,9 +172,9 @@
       "sub": "solid_line"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 9,
@@ -193,9 +193,9 @@
       "sub": "stop_sign"
     },
     "image": null,
-    "question_type": "½",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 10,
@@ -215,9 +215,9 @@
       "sub": "priority_right"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 11,
@@ -236,9 +236,9 @@
       "sub": "roundabout"
     },
     "image": null,
-    "question_type": "½",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 12,
@@ -258,9 +258,9 @@
       "sub": "flashing_amber"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 13,
@@ -280,9 +280,9 @@
       "sub": "traffic_police"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 14,
@@ -301,9 +301,9 @@
       "sub": "ambulance"
     },
     "image": null,
-    "question_type": "½",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 15,
@@ -322,9 +322,9 @@
       "sub": "green_blocked"
     },
     "image": null,
-    "question_type": "½",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 16,
@@ -343,9 +343,9 @@
       "sub": "turn_left"
     },
     "image": null,
-    "question_type": "½",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 17,
@@ -365,9 +365,9 @@
       "sub": "highway_limit"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 18,
@@ -387,9 +387,9 @@
       "sub": "city_limit"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 19,
@@ -409,9 +409,9 @@
       "sub": "safety_distance"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 20,
@@ -431,9 +431,9 @@
       "sub": "stopping_distance"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 21,
@@ -453,9 +453,9 @@
       "sub": "reaction_time"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 22,
@@ -475,9 +475,9 @@
       "sub": "rain_braking"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 23,
@@ -496,9 +496,9 @@
       "sub": "garage_entry"
     },
     "image": null,
-    "question_type": "½",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 24,
@@ -517,9 +517,9 @@
       "sub": "no_stopping_standing"
     },
     "image": null,
-    "question_type": "½",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 25,
@@ -540,9 +540,9 @@
       "sub": "check_mirrors"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 26,
@@ -561,9 +561,9 @@
       "sub": "curve_overtake"
     },
     "image": null,
-    "question_type": "½",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 27,
@@ -583,9 +583,9 @@
       "sub": "cyclist_distance"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 28,
@@ -605,9 +605,9 @@
       "sub": "car_behind_overtakes"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 29,
@@ -626,9 +626,9 @@
       "sub": "warning_arrows"
     },
     "image": null,
-    "question_type": "½",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 30,
@@ -647,9 +647,9 @@
       "sub": "slope_passing"
     },
     "image": null,
-    "question_type": "½",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 31,
@@ -669,9 +669,9 @@
       "sub": "probationary_license"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "اجتماعية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 32,
@@ -691,9 +691,9 @@
       "sub": "full_license_points"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "اجتماعية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 33,
@@ -713,9 +713,9 @@
       "sub": "alcohol_zero"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "اجتماعية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 34,
@@ -735,9 +735,9 @@
       "sub": "stop_violation"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "اجتماعية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 35,
@@ -757,9 +757,9 @@
       "sub": "phone_violation"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "اجتماعية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 36,
@@ -779,9 +779,9 @@
       "sub": "oil_lamp"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "سلوكية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 37,
@@ -801,9 +801,9 @@
       "sub": "fog_lights"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "سلوكية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 38,
@@ -823,9 +823,9 @@
       "sub": "tire_pressure"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "سلوكية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 39,
@@ -845,9 +845,9 @@
       "sub": "protect_scene"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "سلوكية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 40,
@@ -867,9 +867,9 @@
       "sub": "seatbelt_rule"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "سلوكية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 41,
@@ -889,9 +889,9 @@
       "sub": "speed_limit_80"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 42,
@@ -911,9 +911,9 @@
       "sub": "danger_train"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 43,
@@ -933,9 +933,9 @@
       "sub": "danger_city_distance"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 44,
@@ -954,9 +954,9 @@
       "sub": "lights_over_signs"
     },
     "image": null,
-    "question_type": "½",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 45,
@@ -975,9 +975,9 @@
       "sub": "junction_cross_blue"
     },
     "image": null,
-    "question_type": "½",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 46,
@@ -997,9 +997,9 @@
       "sub": "safety_dist_90"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 47,
@@ -1019,9 +1019,9 @@
       "sub": "stopping_dist_100"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 48,
@@ -1041,9 +1041,9 @@
       "sub": "pedestrian_distance_city"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 49,
@@ -1062,9 +1062,9 @@
       "sub": "fine_violation"
     },
     "image": null,
-    "question_type": "½",
     "skill_type": "اجتماعية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 50,
@@ -1083,9 +1083,9 @@
       "sub": "dash_abs"
     },
     "image": null,
-    "question_type": "½",
     "skill_type": "سلوكية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 51,
@@ -1105,9 +1105,9 @@
       "sub": "speed_limit_90"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 52,
@@ -1127,9 +1127,9 @@
       "sub": "danger_slope"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 53,
@@ -1148,9 +1148,9 @@
       "sub": "stop_line"
     },
     "image": null,
-    "question_type": "½",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 54,
@@ -1170,9 +1170,9 @@
       "sub": "safety_dist_100"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 55,
@@ -1192,9 +1192,9 @@
       "sub": "stopping_dist_120"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 56,
@@ -1213,9 +1213,9 @@
       "sub": "fine_violation"
     },
     "image": null,
-    "question_type": "½",
     "skill_type": "اجتماعية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 57,
@@ -1234,9 +1234,9 @@
       "sub": "dash_battery"
     },
     "image": null,
-    "question_type": "½",
     "skill_type": "سلوكية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 58,
@@ -1256,9 +1256,9 @@
       "sub": "speed_limit_100"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 59,
@@ -1278,9 +1278,9 @@
       "sub": "danger_curve_left"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 60,
@@ -1299,9 +1299,9 @@
       "sub": "give_way"
     },
     "image": null,
-    "question_type": "½",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 61,
@@ -1321,9 +1321,9 @@
       "sub": "safety_dist_120"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 62,
@@ -1343,9 +1343,9 @@
       "sub": "stopping_dist_60"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 63,
@@ -1365,9 +1365,9 @@
       "sub": "fine_violation"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "اجتماعية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 64,
@@ -1386,9 +1386,9 @@
       "sub": "dash_temp"
     },
     "image": null,
-    "question_type": "½",
     "skill_type": "سلوكية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 65,
@@ -1408,9 +1408,9 @@
       "sub": "speed_limit_40"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 66,
@@ -1430,9 +1430,9 @@
       "sub": "danger_narrow_road"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 67,
@@ -1452,9 +1452,9 @@
       "sub": "safety_dist_60"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 68,
@@ -1474,9 +1474,9 @@
       "sub": "stopping_dist_80"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 69,
@@ -1496,9 +1496,9 @@
       "sub": "speed_limit_50"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 70,
@@ -1518,9 +1518,9 @@
       "sub": "danger_pedestrians"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 71,
@@ -1540,9 +1540,9 @@
       "sub": "q239_speed_80"
     },
     "image": "/uploads/seed-photo-1.jpg",
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 72,
@@ -1562,9 +1562,9 @@
       "sub": "safety_dist_80"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 73,
@@ -1584,9 +1584,9 @@
       "sub": "stopping_dist_90"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 74,
@@ -1606,9 +1606,9 @@
       "sub": "speed_limit_30"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 75,
@@ -1628,9 +1628,9 @@
       "sub": "speed_limit_60"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 76,
@@ -1650,9 +1650,9 @@
       "sub": "speed_limit_70"
     },
     "image": null,
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   },
   {
     "id": 77,
@@ -1672,8 +1672,8 @@
       "sub": "q239_speed_80"
     },
     "image": "/uploads/seed-photo-1.jpg",
-    "question_type": "3/../",
     "skill_type": "معرفية",
-    "difficulty": 2
+    "difficulty": 2,
+    "is_double": 0
   }
 ]

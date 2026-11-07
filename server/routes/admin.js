@@ -61,19 +61,42 @@ router.get('/students/:id', wrap(async (req, res) => {
 
 // --- Questions ----------------------------------------------------------------
 function rowToAdmin(r) {
-  return { ...r, options: JSON.parse(r.options), correct: JSON.parse(r.correct), visual: r.visual ? JSON.parse(r.visual) : null };
+  return {
+    ...r,
+    options: JSON.parse(r.options),
+    correct: JSON.parse(r.correct),
+    visual: r.visual ? JSON.parse(r.visual) : null,
+    sub_questions: r.sub_questions ? JSON.parse(r.sub_questions) : null,
+  };
 }
 
 function validateQuestion(b) {
   const d = db.get();
   const categoryId = int(b.categoryId, { min: 1, field: 'categoryId' });
   if (!d.prepare('SELECT 1 FROM categories WHERE id = ?').get(categoryId)) throw bad('invalid_field', { field: 'categoryId' });
+  // --- سؤال منفرد: options + correct ---
   if (!Array.isArray(b.options)) throw bad('invalid_field', { field: 'options' });
   const options = b.options.map((o) => str(o, { min: 1, max: 300, field: 'options' }));
   if (options.length < 2 || options.length > 4) throw bad('options_count');
   if (!Array.isArray(b.correct) || !b.correct.length) throw bad('correct_required');
   const correct = [...new Set(b.correct.map(Number))].sort((x, y) => x - y);
   if (correct.some((c) => !Number.isInteger(c) || c < 1 || c > options.length)) throw bad('invalid_field', { field: 'correct' });
+
+  // --- سؤال مزدوج: sub_questions ---
+  const isDouble = b.is_double ? 1 : 0;
+  let subQuestions = null;
+  if (isDouble) {
+    if (!Array.isArray(b.sub_questions) || b.sub_questions.length !== 2) throw bad('invalid_field', { field: 'sub_questions' });
+    subQuestions = b.sub_questions.map((sq, si) => {
+      if (!Array.isArray(sq.options)) throw bad('invalid_field', { field: `sub_questions[${si}].options` });
+      const sqOpts = sq.options.map((o) => str(o, { min: 1, max: 300, field: `sub_questions[${si}].options` }));
+      if (sqOpts.length < 2 || sqOpts.length > 4) throw bad('options_count');
+      if (!Array.isArray(sq.correct) || !sq.correct.length) throw bad('correct_required');
+      const sqCorrect = [...new Set(sq.correct.map(Number))].sort((x, y) => x - y);
+      if (sqCorrect.some((c) => !Number.isInteger(c) || c < 1 || c > sqOpts.length)) throw bad('invalid_field', { field: `sub_questions[${si}].correct` });
+      return { text: str(sq.text || '', { min: 2, max: 500, field: `sub_questions[${si}].text` }), options: sqOpts, correct: sqCorrect };
+    });
+  }
   let visual = null;
   if (b.visual && b.visual.type) {
     if (!VISUAL_TYPES.includes(b.visual.type)) throw bad('invalid_field', { field: 'visual' });
@@ -106,7 +129,8 @@ function validateQuestion(b) {
     audio_text: str(b.audioText || '', { max: 3000, field: 'audioText' }),
     difficulty: optInt(b.difficulty, { min: 1, max: 3, field: 'difficulty' }) || 2,
     status,
-    question_type: ['½', '½½', '3/../', '4/../'].includes(b.question_type) ? b.question_type : '3/../',
+    is_double: isDouble,
+    sub_questions: subQuestions ? JSON.stringify(subQuestions) : null,
     skill_type: ['معرفية', 'سلوكية', 'اجتماعية'].includes(b.skill_type) ? b.skill_type : 'معرفية',
   };
 }
@@ -138,8 +162,8 @@ router.get('/questions/:id', wrap(async (req, res) => {
 
 router.post('/questions', wrap(async (req, res) => {
   const v = validateQuestion(req.body || {});
-  const info = db.get().prepare(`INSERT INTO questions (category_id, text, options, correct, explanation, visual, image, image_alt, video, audio_text, difficulty, status, question_type, skill_type)
-    VALUES (@category_id, @text, @options, @correct, @explanation, @visual, @image, @image_alt, @video, @audio_text, @difficulty, @status, @question_type, @skill_type)`).run(v);
+  const info = db.get().prepare(`INSERT INTO questions (category_id, text, options, correct, explanation, visual, image, image_alt, video, audio_text, difficulty, status, is_double, sub_questions, skill_type)
+    VALUES (@category_id, @text, @options, @correct, @explanation, @visual, @image, @image_alt, @video, @audio_text, @difficulty, @status, @is_double, @sub_questions, @skill_type)`).run(v);
   db.audit(req.user.id, 'create', 'question', info.lastInsertRowid);
   res.status(201).json(rowToAdmin(db.get().prepare('SELECT * FROM questions WHERE id = ?').get(info.lastInsertRowid)));
 }));
@@ -150,7 +174,7 @@ router.put('/questions/:id', wrap(async (req, res) => {
   const v = validateQuestion(req.body || {});
   db.get().prepare(`UPDATE questions SET category_id=@category_id, text=@text, options=@options, correct=@correct, explanation=@explanation,
     visual=@visual, image=@image, image_alt=@image_alt, video=@video, audio_text=@audio_text, difficulty=@difficulty, status=@status,
-    question_type=@question_type, skill_type=@skill_type, updated_at=datetime('now') WHERE id=@id`).run({ ...v, id });
+    is_double=@is_double, sub_questions=@sub_questions, skill_type=@skill_type, updated_at=datetime('now') WHERE id=@id`).run({ ...v, id });
   db.audit(req.user.id, 'update', 'question', id);
   res.json(rowToAdmin(db.get().prepare('SELECT * FROM questions WHERE id = ?').get(id)));
 }));

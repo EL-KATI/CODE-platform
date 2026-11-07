@@ -140,18 +140,41 @@ function answer(user, attemptId, body) {
   }
   const row = getByIds([qid]).get(qid);
   const options = JSON.parse(row.options);
-  let selected = Array.isArray(body.selected) ? [...new Set(body.selected.map(Number))] : [];
-  selected = selected.filter((n) => Number.isInteger(n) && n >= 1 && n <= options.length).sort((x, y) => x - y);
-
   const dl = deadline(a);
   const late = dl && Date.now() > dl.getTime();
-  if (late) selected = []; // délai global dépassé : la réponse ne compte pas
-
-  const correct = JSON.parse(row.correct);
-  const ok = isCorrect(selected, correct);
   const timeMs = Number.isFinite(Number(body.timeMs)) ? Math.max(0, Math.round(Number(body.timeMs))) : null;
+
+  let selected, ok, correct, selectedStored;
+
+  if (row.is_double && row.sub_questions) {
+    // --- سؤال مزدوج: التحقق من كلا الجزأين ---
+    const sqs = JSON.parse(row.sub_questions);
+    const sdRaw = body.selected_double || { a: [], b: [] };
+    const cleanSub = (arr, opts) => {
+      if (late) return [];
+      return [...new Set((Array.isArray(arr) ? arr : []).map(Number))]
+        .filter((n) => Number.isInteger(n) && n >= 1 && n <= opts.length).sort((x, y) => x - y);
+    };
+    const selA = cleanSub(sdRaw.a, sqs[0].options);
+    const selB = cleanSub(sdRaw.b, sqs[1].options);
+    const okA = isCorrect(selA, sqs[0].correct);
+    const okB = isCorrect(selB, sqs[1].correct);
+    ok = okA && okB;
+    correct = JSON.parse(row.correct); // إجابة الجزء الرئيسي (للتوافق)
+    selected = []; // لا يُستخدم للمزدوج
+    selectedStored = JSON.stringify({ a: selA, b: selB });
+  } else {
+    // --- سؤال منفرد ---
+    selected = Array.isArray(body.selected) ? [...new Set(body.selected.map(Number))] : [];
+    selected = selected.filter((n) => Number.isInteger(n) && n >= 1 && n <= options.length).sort((x, y) => x - y);
+    if (late) selected = [];
+    correct = JSON.parse(row.correct);
+    ok = isCorrect(selected, correct);
+    selectedStored = JSON.stringify(selected);
+  }
+
   d.prepare('INSERT INTO attempt_answers (attempt_id, question_id, selected, is_correct, time_ms) VALUES (?,?,?,?,?)')
-    .run(a.id, qid, JSON.stringify(selected), ok ? 1 : 0, timeMs);
+    .run(a.id, qid, selectedStored, ok ? 1 : 0, timeMs);
   progress.recordResult(user.id, qid, ok);
 
   if (a.practice) return { recorded: true, isCorrect: ok, correct, explanation: row.explanation, late: !!late };
@@ -195,7 +218,15 @@ function load(user, attemptId) {
     const q = toQuestion(rows.get(id), { includeAnswer: reveal });
     q.bookmarked = bookmarks.has(id);
     if (ans) {
-      q.answer = { selected: JSON.parse(ans.selected) };
+      const rawSel = ans.selected;
+      let parsedSel;
+      try { parsedSel = JSON.parse(rawSel); } catch { parsedSel = []; }
+      if (q.is_double && parsedSel && typeof parsedSel === 'object' && !Array.isArray(parsedSel)) {
+        // سؤال مزدوج: selected مخزن كـ {a:[..], b:[..]}
+        q.answer = { selected: [], selected_double: parsedSel };
+      } else {
+        q.answer = { selected: Array.isArray(parsedSel) ? parsedSel : [] };
+      }
       if (reveal) q.answer.isCorrect = !!ans.is_correct;
     }
     return q;

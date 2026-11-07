@@ -117,7 +117,9 @@ export async function questionEditView(root, { params }) {
   const isNew = params.id === 'new';
   await load(root, '/admin/questions', async () => {
     const cats = await store.getCategories();
-    const q = isNew ? { categoryId: cats[0]?.id, text: '', options: ['', '', ''], correct: [1], explanation: '', difficulty: 2, status: 'published', question_type: '3/../', skill_type: 'معرفية' } : await api.get(`/admin/questions/${params.id}`);
+    const q = isNew
+      ? { categoryId: cats[0]?.id, text: '', options: ['', '', ''], correct: [1], explanation: '', difficulty: 2, status: 'published', is_double: 0, sub_questions: null, skill_type: 'معرفية' }
+      : await api.get(`/admin/questions/${params.id}`);
     const catId = q.category_id ?? q.categoryId;
     shell(root, '/admin/questions', html`
       <form class="card stack" id="q-form" style="max-width:760px">
@@ -146,12 +148,31 @@ export async function questionEditView(root, { params }) {
           <label>${t('admin.audioText')}<textarea class="input" name="audioText" rows="3" placeholder="${t('admin.audioHelp')}">${q.audio_text || ''}</textarea></label>
           <div><button class="btn btn-secondary" type="button" id="audio-test">🔊 ${t('admin.audioTest')}</button></div>
         </fieldset>
-        <div class="row">
-          <label>${t('admin.questionType')}
-            <select class="input" name="question_type">
-              ${[['½','½'],['½½','½½'],['3/../','3/../'],['4/../','4/../']].map(([v,l]) => html`<option value="${v}" ${v === (q.question_type || '3/../') ? raw('selected') : ''}>${l}</option>`)}
-            </select>
+        <div class="row" style="align-items:center;gap:16px">
+          <strong style="white-space:nowrap">${t('admin.questionKind')}</strong>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="radio" name="is_double" value="0" ${!q.is_double ? 'checked' : ''}> ${t('admin.single')}
           </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="radio" name="is_double" value="1" ${q.is_double ? 'checked' : ''}> ${t('admin.double')}
+          </label>
+        </div>
+        <!-- حقول السؤال المزدوج -->
+        <div id="double-fields" style="display:${q.is_double ? 'block' : 'none'}">
+          <fieldset class="stack" style="border:1px solid var(--border,#ccd);border-radius:10px;padding:12px;margin-top:4px">
+            <legend>⚡ ${t('admin.double')} — ${t('admin.subQ1')}</legend>
+            <label>${t('admin.text')}<textarea class="input" name="sq1_text" rows="2">${q.sub_questions?.[0]?.text || ''}</textarea></label>
+            <label>${t('admin.options')}<textarea class="input" name="sq1_options" rows="3">${(q.sub_questions?.[0]?.options || ['','']).join('\n')}</textarea></label>
+            <label>${t('admin.correct')}<input class="input" name="sq1_correct" value="${(q.sub_questions?.[0]?.correct || [1]).join(',')}"></label>
+          </fieldset>
+          <fieldset class="stack" style="border:1px solid var(--border,#ccd);border-radius:10px;padding:12px;margin-top:8px">
+            <legend>⚡ ${t('admin.double')} — ${t('admin.subQ2')}</legend>
+            <label>${t('admin.text')}<textarea class="input" name="sq2_text" rows="2">${q.sub_questions?.[1]?.text || ''}</textarea></label>
+            <label>${t('admin.options')}<textarea class="input" name="sq2_options" rows="3">${(q.sub_questions?.[1]?.options || ['','']).join('\n')}</textarea></label>
+            <label>${t('admin.correct')}<input class="input" name="sq2_correct" value="${(q.sub_questions?.[1]?.correct || [1]).join(',')}"></label>
+          </fieldset>
+        </div>
+        <div class="row">
           <label>${t('admin.skillType')}
             <select class="input" name="skill_type">
               ${[['معرفية','معرفية'],['سلوكية','سلوكية'],['اجتماعية','اجتماعية']].map(([v,l]) => html`<option value="${v}" ${v === (q.skill_type || 'معرفية') ? raw('selected') : ''}>${l}</option>`)}
@@ -194,15 +215,33 @@ export async function questionEditView(root, { params }) {
     form.elements.image.addEventListener('change', showMedia);
     form.elements.video.addEventListener('change', showMedia);
     root.querySelector('#audio-test').onclick = () => speak(val(form, 'audioText') || val(form, 'text'));
+    // toggle حقول المزدوج عند تغيير الاختيار
+    const doubleFields = root.querySelector('#double-fields');
+    root.querySelectorAll('[name=is_double]').forEach((r) => {
+      r.onchange = () => { doubleFields.style.display = r.value === '1' ? 'block' : 'none'; };
+    });
     showMedia();
     form.onsubmit = async (e) => {
       e.preventDefault();
+      const isDouble = val(form, 'is_double') === '1';
+      const subQuestions = isDouble ? [
+        {
+          text: val(form, 'sq1_text').trim(),
+          options: val(form, 'sq1_options').split('\n').map((s) => s.trim()).filter(Boolean),
+          correct: val(form, 'sq1_correct').split(',').map((s) => Number(s.trim())).filter(Boolean),
+        },
+        {
+          text: val(form, 'sq2_text').trim(),
+          options: val(form, 'sq2_options').split('\n').map((s) => s.trim()).filter(Boolean),
+          correct: val(form, 'sq2_correct').split(',').map((s) => Number(s.trim())).filter(Boolean),
+        },
+      ] : null;
       const body = {
         categoryId: Number(val(form, 'categoryId')), text: val(form, 'text'), explanation: val(form, 'explanation'),
         options: val(form, 'options').split('\n').map((s) => s.trim()).filter(Boolean),
         correct: val(form, 'correct').split(',').map((s) => Number(s.trim())).filter(Boolean),
         difficulty: Number(val(form, 'difficulty')), status: val(form, 'status'),
-        question_type: val(form, 'question_type'), skill_type: val(form, 'skill_type'),
+        is_double: isDouble ? 1 : 0, sub_questions: subQuestions, skill_type: val(form, 'skill_type'),
         visual: q.visual || null, image: val(form, 'image').trim() || null, imageAlt: val(form, 'imageAlt'),
         video: val(form, 'video').trim() || null, audioText: val(form, 'audioText'),
       };

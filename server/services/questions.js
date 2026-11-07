@@ -13,6 +13,16 @@ function toQuestion(row, { includeAnswer = false } = {}) {
     imageAlt: row.image_alt || '',
     video: row.video || null,
     audioText: row.audio_text || '',
+    is_double: row.is_double ? 1 : 0,
+    skill_type: row.skill_type || 'معرفية',
+    // للسؤال المزدوج: إرسال sub_questions بدون الإجابات الصحيحة حال الامتحان
+    sub_questions: row.sub_questions
+      ? JSON.parse(row.sub_questions).map((sq) => ({
+          text: sq.text,
+          options: sq.options,
+          ...(includeAnswer ? { correct: sq.correct } : {}),
+        }))
+      : null,
   };
   if (includeAnswer) {
     q.correct = JSON.parse(row.correct);

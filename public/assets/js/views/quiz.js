@@ -80,70 +80,155 @@ export async function quizView(root, { params }) {
     root.querySelector('#counter').textContent = t('quiz.counter', { i: idx + 1, n: a.questions.length });
   }
 
+    // --- مساعدة رسم مجموعة خيارات (منفرد أو جزء من مزدوج) ---
+  function renderOptions(opts, correctSet, selSet, reveal, answered, prefix = '') {
+    return opts.map((o, i) => {
+      const n = i + 1;
+      let cls = '';
+      let mark = '';
+      if (reveal) {
+        if (correctSet.has(n)) { cls = 'is-correct'; mark = '✓'; }
+        else if (selSet.has(n)) { cls = 'is-wrong'; mark = '✗'; }
+      }
+      return html`<button type="button" class="option ${cls}" data-prefix="${prefix}" data-n="${n}" aria-pressed="${selSet.has(n)}" ${answered ? 'disabled' : ''} lang="ar" dir="rtl">
+        <span class="num">${n}</span><span>${o}</span>${mark ? html`<span class="mark" aria-hidden="true">${mark}</span>` : ''}
+        ${reveal && correctSet.has(n) ? html`<span class="sr-only">${t('quiz.correctAnswer')}</span>` : ''}</button>`;
+    }).join('');
+  }
+
   function renderQuestion() {
     const cur = q();
     const ans = cur.answer;
-    selected = new Set(ans ? ans.selected : []);
-    const reveal = !exam && ans && cur.correct;
-    const correct = new Set(cur.correct || []);
+    const isDouble = cur.is_double && Array.isArray(cur.sub_questions) && cur.sub_questions.length === 2;
+
+    // للسؤال المنفرد: selected = Set عادي
+    // للسؤال المزدوج: selectedA + selectedB (مخزنة كـ {a:[..], b:[..]} في ans.selected)
+    if (isDouble) {
+      const saved = ans?.selected_double || { a: [], b: [] };
+      selected = { a: new Set(saved.a), b: new Set(saved.b) };
+    } else {
+      selected = new Set(ans ? ans.selected : []);
+    }
+
+    const reveal = !exam && ans;
     const c = cats.get(cur.categoryId);
     const card = root.querySelector('#qcard');
-    card.innerHTML = html`
+
+    // --- رأس البطاقة ---
+    const header = html`
       <div class="row" style="margin-bottom:10px;flex-wrap:wrap;gap:6px">
         ${c ? html`<span class="pill">${c.icon} ${catName(c)}</span>` : ''}
-        ${cur.question_type ? html`<span class="pill pill-info" title="${t('admin.questionType')}">${cur.question_type}</span>` : ''}
+        ${isDouble ? html`<span class="pill pill-info">⚡ ${t('quiz.double')}</span>` : ''}
         ${cur.skill_type ? html`<span class="pill pill-muted" style="font-size:.75rem">${cur.skill_type}</span>` : ''}
         <span class="spacer"></span>
         <button class="btn btn-ghost btn-sm" id="speak" type="button" aria-label="${t('quiz.listen')}">🔊 ${t('quiz.listen')}</button>
         <button class="btn btn-ghost btn-sm" id="bm" type="button" aria-pressed="${!!cur.bookmarked}">${cur.bookmarked ? '★' : '☆'} ${t('quiz.bookmark')}</button>
       </div>
       ${raw(videoBlock(cur).s || '')}
-      ${cur.image || cur.visual ? html`<figure class="scene" style="margin:0 0 16px">${raw(renderVisual(cur))}</figure>` : ''}
-      ${cur.question_type === '½½'
-        ? html`<div class="halfhalf-notice pill pill-info" style="margin-bottom:8px;display:block;text-align:center" lang="ar" dir="rtl">⚡ ${t('quiz.halfhalfHint')}</div>`
-        : ''}
-      <h2 class="question-text" id="qtext" lang="ar" dir="rtl">${cur.text}</h2>
-      <p class="small muted" style="margin-top:-6px">${cur.correct && cur.correct.length > 1 ? t('quiz.multiHint') : ''}</p>
-      <div class="options" role="group" aria-labelledby="qtext">
-        ${cur.options.map((o, i) => {
-          const n = i + 1;
-          let cls = '';
-          let mark = '';
-          if (reveal) {
-            if (correct.has(n)) { cls = 'is-correct'; mark = '✓'; } else if (selected.has(n)) { cls = 'is-wrong'; mark = '✗'; }
-          }
-          return html`<button type="button" class="option ${cls}" data-n="${n}" aria-pressed="${selected.has(n)}" ${ans ? 'disabled' : ''} lang="ar" dir="rtl">
-            <span class="num">${n}</span><span>${o}</span>${mark ? html`<span class="mark" aria-hidden="true">${mark}</span>` : ''}
-            ${reveal && correct.has(n) ? html`<span class="sr-only">${t('quiz.correctAnswer')}</span>` : ''}</button>`;
-        })}
-      </div>
-      <div id="fb">${reveal ? feedback(cur) : ''}</div>
-      <div class="quiz-actions">
-        ${ans
-          ? html`${!exam && idx > 0 ? html`<button class="btn btn-secondary" id="prev">${t('quiz.prev')}</button>` : ''}
-                 <button class="btn btn-primary" id="next">${idx < a.questions.length - 1 ? t('quiz.next') : t('quiz.seeResults')}</button>`
-          : html`<button class="btn btn-secondary" id="clear">${t('quiz.clear')}</button>
-                 <button class="btn btn-primary" id="validate">${t('quiz.validate')}</button>
-                 ${!exam && idx > 0 ? html`<button class="btn btn-ghost" id="prev">${t('quiz.prev')}</button>` : ''}`}
-      </div>`.s;
+      ${cur.image || cur.visual ? html`<figure class="scene" style="margin:0 0 16px">${raw(renderVisual(cur))}</figure>` : ''}`;
 
-    card.querySelectorAll('.option:not([disabled])').forEach((b) => (b.onclick = () => toggle(Number(b.dataset.n))));
+    if (isDouble) {
+      // --- سؤال مزدوج: سؤالان منفصلان ---
+      const sq = cur.sub_questions;
+      const corrA = new Set(sq[0].correct || []);
+      const corrB = new Set(sq[1].correct || []);
+      const selA = isDouble ? selected.a : new Set();
+      const selB = isDouble ? selected.b : new Set();
+
+      card.innerHTML = html`
+        ${header}
+        <p class="small muted" style="margin:0 0 12px" lang="ar" dir="rtl">${t('quiz.doubleHint')}</p>
+        <h2 class="question-text" lang="ar" dir="rtl" style="margin-bottom:4px">${cur.text}</h2>
+        <section style="margin:16px 0;padding:12px;border:2px solid var(--border,#dde);border-radius:10px">
+          <h3 class="small" style="margin:0 0 8px;opacity:.7">${t('quiz.subQ1')}</h3>
+          <p class="question-text" lang="ar" dir="rtl" id="sq1text">${sq[0].text}</p>
+          <div class="options" role="group" aria-labelledby="sq1text">
+            ${raw(renderOptions(sq[0].options, corrA, selA, reveal, !!ans, 'a'))}
+          </div>
+          ${reveal ? html`<div class="feedback ${corrA.size && [...corrA].every((n) => selA.has(n)) && selA.size === corrA.size ? 'ok' : 'ko'}">${[...corrA].join(',')} ${t('quiz.correctAnswer')}</div>` : ''}
+        </section>
+        <section style="margin:16px 0;padding:12px;border:2px solid var(--border,#dde);border-radius:10px">
+          <h3 class="small" style="margin:0 0 8px;opacity:.7">${t('quiz.subQ2')}</h3>
+          <p class="question-text" lang="ar" dir="rtl" id="sq2text">${sq[1].text}</p>
+          <div class="options" role="group" aria-labelledby="sq2text">
+            ${raw(renderOptions(sq[1].options, corrB, selB, reveal, !!ans, 'b'))}
+          </div>
+          ${reveal ? html`<div class="feedback ${corrB.size && [...corrB].every((n) => selB.has(n)) && selB.size === corrB.size ? 'ok' : 'ko'}">${[...corrB].join(',')} ${t('quiz.correctAnswer')}</div>` : ''}
+        </section>
+        <div id="fb">${reveal && ans ? feedbackDouble(cur) : ''}</div>
+        <div class="quiz-actions">
+          ${ans
+            ? html`${!exam && idx > 0 ? html`<button class="btn btn-secondary" id="prev">${t('quiz.prev')}</button>` : ''}
+                   <button class="btn btn-primary" id="next">${idx < a.questions.length - 1 ? t('quiz.next') : t('quiz.seeResults')}</button>`
+            : html`<button class="btn btn-secondary" id="clear">${t('quiz.clear')}</button>
+                   <button class="btn btn-primary" id="validate">${t('quiz.validate')}</button>
+                   ${!exam && idx > 0 ? html`<button class="btn btn-ghost" id="prev">${t('quiz.prev')}</button>` : ''}`}
+        </div>`.s;
+
+      // ربط الأحداث للخيارات المزدوجة
+      card.querySelectorAll('.option:not([disabled])').forEach((b) => {
+        b.onclick = () => {
+          const pre = b.dataset.prefix; const n = Number(b.dataset.n);
+          const set = pre === 'a' ? selected.a : selected.b;
+          if (set.has(n)) set.delete(n); else set.add(n);
+          syncDoubleOptions();
+        };
+      });
+    } else {
+      // --- سؤال منفرد ---
+      const correct = new Set(cur.correct || []);
+      card.innerHTML = html`
+        ${header}
+        <h2 class="question-text" id="qtext" lang="ar" dir="rtl">${cur.text}</h2>
+        <p class="small muted" style="margin-top:-6px">${cur.correct && cur.correct.length > 1 ? t('quiz.multiHint') : ''}</p>
+        <div class="options" role="group" aria-labelledby="qtext">
+          ${raw(renderOptions(cur.options, correct, selected, reveal, !!ans, ''))}
+        </div>
+        <div id="fb">${reveal ? feedback(cur) : ''}</div>
+        <div class="quiz-actions">
+          ${ans
+            ? html`${!exam && idx > 0 ? html`<button class="btn btn-secondary" id="prev">${t('quiz.prev')}</button>` : ''}
+                   <button class="btn btn-primary" id="next">${idx < a.questions.length - 1 ? t('quiz.next') : t('quiz.seeResults')}</button>`
+            : html`<button class="btn btn-secondary" id="clear">${t('quiz.clear')}</button>
+                   <button class="btn btn-primary" id="validate">${t('quiz.validate')}</button>
+                   ${!exam && idx > 0 ? html`<button class="btn btn-ghost" id="prev">${t('quiz.prev')}</button>` : ''}`}
+        </div>`.s;
+
+      card.querySelectorAll('.option:not([disabled])').forEach((b) => (b.onclick = () => toggle(Number(b.dataset.n))));
+    }
+
     card.querySelector('#speak').onclick = () => speak(speechText(cur, idx + 1));
     card.querySelector('#bm').onclick = toggleBookmark;
     const v = card.querySelector('#validate'); if (v) v.onclick = validate;
-    const cl = card.querySelector('#clear'); if (cl) cl.onclick = () => { selected.clear(); syncOptions(); };
+    const cl = card.querySelector('#clear');
+    if (cl) cl.onclick = () => {
+      if (isDouble) { selected.a.clear(); selected.b.clear(); syncDoubleOptions(); }
+      else { selected.clear(); syncOptions(); }
+    };
     const nx = card.querySelector('#next'); if (nx) nx.onclick = next;
     const pv = card.querySelector('#prev'); if (pv) pv.onclick = () => go(idx - 1);
     renderNav();
     shownAt = Date.now();
     if (exam && !ans) startTimer();
-    // Lecture automatique : seulement pour une nouvelle question pas encore répondue.
     if (reading && !ans) speak(speechText(cur, idx + 1), { silent: true });
+  }
+
+  function syncDoubleOptions() {
+    const card = root.querySelector('#qcard');
+    card.querySelectorAll('.option[data-prefix="a"]').forEach((b) => b.setAttribute('aria-pressed', selected.a.has(Number(b.dataset.n))));
+    card.querySelectorAll('.option[data-prefix="b"]').forEach((b) => b.setAttribute('aria-pressed', selected.b.has(Number(b.dataset.n))));
   }
 
   function feedback(cur) {
     const ok = cur.answer.isCorrect;
     return html`<div class="feedback ${ok ? 'ok' : 'ko'}" role="status"><strong>${ok ? '✓ ' + t('quiz.right') : '✗ ' + t('quiz.wrong', { a: (cur.correct || []).join(' + ') })}</strong>
+      <span lang="ar" dir="rtl">${cur.explanation || ''}</span></div>`;
+  }
+
+  function feedbackDouble(cur) {
+    const ok = cur.answer.isCorrect;
+    return html`<div class="feedback ${ok ? 'ok' : 'ko'}" role="status">
+      <strong>${ok ? '✓ ' + t('quiz.right') : '✗ ' + t('quiz.wrong', { a: '' })}</strong>
       <span lang="ar" dir="rtl">${cur.explanation || ''}</span></div>`;
   }
 
@@ -161,19 +246,27 @@ export async function quizView(root, { params }) {
   async function validate({ timeout = false } = {}) {
     const cur = q();
     if (busy || cur.answer) return;
-    if (!selected.size && !timeout && !exam) { toast(t('quiz.pickOne')); return; }
+    const isDouble = cur.is_double && Array.isArray(cur.sub_questions) && cur.sub_questions.length === 2;
+    const hasAnswer = isDouble ? (selected.a.size > 0 || selected.b.size > 0) : selected.size > 0;
+    if (!hasAnswer && !timeout && !exam) { toast(t('quiz.pickOne')); return; }
     busy = true;
     stopTimer();
     stopSpeaking();
     try {
-      const res = await api.post(`/attempts/${a.id}/answers`, { questionId: cur.id, selected: [...selected], timeMs: Date.now() - shownAt });
-      cur.answer = { selected: [...selected] };
+      // إرسال للخادم: السؤال المزدوج يرسل selected_double
+      const payload = isDouble
+        ? { questionId: cur.id, selected: [], selected_double: { a: [...selected.a], b: [...selected.b] }, timeMs: Date.now() - shownAt }
+        : { questionId: cur.id, selected: [...selected], timeMs: Date.now() - shownAt };
+      const res = await api.post(`/attempts/${a.id}/answers`, payload);
+      cur.answer = isDouble
+        ? { selected: [], selected_double: { a: [...selected.a], b: [...selected.b] } }
+        : { selected: [...selected] };
       if (!exam) {
         cur.answer.isCorrect = res.isCorrect;
         cur.correct = res.correct;
         cur.explanation = res.explanation;
         sound.play(res.isCorrect ? 'correct' : 'wrong');
-        live.textContent = res.isCorrect ? t('quiz.right') : t('quiz.wrong', { a: res.correct.join(' + ') });
+        live.textContent = res.isCorrect ? t('quiz.right') : t('quiz.wrong', { a: (res.correct || []).join(' + ') });
         renderQuestion();
         root.querySelector('#next')?.focus();
       } else {
