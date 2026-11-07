@@ -598,7 +598,15 @@ router.post('/schools', adminOnly, wrap(async (req, res) => {
   try { d.exec('ALTER TABLE schools ADD COLUMN owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL'); } catch (_) {}
 
   if (d.prepare('SELECT id FROM schools WHERE code = ?').get(code)) throw bad('slug_taken', { field: 'code' });
-  if (d.prepare('SELECT id FROM users WHERE email = ?').get(email)) throw bad('email_taken', { field: 'email' });
+
+  // إذا كان البريد مستعملاً لكن المستخدم بلا مؤسسة (فشل سابق) → نحذفه ونعيد الإنشاء
+  const existingUser = d.prepare('SELECT id, role, school_id FROM users WHERE email = ?').get(email);
+  if (existingUser) {
+    if (existingUser.school_id) throw bad('email_taken', { field: 'email' }); // مرتبط بمؤسسة حقيقية
+    if (existingUser.role !== 'school') throw bad('email_taken', { field: 'email' }); // مستخدم عادي
+    // مستخدم school يتيم من محاولة فاشلة → حذفه
+    d.prepare('DELETE FROM users WHERE id = ?').run(existingUser.id);
+  }
 
   // إنشاء حساب المؤسسة (role=school) بكلمة سر عشوائية
   const { hashPassword } = auth;

@@ -14,6 +14,13 @@ function esc(s) {
   return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+function errMsg(e) {
+  const code = e?.code || e?.message || '';
+  const known = ['email_taken','slug_taken','invalid_email','invalid_field','invalid_length',
+                 'server_error','not_found','forbidden','already_enrolled','weak_password'];
+  return known.includes(code) ? t('err.' + code) : (e?.message || t('err.server_error'));
+}
+
 function roleBadge(role) {
   const map = { admin: ['badge-error', 'أدمين'], school: ['badge-warning', 'مؤسسة'], instructor: ['badge-info', 'مدرب'], student: ['badge-neutral', 'متعلم'] };
   const [cls, label] = map[role] || ['badge-neutral', role];
@@ -90,11 +97,11 @@ export async function schoolsView(root) {
           try {
             await api.del(`/admin/schools/${btn.dataset.id}`);
             reload();
-          } catch (e) { alert(e.message); }
+          } catch (e) { alert(errMsg(e)); }
         });
       });
     } catch (e) {
-      wrap.querySelector('#schools-list').innerHTML = `<p class="empty">${e.message}</p>`;
+      wrap.querySelector('#schools-list').innerHTML = `<p class="empty">${errMsg(e)}</p>`;
     }
   }
 
@@ -192,7 +199,7 @@ function openSchoolModal(root, school, onSave) {
         overlay.querySelector('#sc-done').onclick = () => { overlay.remove(); onSave?.(); };
       }
     } catch (e) {
-      errP.textContent = e.message || t('common.error');
+      errP.textContent = errMsg(e);
       errP.classList.remove('hidden');
     }
   };
@@ -275,12 +282,12 @@ export async function schoolDetailView(root, ctx) {
           try {
             await api.del(`/admin/schools/${id}/members/${btn.dataset.id}`);
             reload();
-          } catch (e) { alert(e.message); }
+          } catch (e) { alert(errMsg(e)); }
         });
       });
 
     } catch (e) {
-      wrap.innerHTML = `<p class="empty">${e.message}</p>`;
+      wrap.innerHTML = `<p class="empty">${errMsg(e)}</p>`;
     }
   }
 
@@ -372,7 +379,7 @@ function openAddMemberModal(root, schoolId, role, onSave) {
       overlay.querySelector('#mb-pwd').value = '';
       onSave?.();
     } catch (e) {
-      errP.textContent = e.message || t('common.error');
+      errP.textContent = errMsg(e);
       errP.classList.remove('hidden');
     }
   };
@@ -430,7 +437,7 @@ function openEnrollModal(root, schoolId, onSave) {
             overlay.remove();
             onSave?.();
           } catch (e) {
-            errP.textContent = e.message || t('common.error');
+            errP.textContent = errMsg(e);
             errP.classList.remove('hidden');
           }
         });
