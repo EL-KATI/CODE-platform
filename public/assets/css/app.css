@@ -1972,4 +1972,5 @@ dialog::backdrop { background: rgb(12 10 9 / .7); backdrop-filter: blur(4px); }
 .field-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 @media (max-width: 500px) { .field-row-2 { grid-template-columns: 1fr; } }
 .narsa-section { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
+.checkbox-group { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 0; }
 .narsa-form { overflow-y: auto; max-height: 85vh; }

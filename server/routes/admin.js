@@ -590,8 +590,10 @@ router.post('/schools', adminOnly, wrap(async (req, res) => {
   const code    = str(b.code,  { min: 2, max: 30,  field: 'code' }).toUpperCase().replace(/\s+/g, '_');
   const email   = str(b.email, { min: 5, max: 200, field: 'email' }).toLowerCase();
   if (!EMAIL_RE.test(email)) throw bad('invalid_email', { field: 'email' });
-  const phone   = (b.phone   || '').toString().trim().slice(0, 30);
-  const address = (b.address || '').toString().trim().slice(0, 200);
+  const phone       = (b.phone       || '').toString().trim().slice(0, 30);
+  const address     = (b.address     || '').toString().trim().slice(0, 200);
+  const agrementNum = (b.agrement_num  || '').toString().trim().slice(0, 30);
+  const raisonSociale = (b.raison_sociale || '').toString().trim().slice(0, 120);
   const d = db.get();
 
   // ── تهيئة جدول schools وأعمدته (دفاعي، يعمل حتى بدون إعادة تشغيل الخادم) ──
@@ -605,6 +607,8 @@ router.post('/schools', adminOnly, wrap(async (req, res) => {
   // إضافة الأعمدة الجديدة — SQLite لا يقبل NOT NULL في ALTER TABLE
   try { d.exec("ALTER TABLE schools ADD COLUMN email TEXT DEFAULT ''"); } catch (_) {}
   try { d.exec('ALTER TABLE schools ADD COLUMN owner_id INTEGER'); } catch (_) {}
+  try { d.exec("ALTER TABLE schools ADD COLUMN agrement_num TEXT NOT NULL DEFAULT ''"); } catch (_) {}
+  try { d.exec("ALTER TABLE schools ADD COLUMN raison_sociale TEXT NOT NULL DEFAULT ''"); } catch (_) {}
 
   if (d.prepare('SELECT id FROM schools WHERE code = ?').get(code)) throw bad('slug_taken', { field: 'code' });
 
@@ -640,8 +644,8 @@ router.post('/schools', adminOnly, wrap(async (req, res) => {
     console.log('[POST /schools] schools columns:', cols.join(', '));
     let insertSQL, insertParams;
     if (cols.includes('email') && cols.includes('owner_id')) {
-      insertSQL = 'INSERT INTO schools (name, code, email, phone, address, owner_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)';
-      insertParams = [name, code, email, phone, address, ownerId, req.user.id];
+      insertSQL = 'INSERT INTO schools (name, code, email, phone, address, owner_id, created_by, agrement_num, raison_sociale) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
+      insertParams = [name, code, email, phone, address, ownerId, req.user.id, agrementNum, raisonSociale];
     } else {
       insertSQL = 'INSERT INTO schools (name, code, phone, address, created_by) VALUES (?, ?, ?, ?, ?)';
       insertParams = [name, code, phone, address, req.user.id];
@@ -676,10 +680,12 @@ router.patch('/schools/:id', adminOnly, wrap(async (req, res) => {
   const b = req.body || {};
   const d = db.get();
   if (!d.prepare('SELECT id FROM schools WHERE id = ?').get(id)) throw notFound();
-  if (b.name !== undefined) d.prepare('UPDATE schools SET name = ? WHERE id = ?').run(str(b.name, { min: 2, max: 120 }), id);
-  if (b.phone !== undefined) d.prepare('UPDATE schools SET phone = ? WHERE id = ?').run(b.phone.toString().trim().slice(0, 30), id);
+  if (b.name    !== undefined) d.prepare('UPDATE schools SET name    = ? WHERE id = ?').run(str(b.name, { min: 2, max: 120 }), id);
+  if (b.phone   !== undefined) d.prepare('UPDATE schools SET phone   = ? WHERE id = ?').run(b.phone.toString().trim().slice(0, 30), id);
   if (b.address !== undefined) d.prepare('UPDATE schools SET address = ? WHERE id = ?').run(b.address.toString().trim().slice(0, 200), id);
-  if (b.active !== undefined) d.prepare('UPDATE schools SET active = ? WHERE id = ?').run(b.active ? 1 : 0, id);
+  if (b.active  !== undefined) d.prepare('UPDATE schools SET active  = ? WHERE id = ?').run(b.active ? 1 : 0, id);
+  if (b.agrement_num  !== undefined) d.prepare('UPDATE schools SET agrement_num  = ? WHERE id = ?').run(b.agrement_num.toString().trim().slice(0, 30), id);
+  if (b.raison_sociale !== undefined) d.prepare('UPDATE schools SET raison_sociale = ? WHERE id = ?').run(b.raison_sociale.toString().trim().slice(0, 120), id);
   db.audit(req.user.id, 'update', 'school', id, b);
   res.json({ school: d.prepare('SELECT * FROM schools WHERE id = ?').get(id) });
 }));
@@ -719,7 +725,27 @@ router.post('/schools/:id/instructors', schoolOrAdmin, wrap(async (req, res) => 
   const school = d.prepare('SELECT id FROM schools WHERE id = ?').get(schoolId);
   if (!school) throw notFound();
   const b = req.body || {};
-  const name = str(b.name, { min: 2, max: 100, field: 'name' });
+  const firstNameFr = str(b.first_name_fr, { min: 2, max: 60, field: 'first_name_fr' });
+  const lastNameFr  = str(b.last_name_fr,  { min: 2, max: 60, field: 'last_name_fr'  });
+  const firstNameAr = (b.first_name_ar || '').toString().trim().slice(0, 60);
+  const lastNameAr  = (b.last_name_ar  || '').toString().trim().slice(0, 60);
+  const fullName    = b.name || `${firstNameFr} ${lastNameFr}`;
+  const cin         = str(b.cin, { min: 5, max: 20, field: 'cin' }).toUpperCase();
+  const gender      = ['M','F'].includes(b.gender) ? b.gender : 'M';
+  const birthDate   = (b.birth_date || '').toString().trim().slice(0, 10);
+  const birthPlaceFr = (b.birth_place_fr || '').toString().trim().slice(0, 80);
+  const birthPlaceAr = (b.birth_place_ar || '').toString().trim().slice(0, 80);
+  const addressFr   = (b.address_fr || '').toString().trim().slice(0, 200);
+  const addressAr   = (b.address_ar || '').toString().trim().slice(0, 200);
+  const city        = (b.city || '').toString().trim().slice(0, 60);
+  const phone       = (b.phone || '').toString().trim().slice(0, 20);
+  const locale      = ['ar','fr','ar-dialect'].includes(b.locale) ? b.locale : 'ar';
+  // حقول خاصة بالمدرب
+  const pcNum       = (b.pc_num   || '').toString().trim().slice(0, 30);
+  const capNum      = (b.cap_num  || '').toString().trim().slice(0, 30);
+  const instCats    = Array.isArray(b.instructor_categories)
+    ? JSON.stringify(b.instructor_categories.map(String).slice(0, 20))
+    : (b.instructor_categories || '').toString().trim().slice(0, 200);
   const email = str(b.email, { min: 5, max: 200, field: 'email' });
   if (!EMAIL_RE.test(email)) throw bad('invalid_email', { field: 'email' });
   if (d.prepare('SELECT id FROM users WHERE email = ?').get(email)) throw bad('email_taken', { field: 'email' });
@@ -727,12 +753,23 @@ router.post('/schools/:id/instructors', schoolOrAdmin, wrap(async (req, res) => 
   const rawPwd = b.password || Math.random().toString(36).slice(2, 10);
   const hash = await hashPassword(rawPwd);
   const r = d.prepare(`
-    INSERT INTO users (email, name, password_hash, role, school_id)
-    VALUES (?, ?, ?, 'instructor', ?)
-  `).run(email, name, hash, schoolId);
-  db.audit(req.user.id, 'create', 'instructor', r.lastInsertRowid, { school_id: schoolId });
+    INSERT INTO users (
+      email, name, password_hash, role, school_id, locale,
+      gender, cin, first_name_fr, last_name_fr, first_name_ar, last_name_ar,
+      birth_date, birth_place_fr, birth_place_ar,
+      address_fr, address_ar, city, phone,
+      pc_num, cap_num, instructor_categories
+    ) VALUES (?,?,?,'instructor',?,?, ?,?,?,?,?,?, ?,?,?, ?,?,?,?, ?,?,?)
+  `).run(
+    email, fullName, hash, schoolId, locale,
+    gender, cin, firstNameFr, lastNameFr, firstNameAr, lastNameAr,
+    birthDate, birthPlaceFr, birthPlaceAr,
+    addressFr, addressAr, city, phone,
+    pcNum, capNum, instCats
+  );
+  db.audit(req.user.id, 'create', 'instructor', r.lastInsertRowid, { school_id: schoolId, cin });
   res.status(201).json({
-    user: d.prepare('SELECT id, name, email, role, school_id FROM users WHERE id = ?').get(r.lastInsertRowid),
+    user: d.prepare('SELECT id, name, email, role, school_id, cin, pc_num, cap_num FROM users WHERE id = ?').get(r.lastInsertRowid),
     temp_password: b.password ? undefined : rawPwd,
   });
 }));
@@ -764,6 +801,20 @@ router.post('/schools/:id/students', schoolOrAdmin, wrap(async (req, res) => {
   const phone     = (b.phone       || '').toString().trim().slice(0, 20);
   const licenseCat = (b.license_cat || 'B').toString().trim().slice(0, 5);
   const locale    = ['ar','fr','ar-dialect'].includes(b.locale) ? b.locale : 'ar';
+  // حقول التمديد إلى صنف آخر
+  const idType     = ['CIN','CD','CS'].includes(b.id_type) ? b.id_type : 'CIN';
+  const nationality = (b.nationality || 'MAROCAINE').toString().trim().slice(0, 50);
+  const licenseNum  = (b.license_num || '').toString().trim().slice(0, 30);
+  const validCats   = Array.isArray(b.valid_categories)
+    ? JSON.stringify(b.valid_categories.map(String).slice(0, 20))
+    : (b.valid_categories || '').toString().trim().slice(0, 200);
+  const regCenter   = (b.registration_center || '').toString().trim().slice(0, 80);
+  // حقول NARSA — طلب الترشح
+  const narsaReqNum  = (b.narsa_request_num  || '').toString().trim().slice(0, 50);
+  const narsaStatus  = Number.isInteger(Number(b.narsa_status)) ? Number(b.narsa_status) : 0;
+  const narsaSaisie  = (b.narsa_date_saisie  || '').toString().trim().slice(0, 10);
+  const narsaCloture = (b.narsa_date_cloture || '').toString().trim().slice(0, 10);
+  const narsaExamen  = (b.narsa_date_examen  || '').toString().trim().slice(0, 10);
 
   // البريد الإلكتروني — اختياري للمترشح
   const emailRaw = (b.email || '').toString().trim().toLowerCase();
@@ -782,13 +833,17 @@ router.post('/schools/:id/students', schoolOrAdmin, wrap(async (req, res) => {
       email, name, password_hash, role, school_id, locale,
       gender, cin, first_name_fr, last_name_fr, first_name_ar, last_name_ar,
       birth_date, birth_place_fr, birth_place_ar,
-      address_fr, address_ar, city, phone, license_cat
-    ) VALUES (?,?,?,'student',?,?, ?,?,?,?,?,?, ?,?,?, ?,?,?,?,?)
+      address_fr, address_ar, city, phone, license_cat,
+      id_type, nationality, license_num, valid_categories, registration_center,
+      narsa_request_num, narsa_status, narsa_date_saisie, narsa_date_cloture, narsa_date_examen
+    ) VALUES (?,?,?,'student',?,?, ?,?,?,?,?,?, ?,?,?, ?,?,?,?,?, ?,?,?,?,?, ?,?,?,?,?)
   `).run(
     email, fullName, hash, schoolId, locale,
     gender, cin, firstNameFr, lastNameFr, firstNameAr, lastNameAr,
     birthDate, birthPlaceFr, birthPlaceAr,
-    addressFr, addressAr, city, phone, licenseCat
+    addressFr, addressAr, city, phone, licenseCat,
+    idType, nationality, licenseNum, validCats, regCenter,
+    narsaReqNum, narsaStatus, narsaSaisie, narsaCloture, narsaExamen
   );
   db.audit(req.user.id, 'create', 'student', r.lastInsertRowid, { school_id: schoolId, cin });
   res.status(201).json({

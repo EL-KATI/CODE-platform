@@ -31,7 +31,23 @@ CREATE TABLE IF NOT EXISTS users (
   address_ar      TEXT DEFAULT '',        -- العنوان بالعربية
   city            TEXT DEFAULT '',        -- المدينة
   phone           TEXT DEFAULT '',        -- رقم الهاتف
-  license_cat     TEXT DEFAULT 'B'        -- فئة الرخصة المطلوبة
+  license_cat     TEXT DEFAULT 'B',       -- فئة الرخصة المطلوبة
+  -- حقول NARSA — طلب الترشح (Demandes en cours)
+  narsa_request_num TEXT DEFAULT '',      -- رقم الطلب (ex: 7163-KB251477-6412)
+  narsa_status    INTEGER DEFAULT 0,      -- الحالة (1=مقبول 2=جاري 3=مرفوض ...)
+  narsa_date_saisie TEXT DEFAULT '',      -- تاريخ التسجيل YYYY-MM-DD
+  narsa_date_cloture TEXT DEFAULT '',     -- تاريخ الإغلاق YYYY-MM-DD
+  narsa_date_examen  TEXT DEFAULT '',     -- تاريخ الامتحان YYYY-MM-DD
+  -- حقول التمديد إلى صنف آخر
+  id_type         TEXT DEFAULT 'CIN' CHECK (id_type IN ('CIN','CD','CS') OR id_type IS NULL),
+  nationality     TEXT DEFAULT 'MAROCAINE', -- الجنسية
+  license_num     TEXT DEFAULT '',        -- رقم رخصة السياقة (Numéro du permis)
+  valid_categories TEXT DEFAULT '',       -- الفئات المرخصة حالياً JSON: ["A","B",...]
+  registration_center TEXT DEFAULT '',    -- Centre Immatriculateur de dépôt
+  -- حقول المدرب (Moniteur)
+  pc_num          TEXT DEFAULT '',        -- رقم الملف (PC)
+  cap_num         TEXT DEFAULT '',        -- رقم التأهيل (CAP)
+  instructor_categories TEXT DEFAULT ''  -- فئات تأهيل المدرب JSON: ["A","B","C",...]
 );
 
 CREATE TABLE IF NOT EXISTS settings (
@@ -172,6 +188,8 @@ CREATE TABLE IF NOT EXISTS schools (
   address     TEXT    NOT NULL DEFAULT '',
   active      INTEGER NOT NULL DEFAULT 1,
   owner_id    INTEGER,                   -- حساب المؤسسة (FK يُضاف بعد users)
+  agrement_num TEXT   NOT NULL DEFAULT '', -- رقم الاعتماد (Numéro d'agrément)
+  raison_sociale TEXT NOT NULL DEFAULT '', -- الاسم التجاري (Raison sociale)
   created_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
 );
@@ -286,7 +304,22 @@ function open(file = config.dbFile) {
   if (!userCols.includes('address_ar'))    db.exec("ALTER TABLE users ADD COLUMN address_ar TEXT DEFAULT ''");
   if (!userCols.includes('city'))          db.exec("ALTER TABLE users ADD COLUMN city TEXT DEFAULT ''");
   if (!userCols.includes('phone'))         db.exec("ALTER TABLE users ADD COLUMN phone TEXT DEFAULT ''");
-  if (!userCols.includes('license_cat'))   db.exec("ALTER TABLE users ADD COLUMN license_cat TEXT DEFAULT 'B'");
+  if (!userCols.includes('license_cat'))        db.exec("ALTER TABLE users ADD COLUMN license_cat TEXT DEFAULT 'B'");
+  if (!userCols.includes('narsa_request_num'))  db.exec("ALTER TABLE users ADD COLUMN narsa_request_num TEXT DEFAULT ''");
+  if (!userCols.includes('narsa_status'))       db.exec("ALTER TABLE users ADD COLUMN narsa_status INTEGER DEFAULT 0");
+  if (!userCols.includes('narsa_date_saisie'))  db.exec("ALTER TABLE users ADD COLUMN narsa_date_saisie TEXT DEFAULT ''");
+  if (!userCols.includes('narsa_date_cloture')) db.exec("ALTER TABLE users ADD COLUMN narsa_date_cloture TEXT DEFAULT ''");
+  if (!userCols.includes('narsa_date_examen'))      db.exec("ALTER TABLE users ADD COLUMN narsa_date_examen TEXT DEFAULT ''");
+  // حقول التمديد إلى صنف آخر
+  if (!userCols.includes('id_type'))                db.exec("ALTER TABLE users ADD COLUMN id_type TEXT DEFAULT 'CIN'");
+  if (!userCols.includes('nationality'))            db.exec("ALTER TABLE users ADD COLUMN nationality TEXT DEFAULT 'MAROCAINE'");
+  if (!userCols.includes('license_num'))            db.exec("ALTER TABLE users ADD COLUMN license_num TEXT DEFAULT ''");
+  if (!userCols.includes('valid_categories'))       db.exec("ALTER TABLE users ADD COLUMN valid_categories TEXT DEFAULT ''");
+  if (!userCols.includes('registration_center'))    db.exec("ALTER TABLE users ADD COLUMN registration_center TEXT DEFAULT ''");
+  // حقول المدرب
+  if (!userCols.includes('pc_num'))                 db.exec("ALTER TABLE users ADD COLUMN pc_num TEXT DEFAULT ''");
+  if (!userCols.includes('cap_num'))                db.exec("ALTER TABLE users ADD COLUMN cap_num TEXT DEFAULT ''");
+  if (!userCols.includes('instructor_categories'))  db.exec("ALTER TABLE users ADD COLUMN instructor_categories TEXT DEFAULT ''");
   // Migration: نظّف أي جداول مؤقتة تُركت من migrations فاشلة سابقة
   try {
     const tmpTables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '_users_old%'").all();
@@ -324,6 +357,14 @@ function open(file = config.dbFile) {
     if (!schoolsCols.includes('owner_id')) {
       db.exec('ALTER TABLE schools ADD COLUMN owner_id INTEGER');
       console.log('[db] migration: added schools.owner_id');
+    }
+    if (!schoolsCols.includes('agrement_num')) {
+      db.exec("ALTER TABLE schools ADD COLUMN agrement_num TEXT NOT NULL DEFAULT ''");
+      console.log('[db] migration: added schools.agrement_num');
+    }
+    if (!schoolsCols.includes('raison_sociale')) {
+      db.exec("ALTER TABLE schools ADD COLUMN raison_sociale TEXT NOT NULL DEFAULT ''");
+      console.log('[db] migration: added schools.raison_sociale');
     }
   }
 

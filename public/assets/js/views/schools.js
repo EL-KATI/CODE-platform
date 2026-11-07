@@ -133,6 +133,16 @@ function openSchoolModal(root, school, onSave) {
         <input type="email" id="sc-email" value="" maxlength="200" placeholder="autoecole@example.com" />
         <small>${t('schools.emailHelp')}</small>
       </label>` : ''}
+      <div class="field-row-2">
+        <label class="field">
+          <span>${t('schools.agrementNum')}</span>
+          <input type="text" id="sc-agrement" value="${esc(school?.agrement_num || '')}" maxlength="30" placeholder="7163" />
+        </label>
+        <label class="field">
+          <span>${t('schools.raisonSociale')}</span>
+          <input type="text" id="sc-raison" value="${esc(school?.raison_sociale || '')}" maxlength="120" placeholder="NFISSI HAMZA" />
+        </label>
+      </div>
       <label class="field">
         <span>${t('schools.phone')}</span>
         <input type="tel" id="sc-phone" value="${esc(school?.phone || '')}" maxlength="30" />
@@ -160,9 +170,11 @@ function openSchoolModal(root, school, onSave) {
   overlay.querySelector('#sc-save').onclick = async () => {
     errP.classList.add('hidden');
     const body = {
-      name: overlay.querySelector('#sc-name').value.trim(),
-      phone: overlay.querySelector('#sc-phone').value.trim(),
-      address: overlay.querySelector('#sc-address').value.trim(),
+      name:          overlay.querySelector('#sc-name').value.trim(),
+      phone:         overlay.querySelector('#sc-phone').value.trim(),
+      address:       overlay.querySelector('#sc-address').value.trim(),
+      agrement_num:  overlay.querySelector('#sc-agrement')?.value.trim() || '',
+      raison_sociale: overlay.querySelector('#sc-raison')?.value.trim() || '',
     };
     if (!isEdit) {
       body.code  = overlay.querySelector('#sc-code').value.trim();
@@ -337,19 +349,86 @@ function openAddMemberModal(root, schoolId, role, onSave) {
       <h3>${isInstructor ? t('schools.addInstructor') : t('schools.addStudentNew')}</h3>
 
       ${isInstructor ? `
-        <!-- نموذج المدرب: بسيط -->
-        <label class="field">
-          <span>${t('admin.name')} *</span>
-          <input type="text" id="mb-name" maxlength="100" />
-        </label>
-        <label class="field">
-          <span>${t('auth.email')} *</span>
-          <input type="email" id="mb-email" />
-        </label>
-        <label class="field">
-          <span>${t('auth.password')} (${t('common.optional')})</span>
-          <input type="text" id="mb-pwd" placeholder="${t('schools.autoPassword')}" />
-        </label>
+        <!-- نموذج المدرب: حقول NARSA الكاملة -->
+        <div class="narsa-section">
+          <div class="field-row-2">
+            <label class="field">
+              <span>${t('student.firstNameFr')} *</span>
+              <input type="text" id="mb-first-fr" maxlength="60" placeholder="Prénom" />
+            </label>
+            <label class="field">
+              <span>${t('student.lastNameFr')} *</span>
+              <input type="text" id="mb-last-fr" maxlength="60" placeholder="Nom" />
+            </label>
+          </div>
+          <div class="field-row-2">
+            <label class="field">
+              <span>${t('student.firstNameAr')}</span>
+              <input type="text" id="mb-first-ar" maxlength="60" placeholder="الاسم الشخصي" dir="rtl" />
+            </label>
+            <label class="field">
+              <span>${t('student.lastNameAr')}</span>
+              <input type="text" id="mb-last-ar" maxlength="60" placeholder="النسب" dir="rtl" />
+            </label>
+          </div>
+          <div class="field-row-2">
+            <label class="field">
+              <span>${t('student.gender')} *</span>
+              <select id="mb-gender">
+                <option value="M">${t('student.male')}</option>
+                <option value="F">${t('student.female')}</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>${t('student.cin')} *</span>
+              <input type="text" id="mb-cin" maxlength="20" placeholder="AB123456" style="text-transform:uppercase" />
+            </label>
+          </div>
+          <div class="field-row-2">
+            <label class="field">
+              <span>${t('student.birthDate')}</span>
+              <input type="date" id="mb-birth-date" />
+            </label>
+            <label class="field">
+              <span>${t('student.birthPlaceFr')}</span>
+              <input type="text" id="mb-birth-place-fr" maxlength="80" placeholder="Lieu de naissance" />
+            </label>
+          </div>
+          <div class="field-row-2">
+            <label class="field">
+              <span>${t('student.phone')}</span>
+              <input type="tel" id="mb-phone" maxlength="20" placeholder="0600000000" />
+            </label>
+            <label class="field">
+              <span>${t('auth.email')} *</span>
+              <input type="email" id="mb-email" />
+            </label>
+          </div>
+          <div class="field-row-2">
+            <label class="field">
+              <span>${t('instructor.pcNum')}</span>
+              <input type="text" id="mb-pc-num" maxlength="30" placeholder="11/317275" />
+            </label>
+            <label class="field">
+              <span>${t('instructor.capNum')}</span>
+              <input type="text" id="mb-cap-num" maxlength="30" placeholder="11871" />
+            </label>
+          </div>
+          <label class="field">
+            <span>${t('instructor.categories')}</span>
+            <div class="checkbox-group" id="mb-inst-cats">
+              ${['A','A1','B','C','D','EB','EC','ED'].map(c =>
+                `<label style="display:inline-flex;gap:4px;align-items:center;margin-left:8px">
+                  <input type="checkbox" value="${c}" /> ${c}
+                </label>`
+              ).join('')}
+            </div>
+          </label>
+          <label class="field">
+            <span>${t('auth.password')} (${t('common.optional')})</span>
+            <input type="text" id="mb-pwd" placeholder="${t('schools.autoPassword')}" />
+          </label>
+        </div>
       ` : `
         <!-- نموذج المتعلم: حقول NARSA الكاملة -->
         <div class="narsa-section">
@@ -430,7 +509,12 @@ function openAddMemberModal(root, schoolId, role, onSave) {
               <select id="mb-license-cat">
                 <option value="B">B — سيارة</option>
                 <option value="A">A — دراجة نارية</option>
+                <option value="A1">A1 — دراجة صغيرة</option>
                 <option value="C">C — شاحنة</option>
+                <option value="D">D — حافلة</option>
+                <option value="EB">EB</option>
+                <option value="EC">EC</option>
+                <option value="ED">ED</option>
               </select>
             </label>
             <label class="field">
@@ -442,6 +526,76 @@ function openAddMemberModal(root, schoolId, role, onSave) {
               </select>
             </label>
           </div>
+          <!-- حقول التمديد إلى صنف آخر (Extension de catégories) -->
+          <details style="margin-top:8px">
+            <summary style="cursor:pointer;font-size:0.85em;color:var(--primary)">${t('student.extensionSection')}</summary>
+            <div class="narsa-section" style="margin-top:8px">
+              <div class="field-row-2">
+                <label class="field">
+                  <span>${t('student.idType')}</span>
+                  <select id="mb-id-type">
+                    <option value="CIN">CIN</option>
+                    <option value="CD">CD</option>
+                    <option value="CS">CS</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>${t('student.nationality')}</span>
+                  <input type="text" id="mb-nationality" maxlength="50" value="MAROCAINE" />
+                </label>
+              </div>
+              <div class="field-row-2">
+                <label class="field">
+                  <span>${t('student.licenseNum')}</span>
+                  <input type="text" id="mb-license-num" maxlength="30" placeholder="رقم رخصة السياقة" />
+                </label>
+                <label class="field">
+                  <span>${t('student.regCenter')}</span>
+                  <input type="text" id="mb-reg-center" maxlength="80" placeholder="TANGER" />
+                </label>
+              </div>
+              <label class="field">
+                <span>${t('student.validCats')}</span>
+                <div class="checkbox-group" id="mb-valid-cats">
+                  ${['A1','A','B','C','D','EB','EC','ED'].map(c =>
+                    `<label style="display:inline-flex;gap:4px;align-items:center;margin-left:8px">
+                      <input type="checkbox" name="valid-cat" value="${c}" /> ${c}
+                    </label>`
+                  ).join('')}
+                </div>
+              </label>
+            </div>
+          </details>
+          <!-- حقول NARSA — طلب الترشح -->
+          <details style="margin-top:8px">
+            <summary style="cursor:pointer;font-size:0.85em;color:var(--primary)">${t('student.narsaSection')}</summary>
+            <div class="narsa-section" style="margin-top:8px">
+              <div class="field-row-2">
+                <label class="field">
+                  <span>${t('student.narsaRequestNum')}</span>
+                  <input type="text" id="mb-narsa-req" maxlength="50" placeholder="7163-KB251477-6412" />
+                </label>
+                <label class="field">
+                  <span>${t('student.narsaStatus')}</span>
+                  <input type="number" id="mb-narsa-status" min="0" max="99" value="0" />
+                </label>
+              </div>
+              <div class="field-row-2">
+                <label class="field">
+                  <span>${t('student.narsaDateSaisie')}</span>
+                  <input type="date" id="mb-narsa-saisie" />
+                </label>
+                <label class="field">
+                  <span>${t('student.narsaDateCloture')}</span>
+                  <input type="date" id="mb-narsa-cloture" />
+                </label>
+              </div>
+              <label class="field">
+                <span>${t('student.narsaDateExamen')}</span>
+                <input type="date" id="mb-narsa-examen" />
+              </label>
+            </div>
+          </details>
         </div>
       `}
 
@@ -463,30 +617,55 @@ function openAddMemberModal(root, schoolId, role, onSave) {
     let endpoint, body;
     if (isInstructor) {
       endpoint = `/admin/schools/${schoolId}/instructors`;
+      const instCats = [...overlay.querySelectorAll('#mb-inst-cats input:checked')].map(cb => cb.value);
       body = {
-        name:     overlay.querySelector('#mb-name').value.trim(),
-        email:    overlay.querySelector('#mb-email').value.trim(),
-        password: overlay.querySelector('#mb-pwd').value.trim() || undefined,
+        first_name_fr:          overlay.querySelector('#mb-first-fr').value.trim(),
+        last_name_fr:           overlay.querySelector('#mb-last-fr').value.trim(),
+        first_name_ar:          overlay.querySelector('#mb-first-ar').value.trim(),
+        last_name_ar:           overlay.querySelector('#mb-last-ar').value.trim(),
+        gender:                 overlay.querySelector('#mb-gender').value,
+        cin:                    overlay.querySelector('#mb-cin').value.trim().toUpperCase(),
+        birth_date:             overlay.querySelector('#mb-birth-date').value,
+        birth_place_fr:         overlay.querySelector('#mb-birth-place-fr').value.trim(),
+        phone:                  overlay.querySelector('#mb-phone').value.trim(),
+        email:                  overlay.querySelector('#mb-email').value.trim(),
+        pc_num:                 overlay.querySelector('#mb-pc-num').value.trim(),
+        cap_num:                overlay.querySelector('#mb-cap-num').value.trim(),
+        instructor_categories:  instCats,
+        password:               overlay.querySelector('#mb-pwd').value.trim() || undefined,
       };
     } else {
       endpoint = `/admin/schools/${schoolId}/students`;
+      const validCats = [...overlay.querySelectorAll('[name="valid-cat"]:checked')].map(cb => cb.value);
       body = {
-        first_name_fr:  overlay.querySelector('#mb-first-fr').value.trim(),
-        last_name_fr:   overlay.querySelector('#mb-last-fr').value.trim(),
-        first_name_ar:  overlay.querySelector('#mb-first-ar').value.trim(),
-        last_name_ar:   overlay.querySelector('#mb-last-ar').value.trim(),
-        gender:         overlay.querySelector('#mb-gender').value,
-        cin:            overlay.querySelector('#mb-cin').value.trim().toUpperCase(),
-        birth_date:     overlay.querySelector('#mb-birth-date').value,
-        birth_place_fr: overlay.querySelector('#mb-birth-place-fr').value.trim(),
-        birth_place_ar: overlay.querySelector('#mb-birth-place-ar').value.trim(),
-        address_fr:     overlay.querySelector('#mb-addr-fr').value.trim(),
-        address_ar:     overlay.querySelector('#mb-addr-ar').value.trim(),
-        city:           overlay.querySelector('#mb-city').value.trim(),
-        phone:          overlay.querySelector('#mb-phone').value.trim(),
-        email:          overlay.querySelector('#mb-email').value.trim(),
-        license_cat:    overlay.querySelector('#mb-license-cat').value,
-        locale:         overlay.querySelector('#mb-locale').value,
+        first_name_fr:      overlay.querySelector('#mb-first-fr').value.trim(),
+        last_name_fr:       overlay.querySelector('#mb-last-fr').value.trim(),
+        first_name_ar:      overlay.querySelector('#mb-first-ar').value.trim(),
+        last_name_ar:       overlay.querySelector('#mb-last-ar').value.trim(),
+        gender:             overlay.querySelector('#mb-gender').value,
+        cin:                overlay.querySelector('#mb-cin').value.trim().toUpperCase(),
+        birth_date:         overlay.querySelector('#mb-birth-date').value,
+        birth_place_fr:     overlay.querySelector('#mb-birth-place-fr').value.trim(),
+        birth_place_ar:     overlay.querySelector('#mb-birth-place-ar').value.trim(),
+        address_fr:         overlay.querySelector('#mb-addr-fr').value.trim(),
+        address_ar:         overlay.querySelector('#mb-addr-ar').value.trim(),
+        city:               overlay.querySelector('#mb-city').value.trim(),
+        phone:              overlay.querySelector('#mb-phone').value.trim(),
+        email:              overlay.querySelector('#mb-email').value.trim(),
+        license_cat:        overlay.querySelector('#mb-license-cat').value,
+        locale:             overlay.querySelector('#mb-locale').value,
+        // تمديد الصنف
+        id_type:            overlay.querySelector('#mb-id-type')?.value || 'CIN',
+        nationality:        overlay.querySelector('#mb-nationality')?.value.trim() || 'MAROCAINE',
+        license_num:        overlay.querySelector('#mb-license-num')?.value.trim() || '',
+        registration_center: overlay.querySelector('#mb-reg-center')?.value.trim() || '',
+        valid_categories:   validCats,
+        // حقول NARSA
+        narsa_request_num:  overlay.querySelector('#mb-narsa-req')?.value.trim() || '',
+        narsa_status:       Number(overlay.querySelector('#mb-narsa-status')?.value) || 0,
+        narsa_date_saisie:  overlay.querySelector('#mb-narsa-saisie')?.value || '',
+        narsa_date_cloture: overlay.querySelector('#mb-narsa-cloture')?.value || '',
+        narsa_date_examen:  overlay.querySelector('#mb-narsa-examen')?.value || '',
       };
     }
 
