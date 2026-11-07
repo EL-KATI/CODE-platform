@@ -29,6 +29,8 @@ applyTheme(getTheme());
 // --- En-tête -----------------------------------------------------------------------
 function navLinks() {
   const u = store.user;
+  // الأدمن: يرى فقط لوحة الإدارة وليس صفحات المتعلم
+  if (u && store.isAdmin()) return [['/admin', 'nav.admin']];
   const links = u
     ? [['/dashboard', 'nav.dashboard'], ['/lessons', 'nav.lessons'], ['/practice', 'nav.practice'], ['/exam', 'nav.exam'], ['/mistakes', 'nav.mistakes']]
     : [['/', 'nav.home'], ['/lessons', 'nav.lessons'], ['/login', 'nav.login']];
@@ -104,8 +106,11 @@ export function renderShell() {
 // --- Gardes de navigation ---------------------------------------------------------
 setNavigateHook(async ({ route: r, path }) => {
   if (r.opts.auth && !store.user) { navigate(`/login?next=${encodeURIComponent(path + location.search)}`, { replace: true }); return false; }
-  if (r.opts.roles && !r.opts.roles.includes(store.user?.role)) { navigate('/dashboard', { replace: true }); return false; }
-  if (r.opts.guest && store.user) { navigate('/dashboard', { replace: true }); return false; }
+  if (r.opts.roles && !r.opts.roles.includes(store.user?.role)) {
+    // الأدمن يُوجَّه للوحة الإدارة، غيره للداشبورد
+    navigate(store.isAdmin() ? '/admin' : '/dashboard', { replace: true }); return false;
+  }
+  if (r.opts.guest && store.user) { navigate(store.isAdmin() ? '/admin' : '/dashboard', { replace: true }); return false; }
   renderShell();
   app.innerHTML = '';
   window.scrollTo(0, 0);
@@ -117,6 +122,8 @@ setNavigateHook(async ({ route: r, path }) => {
 const view = (fn) => (ctx) => fn(app, ctx);
 const staff = { auth: true, roles: ['instructor', 'admin'] };
 const adminOnly = { auth: true, roles: ['admin'] };
+// صفحات المتعلم: مسموح للجميع ما عدا الأدمن
+const learner = { auth: true, roles: ['student', 'instructor'] };
 
 route('/', view(homeView));
 route('/login', view(loginView), { guest: true });
@@ -124,12 +131,12 @@ route('/register', view(registerView), { guest: true });
 route('/dashboard', view(dashboardView), { auth: true });
 route('/lessons', view(lessonsView));
 route('/lessons/:slug', view(lessonView));
-route('/practice', view(practiceView), { auth: true });
-route('/exam', view(examIntroView), { auth: true });
-route('/quiz/:id', view(quizView), { auth: true });
-route('/results/:id', view(resultsView), { auth: true });
-route('/mistakes', view(mistakesView), { auth: true });
-route('/history', view(historyView), { auth: true });
+route('/practice', view(practiceView), learner);
+route('/exam', view(examIntroView), learner);
+route('/quiz/:id', view(quizView), learner);
+route('/results/:id', view(resultsView), learner);
+route('/mistakes', view(mistakesView), learner);
+route('/history', view(historyView), learner);
 route('/profile', view(profileView), { auth: true });
 route('/privacy', view(privacyView));
 route('/admin', view(admin.statsView), staff);

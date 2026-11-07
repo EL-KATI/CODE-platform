@@ -5,6 +5,8 @@ import { store } from '../store.js';
 import { progressBar, ring, modeLabel, scorePill, startAttempt } from './common.js';
 
 export async function dashboardView(root) {
+  // الأدمن لا يملك داشبورد متعلم — يُوجَّه مباشرة للإدارة
+  if (store.isAdmin()) { const { navigate } = await import('../router.js'); navigate('/admin', { replace: true }); return; }
   root.innerHTML = loading().s;
   const d = await api.get('/me/dashboard');
   const u = store.user;
