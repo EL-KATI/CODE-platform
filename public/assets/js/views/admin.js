@@ -101,6 +101,8 @@ export async function questionsView(root, { query }) {
             <td><span class="pill pill-${r.status}">${t('status.' + r.status)}</span></td>
             <td>${r.success ?? '—'}${r.success != null ? '%' : ''}</td>
             <td class="row" style="gap:4px;justify-content:flex-end">
+              <a class="btn btn-ghost btn-sm" href="/admin/questions/${r.id}" title="${t('common.edit')}">✏️</a>
+              <button class="btn btn-ghost btn-sm q-preview-btn" data-id="${r.id}" title="${t('admin.preview')}">👁</button>
               ${!isHidden && !isArchived ? html`<button class="btn btn-ghost btn-sm q-status-btn" data-id="${r.id}" data-status="draft" title="${t('admin.hide')}">🙈</button>` : ''}
               ${isHidden ? html`<button class="btn btn-ghost btn-sm q-status-btn" data-id="${r.id}" data-status="published" title="${t('admin.publish')}">👁️</button>` : ''}
               ${!isArchived ? html`<button class="btn btn-ghost btn-sm q-status-btn" data-id="${r.id}" data-status="archived" title="${t('admin.archive')}">📦</button>` : ''}
@@ -135,7 +137,61 @@ export async function questionsView(root, { query }) {
         } catch (err) { toast(errorMessage(err), 'error'); }
       };
     });
+    // أزرار معاينة السؤال
+    root.querySelectorAll('.q-preview-btn').forEach((btn) => {
+      btn.onclick = async () => {
+        try {
+          const qd = await api.get(`/admin/questions/${btn.dataset.id}`);
+          showQuestionPreview(qd);
+        } catch (err) { toast(errorMessage(err), 'error'); }
+      };
+    });
   });
+}
+
+function openPreviewModal(title, bodyHtml) {
+  const existing = document.getElementById('admin-preview-modal');
+  if (existing) existing.remove();
+  const modal = document.createElement('div');
+  modal.id = 'admin-preview-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px';
+  modal.innerHTML = `<div style="background:var(--surface,#fff);border-radius:14px;max-width:680px;width:100%;max-height:90vh;overflow:auto;padding:24px;position:relative">
+    <button id="preview-close" style="position:absolute;top:12px;left:12px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--text-muted)">✕</button>
+    <div style="font-size:.8rem;color:var(--text-muted);margin-bottom:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">${t('admin.preview')}</div>
+    <h2 style="margin:0 0 16px;font-size:1.1rem" dir="rtl">${title}</h2>
+    ${bodyHtml}
+  </div>`;
+  document.body.appendChild(modal);
+  modal.querySelector('#preview-close').onclick = () => modal.remove();
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+}
+
+function showSeriesPreview(title, questions, total) {
+  const items = questions.map((q, i) => `<div style="border:1px solid var(--border,#ddd);border-radius:10px;padding:12px 14px;margin-bottom:10px">
+    <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:6px">${t('admin.question')} ${i + 1}</div>
+    ${q.image ? `<img src="${q.image}" alt="" style="width:100%;max-height:140px;object-fit:contain;border-radius:6px;margin-bottom:8px">` : ''}
+    <p dir="rtl" style="margin:0 0 8px;font-weight:600;font-size:.95rem">${q.text}</p>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      ${(q.options || []).map((o, oi) => `<div dir="rtl" style="padding:5px 10px;border-radius:6px;font-size:.88rem;background:${(q.correct || []).includes(oi + 1) ? 'rgba(22,163,74,.12)' : 'var(--surface2,#f4f4f5)'}">
+        <span style="font-weight:600">${oi + 1}.</span> ${o} ${(q.correct || []).includes(oi + 1) ? '✓' : ''}
+      </div>`).join('')}
+    </div>
+  </div>`).join('');
+  const footer = total > questions.length ? `<p class="muted small" style="text-align:center;margin-top:8px">... و${total - questions.length} سؤال آخر</p>` : '';
+  openPreviewModal(title, items + footer);
+}
+
+function showQuestionPreview(q) {
+  const opts = (q.options || []).map((o, i) => `<div style="padding:8px 12px;border:1px solid var(--border,#ddd);border-radius:8px;margin-bottom:6px;display:flex;gap:10px;align-items:center">
+    <span style="font-weight:700;min-width:20px">${i + 1}</span>
+    <span dir="rtl" style="flex:1">${o}</span>
+    ${(q.correct || []).includes(i + 1) ? '<span style="color:#16a34a">✓</span>' : ''}
+  </div>`).join('');
+  openPreviewModal(`${t('admin.question')} #${q.id}`, `
+    ${q.image ? `<img src="${q.image}" alt="" style="width:100%;max-height:200px;object-fit:contain;border-radius:8px;margin-bottom:12px">` : ''}
+    <p dir="rtl" style="font-size:1.05rem;font-weight:600;margin:0 0 16px;line-height:1.6">${q.text}</p>
+    <div>${opts}</div>
+    ${q.explanation ? `<div style="margin-top:16px;padding:12px;background:var(--surface2,#f4f4f5);border-radius:8px;font-size:.9rem" dir="rtl">💡 ${q.explanation}</div>` : ''}`);
 }
 
 export async function questionEditView(root, { params }) {
@@ -254,6 +310,7 @@ function renderForm(root, cats, q, catId, startDouble, isNew, params) {
 
       <div class="row">
         <button class="btn btn-primary" type="submit">${t('common.save')}</button>
+        <button class="btn btn-secondary" type="button" id="q-preview-inline">👁 ${t('admin.preview')}</button>
         ${isNew ? '' : html`<button class="btn btn-danger" type="button" id="q-del">${t('common.delete')}</button>`}
       </div>
     </form>`);
@@ -331,6 +388,19 @@ function renderForm(root, cats, q, catId, startDouble, isNew, params) {
       toast(t('common.saved')); navigate('/admin/questions');
     } catch (err) { toast(errorMessage(err), 'error'); }
   };
+  root.querySelector('#q-preview-inline').onclick = () => {
+    const isDoubleNow = val(form, 'is_double') === '1';
+    const opts = isDoubleNow ? [] : val(form, 'options').split('\n').map((s) => s.trim()).filter(Boolean);
+    const corr = isDoubleNow ? [] : val(form, 'correct').split(',').map((s) => Number(s.trim())).filter(Boolean);
+    showQuestionPreview({
+      id: params.id || 'جديد',
+      text: val(form, 'text'),
+      options: opts,
+      correct: corr,
+      explanation: val(form, 'explanation'),
+      image: val(form, 'image').trim() || null,
+    });
+  };
   const del = root.querySelector('#q-del');
   if (del) del.onclick = async () => {
     if (!(await confirmDialog(t('admin.confirmDelete'), { danger: true }))) return;
@@ -351,10 +421,18 @@ export async function seriesView(root) {
           <td><span class="pill ${s.published ? 'pill-success' : 'pill-warning'}">${s.published ? t('admin.visible') : t('admin.hidden')}</span></td>
           <td class="row" style="gap:6px;flex-wrap:wrap">
             <a class="btn btn-secondary btn-sm" href="/admin/series/${s.id}">${t('common.edit')}</a>
+            <button class="btn btn-ghost btn-sm series-preview-btn" data-id="${s.id}" data-title="${s.title}" type="button">👁 ${t('admin.preview')}</button>
             <button class="btn btn-secondary btn-sm" data-toggle="${s.id}" type="button">${s.published ? '🚫 ' + t('admin.hide') : '👁️ ' + t('admin.show')}</button>
             <button class="btn btn-danger btn-sm" data-del="${s.id}" type="button">${t('common.delete')}</button></td></tr>`)
           : html`<tr><td colspan="5" class="muted">${t('common.none')}</td></tr>`}
       </tbody></table></div>`);
+    root.querySelectorAll('.series-preview-btn').forEach((b) => b.onclick = async () => {
+      try {
+        const series = list.find((x) => String(x.id) === b.dataset.id);
+        const qs = await Promise.all((series.questionIds || []).slice(0, 10).map((id) => api.get(`/admin/questions/${id}`)));
+        showSeriesPreview(b.dataset.title, qs, series.questionIds.length);
+      } catch (err) { toast(errorMessage(err), 'error'); }
+    });
     root.querySelectorAll('[data-toggle]').forEach((b) => b.onclick = async () => {
       const s = list.find((x) => String(x.id) === b.dataset.toggle);
       b.disabled = true;
@@ -504,10 +582,36 @@ export async function lessonsAdminView(root) {
     const list = await api.get('/admin/lessons');
     shell(root, '/admin/lessons', html`
       <div class="row" style="margin-bottom:16px"><span class="spacer"></span><a class="btn btn-primary" href="/admin/lessons/new">+ ${t('common.new')}</a></div>
-      <div class="card" style="overflow:auto"><table class="table"><tbody>
-        ${list.map((l) => html`<tr><td>${l.sort}</td><td><a href="/admin/lessons/${l.id}">${l.title}</a></td><td>${l.slug}</td><td>${l.published ? '✓' : '—'}</td></tr>`)}
+      <div class="card" style="overflow:auto"><table class="table"><thead><tr><th>#</th><th>${t('admin.title_fr')}</th><th>slug</th><th>${t('admin.status')}</th><th></th></tr></thead><tbody>
+        ${list.map((l) => html`<tr style="${l.published ? '' : 'opacity:.6'}">
+          <td>${l.sort}</td>
+          <td><a href="/admin/lessons/${l.id}">${l.title}</a></td>
+          <td class="small muted">${l.slug}</td>
+          <td>${l.published ? html`<span class="pill pill-success">${t('admin.visible')}</span>` : html`<span class="pill">${t('admin.hidden')}</span>`}</td>
+          <td class="row" style="gap:6px;justify-content:flex-end">
+            <a class="btn btn-secondary btn-sm" href="/admin/lessons/${l.id}">${t('common.edit')}</a>
+            <button class="btn btn-ghost btn-sm lesson-preview-btn" data-id="${l.id}" type="button">👁 ${t('admin.preview')}</button>
+          </td>
+        </tr>`)}
       </tbody></table></div>`);
+    root.querySelectorAll('.lesson-preview-btn').forEach((b) => b.onclick = async () => {
+      try {
+        const lessons = await api.get('/admin/lessons');
+        const l = lessons.find((x) => String(x.id) === b.dataset.id);
+        if (l) showLessonPreview(l);
+      } catch (err) { toast(errorMessage(err), 'error'); }
+    });
   });
+}
+
+function showLessonPreview(l) {
+  openPreviewModal(l.title, `
+    ${l.summary ? `<p class="muted" dir="rtl" style="margin:0 0 16px;font-style:italic">${l.summary}</p>` : ''}
+    <div dir="rtl" style="line-height:1.9;font-size:.95rem;white-space:pre-wrap">${l.body || '<span class="muted">— لا يوجد محتوى —</span>'}</div>
+    <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border,#ddd);display:flex;gap:16px;font-size:.8rem;color:var(--text-muted)">
+      <span>⏱ ${l.minutes} دقيقة</span>
+      <span>🔗 /${l.slug}</span>
+    </div>`);
 }
 
 export async function lessonEditView(root, { params }) {
