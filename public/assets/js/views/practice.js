@@ -8,9 +8,7 @@ export async function practiceView(root) {
   root.innerHTML = loading().s;
   const series = await api.get('/series');
   root.innerHTML = html`
-    <div class="page-head"><div><h1>${t('practice.title')}</h1><p>${t('practice.subtitle')}</p></div></div>
-
-    <h2>${t('practice.series')}</h2>
+    <div class="page-head"><div><h1>${t('practice.series')}</h1></div></div>
     <p class="muted small">${t('practice.seriesHelp')}</p>
     <div class="grid grid-3">
       ${series.map((s, i) => html`<div class="card">
