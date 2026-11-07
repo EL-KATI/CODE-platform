@@ -737,7 +737,7 @@ router.post('/schools/:id/instructors', schoolOrAdmin, wrap(async (req, res) => 
   });
 }));
 
-/** POST /admin/schools/:id/students — إضافة متعلم جديد للمؤسسة */
+/** POST /admin/schools/:id/students — إضافة متعلم جديد للمؤسسة (حقول NARSA) */
 router.post('/schools/:id/students', schoolOrAdmin, wrap(async (req, res) => {
   const schoolId = int(req.params.id, { min: 1 });
   if (req.user.role === 'school' && String(req.user.school_id) !== String(schoolId)) throw bad('forbidden');
@@ -745,20 +745,54 @@ router.post('/schools/:id/students', schoolOrAdmin, wrap(async (req, res) => {
   const school = d.prepare('SELECT id FROM schools WHERE id = ?').get(schoolId);
   if (!school) throw notFound();
   const b = req.body || {};
-  const name = str(b.name, { min: 2, max: 100, field: 'name' });
-  const email = str(b.email, { min: 5, max: 200, field: 'email' });
-  if (!EMAIL_RE.test(email)) throw bad('invalid_email', { field: 'email' });
+
+  // الحقول الأساسية
+  const firstNameFr = str(b.first_name_fr, { min: 2, max: 60, field: 'first_name_fr' });
+  const lastNameFr  = str(b.last_name_fr,  { min: 2, max: 60, field: 'last_name_fr'  });
+  const firstNameAr = (b.first_name_ar || '').toString().trim().slice(0, 60);
+  const lastNameAr  = (b.last_name_ar  || '').toString().trim().slice(0, 60);
+  const fullName    = `${firstNameFr} ${lastNameFr}`;
+
+  const cin       = str(b.cin, { min: 5, max: 20, field: 'cin' }).toUpperCase();
+  const gender    = ['M','F'].includes(b.gender) ? b.gender : 'M';
+  const birthDate = (b.birth_date  || '').toString().trim().slice(0, 10);
+  const birthPlaceFr = (b.birth_place_fr || '').toString().trim().slice(0, 80);
+  const birthPlaceAr = (b.birth_place_ar || '').toString().trim().slice(0, 80);
+  const addressFr = (b.address_fr  || '').toString().trim().slice(0, 200);
+  const addressAr = (b.address_ar  || '').toString().trim().slice(0, 200);
+  const city      = (b.city        || '').toString().trim().slice(0, 60);
+  const phone     = (b.phone       || '').toString().trim().slice(0, 20);
+  const licenseCat = (b.license_cat || 'B').toString().trim().slice(0, 5);
+  const locale    = ['ar','fr','ar-dialect'].includes(b.locale) ? b.locale : 'ar';
+
+  // البريد الإلكتروني — اختياري للمترشح
+  const emailRaw = (b.email || '').toString().trim().toLowerCase();
+  if (emailRaw && !EMAIL_RE.test(emailRaw)) throw bad('invalid_email', { field: 'email' });
+  // إذا لم يُعطَ بريد، نولّد واحداً داخلياً فريداً
+  const email = emailRaw || `${cin.toLowerCase()}@narsa.local`;
   if (d.prepare('SELECT id FROM users WHERE email = ?').get(email)) throw bad('email_taken', { field: 'email' });
+
+  // كلمة السر
   const { hashPassword } = auth;
-  const rawPwd = b.password || Math.random().toString(36).slice(2, 10);
+  const rawPwd = b.password || Math.random().toString(36).slice(2, 6) + Math.floor(Math.random()*90+10);
   const hash = await hashPassword(rawPwd);
+
   const r = d.prepare(`
-    INSERT INTO users (email, name, password_hash, role, school_id)
-    VALUES (?, ?, ?, 'student', ?)
-  `).run(email, name, hash, schoolId);
-  db.audit(req.user.id, 'create', 'student', r.lastInsertRowid, { school_id: schoolId });
+    INSERT INTO users (
+      email, name, password_hash, role, school_id, locale,
+      gender, cin, first_name_fr, last_name_fr, first_name_ar, last_name_ar,
+      birth_date, birth_place_fr, birth_place_ar,
+      address_fr, address_ar, city, phone, license_cat
+    ) VALUES (?,?,?,'student',?,?, ?,?,?,?,?,?, ?,?,?, ?,?,?,?,?)
+  `).run(
+    email, fullName, hash, schoolId, locale,
+    gender, cin, firstNameFr, lastNameFr, firstNameAr, lastNameAr,
+    birthDate, birthPlaceFr, birthPlaceAr,
+    addressFr, addressAr, city, phone, licenseCat
+  );
+  db.audit(req.user.id, 'create', 'student', r.lastInsertRowid, { school_id: schoolId, cin });
   res.status(201).json({
-    user: d.prepare('SELECT id, name, email, role, school_id FROM users WHERE id = ?').get(r.lastInsertRowid),
+    user: d.prepare('SELECT id, name, email, role, school_id, cin, gender FROM users WHERE id = ?').get(r.lastInsertRowid),
     temp_password: b.password ? undefined : rawPwd,
   });
 }));

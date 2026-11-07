@@ -6,17 +6,32 @@ const config = require('./config');
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
-  id            INTEGER PRIMARY KEY,
-  email         TEXT NOT NULL UNIQUE COLLATE NOCASE,
-  name          TEXT NOT NULL,
-  password_hash TEXT NOT NULL,
-  role          TEXT NOT NULL DEFAULT 'student' CHECK (role IN ('student','instructor','admin','school')),
-  locale        TEXT NOT NULL DEFAULT 'ar',
-  exam_date     TEXT,
-  active        INTEGER NOT NULL DEFAULT 1,
-  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
-  last_login_at TEXT,
-  school_id     TEXT  -- معرّف مدرسة القيادة (null = غير مسجّل في مدرسة)
+  id              INTEGER PRIMARY KEY,
+  email           TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  name            TEXT NOT NULL,          -- الاسم الكامل (fr)
+  password_hash   TEXT NOT NULL,
+  role            TEXT NOT NULL DEFAULT 'student' CHECK (role IN ('student','instructor','admin','school')),
+  locale          TEXT NOT NULL DEFAULT 'ar',
+  exam_date       TEXT,
+  active          INTEGER NOT NULL DEFAULT 1,
+  created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+  last_login_at   TEXT,
+  school_id       TEXT,                   -- معرّف مدرسة القيادة
+  -- حقول NARSA للمترشح
+  gender          TEXT DEFAULT 'M' CHECK (gender IN ('M','F') OR gender IS NULL),
+  cin             TEXT DEFAULT '',        -- رقم بطاقة التعريف الوطنية
+  first_name_fr   TEXT DEFAULT '',        -- الاسم الشخصي بالفرنسية
+  last_name_fr    TEXT DEFAULT '',        -- النسب بالفرنسية
+  first_name_ar   TEXT DEFAULT '',        -- الاسم الشخصي بالعربية
+  last_name_ar    TEXT DEFAULT '',        -- النسب بالعربية
+  birth_date      TEXT DEFAULT '',        -- تاريخ الميلاد YYYY-MM-DD
+  birth_place_fr  TEXT DEFAULT '',        -- مكان الميلاد بالفرنسية
+  birth_place_ar  TEXT DEFAULT '',        -- مكان الميلاد بالعربية
+  address_fr      TEXT DEFAULT '',        -- العنوان بالفرنسية
+  address_ar      TEXT DEFAULT '',        -- العنوان بالعربية
+  city            TEXT DEFAULT '',        -- المدينة
+  phone           TEXT DEFAULT '',        -- رقم الهاتف
+  license_cat     TEXT DEFAULT 'B'        -- فئة الرخصة المطلوبة
 );
 
 CREATE TABLE IF NOT EXISTS settings (
@@ -255,9 +270,23 @@ function open(file = config.dbFile) {
   if (!cols.includes('is_double')) db.exec('ALTER TABLE questions ADD COLUMN is_double INTEGER NOT NULL DEFAULT 0');
   if (!cols.includes('sub_questions')) db.exec('ALTER TABLE questions ADD COLUMN sub_questions TEXT');
   if (!cols.includes('skill_type')) db.exec("ALTER TABLE questions ADD COLUMN skill_type TEXT NOT NULL DEFAULT 'معرفية'");
-  // Migration: add school_id to users if missing
+  // Migration: add school_id + NARSA fields to users if missing
   const userCols = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
-  if (!userCols.includes('school_id')) db.exec('ALTER TABLE users ADD COLUMN school_id INTEGER');
+  if (!userCols.includes('school_id'))     db.exec('ALTER TABLE users ADD COLUMN school_id INTEGER');
+  if (!userCols.includes('gender'))        db.exec("ALTER TABLE users ADD COLUMN gender TEXT DEFAULT 'M'");
+  if (!userCols.includes('cin'))           db.exec("ALTER TABLE users ADD COLUMN cin TEXT DEFAULT ''");
+  if (!userCols.includes('first_name_fr')) db.exec("ALTER TABLE users ADD COLUMN first_name_fr TEXT DEFAULT ''");
+  if (!userCols.includes('last_name_fr'))  db.exec("ALTER TABLE users ADD COLUMN last_name_fr TEXT DEFAULT ''");
+  if (!userCols.includes('first_name_ar')) db.exec("ALTER TABLE users ADD COLUMN first_name_ar TEXT DEFAULT ''");
+  if (!userCols.includes('last_name_ar'))  db.exec("ALTER TABLE users ADD COLUMN last_name_ar TEXT DEFAULT ''");
+  if (!userCols.includes('birth_date'))    db.exec("ALTER TABLE users ADD COLUMN birth_date TEXT DEFAULT ''");
+  if (!userCols.includes('birth_place_fr'))db.exec("ALTER TABLE users ADD COLUMN birth_place_fr TEXT DEFAULT ''");
+  if (!userCols.includes('birth_place_ar'))db.exec("ALTER TABLE users ADD COLUMN birth_place_ar TEXT DEFAULT ''");
+  if (!userCols.includes('address_fr'))    db.exec("ALTER TABLE users ADD COLUMN address_fr TEXT DEFAULT ''");
+  if (!userCols.includes('address_ar'))    db.exec("ALTER TABLE users ADD COLUMN address_ar TEXT DEFAULT ''");
+  if (!userCols.includes('city'))          db.exec("ALTER TABLE users ADD COLUMN city TEXT DEFAULT ''");
+  if (!userCols.includes('phone'))         db.exec("ALTER TABLE users ADD COLUMN phone TEXT DEFAULT ''");
+  if (!userCols.includes('license_cat'))   db.exec("ALTER TABLE users ADD COLUMN license_cat TEXT DEFAULT 'B'");
   // Migration: نظّف أي جداول مؤقتة تُركت من migrations فاشلة سابقة
   try {
     const tmpTables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '_users_old%'").all();

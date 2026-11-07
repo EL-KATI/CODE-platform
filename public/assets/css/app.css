@@ -1967,3 +1967,9 @@ dialog::backdrop { background: rgb(12 10 9 / .7); backdrop-filter: blur(4px); }
 .field-row { display: flex; align-items: center; gap: 8px; margin: 8px 0; cursor: pointer; }
 
 [data-theme="dark"] .school-stat { background: var(--surface-2, #1e293b); border-color: var(--border, #334155); }
+
+/* نموذج NARSA — شبكة حقلين بجانب بعض */
+.field-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 500px) { .field-row-2 { grid-template-columns: 1fr; } }
+.narsa-section { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
+.narsa-form { overflow-y: auto; max-height: 85vh; }

@@ -331,27 +331,126 @@ function openAddMemberModal(root, schoolId, role, onSave) {
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   const isInstructor = role === 'instructor';
+
   overlay.innerHTML = `
-    <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal narsa-form" role="dialog" aria-modal="true" style="max-width:600px">
       <h3>${isInstructor ? t('schools.addInstructor') : t('schools.addStudentNew')}</h3>
-      <label class="field">
-        <span>${t('admin.name')} *</span>
-        <input type="text" id="mb-name" maxlength="100" />
-      </label>
-      <label class="field">
-        <span>${t('auth.email')} *</span>
-        <input type="email" id="mb-email" />
-      </label>
-      <label class="field">
-        <span>${t('auth.password')} (${t('common.optional')})</span>
-        <input type="text" id="mb-pwd" placeholder="${t('schools.autoPassword')}" />
-      </label>
+
+      ${isInstructor ? `
+        <!-- نموذج المدرب: بسيط -->
+        <label class="field">
+          <span>${t('admin.name')} *</span>
+          <input type="text" id="mb-name" maxlength="100" />
+        </label>
+        <label class="field">
+          <span>${t('auth.email')} *</span>
+          <input type="email" id="mb-email" />
+        </label>
+        <label class="field">
+          <span>${t('auth.password')} (${t('common.optional')})</span>
+          <input type="text" id="mb-pwd" placeholder="${t('schools.autoPassword')}" />
+        </label>
+      ` : `
+        <!-- نموذج المتعلم: حقول NARSA الكاملة -->
+        <div class="narsa-section">
+          <div class="field-row-2">
+            <label class="field">
+              <span>${t('student.firstNameFr')} *</span>
+              <input type="text" id="mb-first-fr" maxlength="60" placeholder="Prénom" />
+            </label>
+            <label class="field">
+              <span>${t('student.lastNameFr')} *</span>
+              <input type="text" id="mb-last-fr" maxlength="60" placeholder="Nom" />
+            </label>
+          </div>
+          <div class="field-row-2">
+            <label class="field">
+              <span>${t('student.firstNameAr')}</span>
+              <input type="text" id="mb-first-ar" maxlength="60" placeholder="الاسم الشخصي" dir="rtl" />
+            </label>
+            <label class="field">
+              <span>${t('student.lastNameAr')}</span>
+              <input type="text" id="mb-last-ar" maxlength="60" placeholder="النسب" dir="rtl" />
+            </label>
+          </div>
+          <div class="field-row-2">
+            <label class="field">
+              <span>${t('student.gender')} *</span>
+              <select id="mb-gender">
+                <option value="M">${t('student.male')}</option>
+                <option value="F">${t('student.female')}</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>${t('student.cin')} *</span>
+              <input type="text" id="mb-cin" maxlength="20" placeholder="AB123456" style="text-transform:uppercase" />
+            </label>
+          </div>
+          <div class="field-row-2">
+            <label class="field">
+              <span>${t('student.birthDate')} *</span>
+              <input type="date" id="mb-birth-date" />
+            </label>
+            <label class="field">
+              <span>${t('student.birthPlaceFr')}</span>
+              <input type="text" id="mb-birth-place-fr" maxlength="80" placeholder="Lieu de naissance" />
+            </label>
+          </div>
+          <label class="field">
+            <span>${t('student.birthPlaceAr')}</span>
+            <input type="text" id="mb-birth-place-ar" maxlength="80" placeholder="مكان الميلاد" dir="rtl" />
+          </label>
+          <div class="field-row-2">
+            <label class="field">
+              <span>${t('student.addressFr')}</span>
+              <input type="text" id="mb-addr-fr" maxlength="200" placeholder="Adresse" />
+            </label>
+            <label class="field">
+              <span>${t('student.city')}</span>
+              <input type="text" id="mb-city" maxlength="60" placeholder="Ville" />
+            </label>
+          </div>
+          <label class="field">
+            <span>${t('student.addressAr')}</span>
+            <input type="text" id="mb-addr-ar" maxlength="200" placeholder="العنوان" dir="rtl" />
+          </label>
+          <div class="field-row-2">
+            <label class="field">
+              <span>${t('student.phone')} *</span>
+              <input type="tel" id="mb-phone" maxlength="20" placeholder="0600000000" />
+            </label>
+            <label class="field">
+              <span>${t('student.email')}</span>
+              <input type="email" id="mb-email" placeholder="${t('student.emailOptional')}" />
+            </label>
+          </div>
+          <div class="field-row-2">
+            <label class="field">
+              <span>${t('student.licenseCat')}</span>
+              <select id="mb-license-cat">
+                <option value="B">B — سيارة</option>
+                <option value="A">A — دراجة نارية</option>
+                <option value="C">C — شاحنة</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>${t('student.language')}</span>
+              <select id="mb-locale">
+                <option value="ar-dialect">${t('student.langDialect')}</option>
+                <option value="ar">${t('student.langAr')}</option>
+                <option value="fr">${t('student.langFr')}</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      `}
+
       <p id="mb-err" class="form-error hidden"></p>
       <div class="modal-actions">
         <button class="btn btn-primary" id="mb-save">${t('schools.addBtn')}</button>
         <button class="btn btn-ghost" id="mb-cancel">${t('common.cancel')}</button>
       </div>
-      <p id="mb-result" class="hidden" style="margin-top:14px;padding:12px;background:#f0fdf4;border-radius:8px;font-size:.88rem"></p>
+      <div id="mb-result" class="hidden temp-pwd-box" style="margin-top:14px"></div>
     </div>`;
 
   root.appendChild(overlay);
@@ -360,23 +459,51 @@ function openAddMemberModal(root, schoolId, role, onSave) {
 
   overlay.querySelector('#mb-save').onclick = async () => {
     errP.classList.add('hidden');
-    const endpoint = isInstructor
-      ? `/admin/schools/${schoolId}/instructors`
-      : `/admin/schools/${schoolId}/students`;
-    const body = {
-      name: overlay.querySelector('#mb-name').value.trim(),
-      email: overlay.querySelector('#mb-email').value.trim(),
-      password: overlay.querySelector('#mb-pwd').value.trim() || undefined,
-    };
+
+    let endpoint, body;
+    if (isInstructor) {
+      endpoint = `/admin/schools/${schoolId}/instructors`;
+      body = {
+        name:     overlay.querySelector('#mb-name').value.trim(),
+        email:    overlay.querySelector('#mb-email').value.trim(),
+        password: overlay.querySelector('#mb-pwd').value.trim() || undefined,
+      };
+    } else {
+      endpoint = `/admin/schools/${schoolId}/students`;
+      body = {
+        first_name_fr:  overlay.querySelector('#mb-first-fr').value.trim(),
+        last_name_fr:   overlay.querySelector('#mb-last-fr').value.trim(),
+        first_name_ar:  overlay.querySelector('#mb-first-ar').value.trim(),
+        last_name_ar:   overlay.querySelector('#mb-last-ar').value.trim(),
+        gender:         overlay.querySelector('#mb-gender').value,
+        cin:            overlay.querySelector('#mb-cin').value.trim().toUpperCase(),
+        birth_date:     overlay.querySelector('#mb-birth-date').value,
+        birth_place_fr: overlay.querySelector('#mb-birth-place-fr').value.trim(),
+        birth_place_ar: overlay.querySelector('#mb-birth-place-ar').value.trim(),
+        address_fr:     overlay.querySelector('#mb-addr-fr').value.trim(),
+        address_ar:     overlay.querySelector('#mb-addr-ar').value.trim(),
+        city:           overlay.querySelector('#mb-city').value.trim(),
+        phone:          overlay.querySelector('#mb-phone').value.trim(),
+        email:          overlay.querySelector('#mb-email').value.trim(),
+        license_cat:    overlay.querySelector('#mb-license-cat').value,
+        locale:         overlay.querySelector('#mb-locale').value,
+      };
+    }
+
     try {
       const data = await api.post(endpoint, body);
       const result = overlay.querySelector('#mb-result');
       result.classList.remove('hidden');
-      result.innerHTML = `✅ ${t('schools.memberAdded')}
-        ${data.temp_password ? `<br>${t('schools.tempPwd')}: <strong>${data.temp_password}</strong>` : ''}`;
-      overlay.querySelector('#mb-name').value = '';
-      overlay.querySelector('#mb-email').value = '';
-      overlay.querySelector('#mb-pwd').value = '';
+      result.innerHTML = `
+        <div class="field-row">✅ <strong>${t('schools.memberAdded')}</strong></div>
+        ${data.temp_password ? `
+          <div class="field-row"><strong>${t('schools.tempPwd')}:</strong>
+            <code>${esc(data.temp_password)}</code>
+          </div>
+          <small style="color:var(--warning)">${t('schools.savePasswordWarning')}</small>
+        ` : ''}`;
+      // إعادة تعيين الحقول
+      overlay.querySelectorAll('input').forEach(i => { i.value = ''; });
       onSave?.();
     } catch (e) {
       errP.textContent = errMsg(e);
