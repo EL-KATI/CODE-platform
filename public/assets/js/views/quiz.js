@@ -132,6 +132,7 @@ export async function quizView(root, { params }) {
   function renderOptions(opts, correctSet, selSet, reveal, answered, prefix = '') {
     return opts.map((o, i) => {
       const n = i + 1;
+      const text = (o && typeof o === 'object') ? (o.text || '') : o;
       let cls = '';
       let mark = '';
       if (reveal) {
@@ -142,7 +143,7 @@ export async function quizView(root, { params }) {
         <button type="button" class="q-option ${cls}" data-prefix="${prefix}" data-n="${n}"
           aria-pressed="${selSet.has(n)}" ${answered ? 'disabled' : ''} lang="ar" dir="rtl">
           <span class="q-option-num">${n}</span>
-          <span class="q-option-text">${o}</span>
+          <span class="q-option-text">${text}</span>
           ${mark ? html`<span class="q-option-mark" aria-hidden="true">${mark}</span>` : ''}
           ${reveal && correctSet.has(n) ? html`<span class="sr-only">${t('quiz.correctAnswer')}</span>` : ''}
         </button>`;
@@ -188,8 +189,11 @@ export async function quizView(root, { params }) {
 
     if (isDouble) {
       const sq = cur.sub_questions;
-      const corrA = new Set(sq[0].correct || []);
-      const corrB = new Set(sq[1].correct || []);
+      const normC = (arr) => (arr || []).map((c) =>
+        typeof c === 'string' && c.startsWith('opt_') ? Number(c.replace('opt_', '')) : Number(c)
+      ).filter(Boolean);
+      const corrA = new Set(normC(sq[0].correct));
+      const corrB = new Set(normC(sq[1].correct));
       const selA = selected.a;
       const selB = selected.b;
 
@@ -262,7 +266,11 @@ export async function quizView(root, { params }) {
 
     } else {
       // ── سؤال منفرد ────────────────────────────────────────────────
-      const correct = new Set(cur.correct || []);
+      // تطبيع correct: ["opt_1","opt_2"] → [1,2]  أو  [1,2] → [1,2]
+      const normalizeCorrect = (arr) => (arr || []).map((c) =>
+        typeof c === 'string' && c.startsWith('opt_') ? Number(c.replace('opt_', '')) : Number(c)
+      ).filter(Boolean);
+      const correct = new Set(normalizeCorrect(cur.correct));
       const multiAnswer = cur.correct && cur.correct.length > 1;
 
       card.innerHTML = html`
