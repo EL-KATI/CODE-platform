@@ -2064,3 +2064,10 @@ dialog::backdrop { background: rgb(12 10 9 / .7); backdrop-filter: blur(4px); }
 }
 .qz-window .q-timer-label { position: static; display: block; margin-top: 6px; text-align: center; }
 @media (max-width: 1000px) { .qz-window .q-timer-label { display: none; } }
+
+/* الصورة في الأعلى والسؤال + الأجوبة في الأسفل (كل الشاشات) */
+.qz-window .qcard-body.has-media { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 44%) minmax(0, 1fr); gap: 10px; }
+.qz-window .qcard-body:not(.has-media) { grid-template-rows: minmax(0, 1fr); }
+@media (min-width: 1001px) {
+  .qz-window .qz-main .q-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+}
