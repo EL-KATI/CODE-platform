@@ -782,11 +782,8 @@ function roleExtraFields(role, schools) {
 
 export async function usersView(root) {
   await load(root, '/admin/users', async () => {
-    const [list, schoolsData] = await Promise.all([
-      api.get('/admin/users'),
-      api.get('/admin/users').then((u) => ({ schools: u.filter((x) => x.role === 'school') })).catch(() => ({ schools: [] })),
-    ]);
-    const schools = schoolsData.schools || [];
+    const list = await api.get('/admin/users');
+    const schools = list.filter((x) => x.role === 'school');
     let showAddForm = false;
     let addRole = 'student';
 
@@ -831,9 +828,13 @@ export async function usersView(root) {
 
       div.querySelector('#add-user-form').onsubmit = async (e) => {
         e.preventDefault();
+        const submitBtn = div.querySelector('button[type="submit"]');
+        if (submitBtn.disabled) return;
+        submitBtn.disabled = true;
         const fd = new FormData(div.querySelector('#add-user-form'));
+        const emailVal = (fd.get('email') || '').trim();
         const body = {
-          name: fd.get('name'), email: fd.get('email'), password: fd.get('password'),
+          name: fd.get('name'), email: emailVal, password: fd.get('password'),
           role: fd.get('role'), phone: fd.get('phone') || undefined,
           address: fd.get('address') || undefined,
           school_id: fd.get('school_id') ? parseInt(fd.get('school_id'), 10) : undefined,
@@ -843,11 +844,15 @@ export async function usersView(root) {
           await api.post('/admin/users', body);
           toast(t('common.saved'));
           showAddForm = false;
+          addRole = 'student';
           const updated = await api.get('/admin/users');
           list.splice(0, list.length, ...updated);
           schools.splice(0, schools.length, ...updated.filter((x) => x.role === 'school'));
           render();
-        } catch (err) { toast(errorMessage(err), 'error'); }
+        } catch (err) {
+          submitBtn.disabled = false;
+          toast(errorMessage(err), 'error');
+        }
       };
     }
 
