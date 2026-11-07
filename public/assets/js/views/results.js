@@ -1,5 +1,5 @@
 // صفحة النتائج — تعرض الحكم (ناجح/راسب) + تفاصيل الأداء + مراجعة الأسئلة
-import { html, raw, loading, toast, errorMessage } from '../ui.js';
+import { html, raw, esc, loading, toast, errorMessage } from '../ui.js';
 import { t, catName } from '../i18n.js';
 import { api } from '../api.js';
 import { store } from '../store.js';
@@ -209,24 +209,35 @@ export async function resultsView(root, { params }) {
     };
   });
 
-  // ── رسم مراجعة الأسئلة ───────────────────────────────────────────
+  // ── مراجعة الأسئلة: شبكة أرقام (أحمر = خاطئ، أخضر = صحيح) + سؤال واحد مفتوح ──
+  let openIdx = null;
+  const statusOf = (q) => (q.answer?.isCorrect === true ? 'ok' : 'ko');
+
   function renderReview() {
     const list = root.querySelector('#review-list');
-    const filtered = questions.filter((q) => {
-      if (currentFilter === 'correct') return q.answer?.isCorrect === true;
-      if (currentFilter === 'wrong') return q.answer?.isCorrect !== true;
-      return true;
-    });
+    const visible = (q) => currentFilter === 'all' || (currentFilter === 'correct' ? statusOf(q) === 'ok' : statusOf(q) === 'ko');
+    const shown = questions.map((q, i) => ({ q, i })).filter(({ q }) => visible(q));
 
-    if (!filtered.length) {
+    if (!shown.length) {
       list.innerHTML = html`<div class="empty-state" style="padding:32px">${t('results.noItems')}</div>`.s;
       return;
     }
+    if (openIdx !== null && !shown.some(({ i }) => i === openIdx)) openIdx = null;
 
-    list.innerHTML = filtered.map((q) => {
-      const originalIdx = questions.indexOf(q);
-      return reviewItem(q, originalIdx, catMap).s;
-    }).join('');
+    list.innerHTML = html`
+      <div class="q-nav-grid review-nav" style="grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:8px;margin-bottom:16px">
+        ${shown.map(({ q, i }) => raw(`<button type="button" class="nav-${statusOf(q)}${i === openIdx ? ' nav-cur' : ''}" data-i="${i}" aria-pressed="${i === openIdx}" aria-label="${esc(t('quiz.qn', { n: i + 1 }))}">${i + 1}</button>`))}
+      </div>
+      <div id="review-detail">${openIdx !== null ? reviewItem(questions[openIdx], openIdx, catMap) : html`<p class="muted small" style="text-align:center">${t('results.tapToReview')}</p>`}</div>`.s;
+
+    list.querySelectorAll('button[data-i]').forEach((b) => {
+      b.onclick = () => {
+        const i = Number(b.dataset.i);
+        openIdx = openIdx === i ? null : i;
+        renderReview();
+        if (openIdx !== null) list.querySelector('#review-detail')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      };
+    });
   }
 
   renderReview();
