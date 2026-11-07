@@ -458,12 +458,11 @@ router.get('/users', adminOnly, (req, res) => {
 });
 
 router.post('/users', adminOnly, wrap(async (req, res) => {
-  const { password } = require('./auth');
   const body = req.body || {};
   const name = str(body.name, { min: 2, max: 80, field: 'name' });
   const email = str(body.email, { min: 5, max: 160, field: 'email' }).toLowerCase();
   if (!EMAIL_RE.test(email)) throw bad('invalid_email');
-  const pw = password(body.password);
+  const pw = str(body.password, { min: 8, max: 200, field: 'password' });
   const role = body.role && ['student', 'instructor', 'admin', 'school'].includes(body.role) ? body.role : 'student';
   const locale = body.locale === 'fr' ? 'fr' : 'ar';
   const phone   = (body.phone   || '').toString().trim().slice(0, 30) || null;

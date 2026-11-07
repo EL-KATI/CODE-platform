@@ -763,29 +763,20 @@ export async function studentView(root, { params }) {
 }
 
 // --- Utilisateurs (admin) --------------------------------------------------------
-// الحقول الإضافية حسب الدور
+// الحقول الإضافية حسب الدور — تُرجع HTML string
 function roleExtraFields(role, schools) {
-  if (role === 'student') return html`
-    <label>${t('admin.phone') || 'الهاتف'}<input class="input" name="phone" type="tel" placeholder="06xxxxxxxx"></label>
-    <label>${t('admin.school') || 'المؤسسة'}
-      <select class="input" name="school_id">
-        <option value="">— ${t('admin.noSchool') || 'بدون مؤسسة'}</option>
-        ${schools.map((s) => html`<option value="${s.id}">${s.name}</option>`)}
-      </select>
-    </label>`;
-  if (role === 'instructor') return html`
-    <label>${t('admin.phone') || 'الهاتف'}<input class="input" name="phone" type="tel" placeholder="06xxxxxxxx"></label>
-    <label>${t('admin.school') || 'المؤسسة'}
-      <select class="input" name="school_id">
-        <option value="">— ${t('admin.noSchool') || 'بدون مؤسسة'}</option>
-        ${schools.map((s) => html`<option value="${s.id}">${s.name}</option>`)}
-      </select>
-    </label>`;
-  if (role === 'school') return html`
-    <label>${t('admin.phone') || 'الهاتف'}<input class="input" name="phone" type="tel" placeholder="06xxxxxxxx"></label>
-    <label>${t('admin.address') || 'العنوان'}<input class="input" name="address" placeholder="${t('admin.addressPlaceholder') || 'عنوان المؤسسة'}"></label>`;
-  if (role === 'admin') return html`
-    <label>${t('admin.phone') || 'الهاتف'}<input class="input" name="phone" type="tel" placeholder="06xxxxxxxx"></label>`;
+  const esc = (s) => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const phoneField = `<label>${t('admin.phone') || 'الهاتف'}<input class="input" name="phone" type="tel" placeholder="06xxxxxxxx"></label>`;
+  const schoolOpts = schools.map((s) => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('');
+  const schoolField = `<label>${t('admin.school') || 'المؤسسة'}
+    <select class="input" name="school_id">
+      <option value="">— ${t('admin.noSchool') || 'بدون مؤسسة'}</option>
+      ${schoolOpts}
+    </select></label>`;
+  if (role === 'student')    return phoneField + schoolField;
+  if (role === 'instructor') return phoneField + schoolField;
+  if (role === 'school')     return phoneField + `<label>${t('admin.address') || 'العنوان'}<input class="input" name="address" placeholder="${t('admin.addressPlaceholder') || 'عنوان المؤسسة'}"></label>`;
+  if (role === 'admin')      return phoneField;
   return '';
 }
 
