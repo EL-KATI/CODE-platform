@@ -285,6 +285,24 @@ function open(file = config.dbFile) {
     }
   } catch (e) { console.warn('[db] migration school role:', e.message); }
 
+  // Migration: إنشاء جدول schools إذا لم يكن موجوداً (قد لا يكون موجوداً في قواعد البيانات القديمة)
+  const existingTables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(r => r.name);
+  if (!existingTables.includes('schools')) {
+    db.exec(`
+      CREATE TABLE schools (
+        id          INTEGER PRIMARY KEY,
+        name        TEXT    NOT NULL,
+        code        TEXT    NOT NULL UNIQUE,
+        phone       TEXT    NOT NULL DEFAULT '',
+        address     TEXT    NOT NULL DEFAULT '',
+        active      INTEGER NOT NULL DEFAULT 1,
+        created_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+      );
+    `);
+    console.log('[db] migration: created schools table');
+  }
+
   // Migration: تأكد أن عمود school_id هو INTEGER (قد كان TEXT في نسخ سابقة)
   // نتحقق من نوع العمود — إذا كان TEXT نعيد بناء الجدول
   try {
@@ -315,8 +333,35 @@ function open(file = config.dbFile) {
         COMMIT;
         PRAGMA foreign_keys = ON;
       `);
+      console.log('[db] migration: school_id converted to INTEGER');
     }
   } catch (e) { console.warn('[db] migration school_id integer:', e.message); }
+
+  // Migration: إنشاء جدول exam_journey إذا لم يكن موجوداً
+  const tablesAfter = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(r => r.name);
+  if (!tablesAfter.includes('exam_journey')) {
+    db.exec(`
+      CREATE TABLE exam_journey (
+        id              INTEGER PRIMARY KEY,
+        student_id      INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+        school_id       INTEGER NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+        theory1_date    TEXT,
+        theory1_result  TEXT CHECK (theory1_result IN ('passed','failed') OR theory1_result IS NULL),
+        theory2_date    TEXT,
+        theory2_result  TEXT CHECK (theory2_result IN ('passed','failed') OR theory2_result IS NULL),
+        practical1_date TEXT,
+        practical1_result TEXT CHECK (practical1_result IN ('passed','failed') OR practical1_result IS NULL),
+        practical2_date TEXT,
+        practical2_result TEXT CHECK (practical2_result IN ('passed','failed') OR practical2_result IS NULL),
+        status          TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','archived')),
+        archived_status TEXT CHECK (archived_status IN ('licensed','failed') OR archived_status IS NULL),
+        note            TEXT,
+        created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `);
+    console.log('[db] migration: created exam_journey table');
+  }
 
   return db;
 }
