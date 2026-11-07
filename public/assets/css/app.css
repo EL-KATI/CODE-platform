@@ -2092,3 +2092,15 @@ dialog::backdrop { background: rgb(12 10 9 / .7); backdrop-filter: blur(4px); }
   .qz-window .q-pad-btn { width: 36px; height: 36px; font-size: .95rem; }
 }
 @media (max-width: 1000px) { .qz-window .qcard-body.has-media { grid-template-rows: minmax(0, 36%) minmax(0, 1fr); } }
+
+/* ── لوحة الجواب: مكان ثابت لا يتحرك، الأرقام 1..4 في خانات ثابتة ── */
+.q-pad-wrap { flex: none; }
+.q-pad { display: grid; grid-template-columns: repeat(2, 42px); grid-auto-rows: 42px; gap: 6px; justify-content: center; align-content: start; min-height: 90px; flex-wrap: nowrap; }
+.q-pad-btn { width: 42px; height: 42px; }
+.q-pad-wrap:has(.q-pad-label) .q-pad { grid-template-columns: repeat(4, 34px); grid-auto-rows: 34px; gap: 4px; min-height: 34px; }
+.q-pad-wrap:has(.q-pad-label) .q-pad-btn { width: 34px; height: 34px; font-size: .9rem; }
+.q-pad-wrap:has(.q-pad-label) .q-pad-row { gap: 4px; flex-wrap: nowrap; }
+@media (max-width: 1000px) {
+  .q-pad { grid-template-columns: repeat(4, 36px); grid-auto-rows: 36px; min-height: 36px; }
+  .q-pad-btn { width: 36px; height: 36px; }
+}
