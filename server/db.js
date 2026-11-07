@@ -359,11 +359,7 @@ function open(file = config.dbFile) {
     db.exec('DROP TABLE IF EXISTS _users_migrate_sid');
   } catch (e) { console.warn('[db] cleanup tmp tables:', e.message); }
 
-  // Migration: تنظيف جداول schools القديمة غير المستخدمة
-  try {
-    db.exec('DROP TABLE IF EXISTS exam_journey');
-    db.exec('DROP TABLE IF EXISTS schools');
-  } catch(_) {}
+  // ملاحظة: exam_journey و schools جداول مستخدمة في routes/exams.js — لا تحذفهم
 
   return db;
 }
