@@ -6,21 +6,11 @@ import { startAttempt } from './common.js';
 
 export async function practiceView(root) {
   root.innerHTML = loading().s;
-  const [cats, series] = await Promise.all([store.getCategories(true), api.get('/series')]);
+  const series = await api.get('/series');
   root.innerHTML = html`
     <div class="page-head"><div><h1>${t('practice.title')}</h1><p>${t('practice.subtitle')}</p></div></div>
 
-    <h2>${t('practice.byCategory')}</h2>
-    <p class="muted small">${t('practice.byCategoryHelp')}</p>
-    <div class="grid grid-3">
-      ${cats.map((c) => html`<div class="card">
-        <div class="row"><span style="font-size:1.5rem" aria-hidden="true">${c.icon}</span><h3 style="margin:0">${catName(c)}</h3></div>
-        <p class="small muted" style="margin:8px 0 12px">${t('practice.questions', { n: c.question_count })}</p>
-        <div class="row"><button class="btn btn-primary btn-sm" data-cat="${c.id}" data-n="10">${t('practice.quick', { n: 10 })}</button>
-        <button class="btn btn-secondary btn-sm" data-cat="${c.id}" data-n="40">${t('practice.full')}</button></div></div>`)}
-    </div>
-
-    <h2 style="margin-top:32px">${t('practice.series')}</h2>
+    <h2>${t('practice.series')}</h2>
     <p class="muted small">${t('practice.seriesHelp')}</p>
     <div class="grid grid-3">
       ${series.map((s, i) => html`<div class="card">
@@ -32,7 +22,6 @@ export async function practiceView(root) {
         <button class="btn btn-primary btn-sm" data-series="${s.id}" data-practice="0">⏱️ ${t('mode.examConditions')}</button></div></div>`)}
     </div>`.s;
 
-  root.querySelectorAll('[data-cat]').forEach((b) => (b.onclick = () => startAttempt({ mode: 'category', categoryId: Number(b.dataset.cat), count: Number(b.dataset.n), practice: true }, b)));
   root.querySelectorAll('[data-series]').forEach((b) => (b.onclick = () => startAttempt({ mode: 'series', seriesId: Number(b.dataset.series), practice: b.dataset.practice === '1' }, b)));
 }
 
