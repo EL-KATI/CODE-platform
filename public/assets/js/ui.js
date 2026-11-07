@@ -5,7 +5,7 @@ export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&a
 
 /** Gabarit HTML : les valeurs interpolées sont échappées sauf si elles sont marquées raw(). */
 const RAW = Symbol('raw');
-export const raw = (s) => ({ [RAW]: true, s: String(s ?? '') });
+export const raw = (s) => ({ [RAW]: true, s: String(s ?? ''), toString() { return this.s; } });
 export function html(strings, ...vals) {
   let out = '';
   strings.forEach((str, i) => {

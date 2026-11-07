@@ -49,7 +49,7 @@ export function reviewItem(q, originalIdx, catMap) {
                 </div>
                 <ul class="ans-list">${raw(reviewOptions(sq.options, sq.correct || [], selArr))}</ul>
               </div>`;
-          }).join('')}`
+          })}`
         : html`
           <p class="q-text" style="font-size:1.05rem" lang="ar" dir="rtl">${q.text}</p>
           <ul class="ans-list">${raw(reviewOptions(q.options, q.correct || [], ans?.selected || []))}</ul>`}
@@ -158,7 +158,7 @@ export async function resultsView(root, { params }) {
                 </div>
                 <span class="cat-result-detail">${r.correct}/${r.total}</span>
               </div>`;
-          }).join('')}
+          })}
         </div>
       </section>
 
@@ -225,7 +225,7 @@ export async function resultsView(root, { params }) {
 
     list.innerHTML = filtered.map((q) => {
       const originalIdx = questions.indexOf(q);
-      return reviewItem(q, originalIdx, catMap);
+      return reviewItem(q, originalIdx, catMap).s;
     }).join('');
   }
 
