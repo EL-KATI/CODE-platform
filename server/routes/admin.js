@@ -528,15 +528,16 @@ router.get('/audit', adminOnly, (req, res) => {
 router.get('/schools', wrap(async (req, res) => {
   const d = db.get();
   d.exec(`CREATE TABLE IF NOT EXISTS schools (
-    id INTEGER PRIMARY KEY,
-    name TEXT NOT NULL,
-    code TEXT NOT NULL UNIQUE,
-    phone TEXT NOT NULL DEFAULT '',
-    address TEXT NOT NULL DEFAULT '',
-    active INTEGER NOT NULL DEFAULT 1,
+    id INTEGER PRIMARY KEY, name TEXT NOT NULL, code TEXT NOT NULL UNIQUE,
+    email TEXT NOT NULL DEFAULT '', phone TEXT NOT NULL DEFAULT '',
+    address TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1,
+    owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`);
+  const cols = d.prepare('PRAGMA table_info(schools)').all().map(c => c.name);
+  if (!cols.includes('email'))    d.exec("ALTER TABLE schools ADD COLUMN email TEXT NOT NULL DEFAULT ''");
+  if (!cols.includes('owner_id')) d.exec('ALTER TABLE schools ADD COLUMN owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL');
   const rows = d.prepare(`
     SELECT s.*,
       (SELECT COUNT(*) FROM users u WHERE u.school_id = s.id AND u.role = 'student') AS students_count,
@@ -578,30 +579,51 @@ router.get('/schools/:id', wrap(async (req, res) => {
 /** POST /admin/schools — إضافة مؤسسة جديدة (أدمين فقط) */
 router.post('/schools', adminOnly, wrap(async (req, res) => {
   const b = req.body || {};
-  const name = str(b.name, { min: 2, max: 120, field: 'name' });
-  const code = str(b.code, { min: 2, max: 30, field: 'code' }).toUpperCase().replace(/\s+/g, '_');
-  const phone = (b.phone || '').toString().trim().slice(0, 30);
+  const name    = str(b.name,  { min: 2, max: 120, field: 'name' });
+  const code    = str(b.code,  { min: 2, max: 30,  field: 'code' }).toUpperCase().replace(/\s+/g, '_');
+  const email   = str(b.email, { min: 5, max: 200, field: 'email' }).toLowerCase();
+  if (!EMAIL_RE.test(email)) throw bad('invalid_email', { field: 'email' });
+  const phone   = (b.phone   || '').toString().trim().slice(0, 30);
   const address = (b.address || '').toString().trim().slice(0, 200);
   const d = db.get();
-  // تأكد من وجود جدول schools — إنشاؤه إذا لم يكن موجوداً
+  // تأكد من وجود جدول schools
   d.exec(`CREATE TABLE IF NOT EXISTS schools (
-    id INTEGER PRIMARY KEY,
-    name TEXT NOT NULL,
-    code TEXT NOT NULL UNIQUE,
-    phone TEXT NOT NULL DEFAULT '',
-    address TEXT NOT NULL DEFAULT '',
-    active INTEGER NOT NULL DEFAULT 1,
+    id INTEGER PRIMARY KEY, name TEXT NOT NULL, code TEXT NOT NULL UNIQUE,
+    email TEXT NOT NULL DEFAULT '', phone TEXT NOT NULL DEFAULT '',
+    address TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1,
+    owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`);
+  const schoolColNames = d.prepare('PRAGMA table_info(schools)').all().map(c => c.name);
+  if (!schoolColNames.includes('email'))    d.exec("ALTER TABLE schools ADD COLUMN email TEXT NOT NULL DEFAULT ''");
+  if (!schoolColNames.includes('owner_id')) d.exec('ALTER TABLE schools ADD COLUMN owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL');
+
   if (d.prepare('SELECT id FROM schools WHERE code = ?').get(code)) throw bad('slug_taken', { field: 'code' });
+  if (d.prepare('SELECT id FROM users WHERE email = ?').get(email)) throw bad('email_taken', { field: 'email' });
+
+  // إنشاء حساب المؤسسة (role=school) بكلمة سر عشوائية
+  const { hashPassword } = auth;
+  const rawPwd = Math.random().toString(36).slice(2, 6) + Math.random().toString(36).slice(2, 6).toUpperCase() + Math.floor(Math.random() * 90 + 10);
+  const hash = await hashPassword(rawPwd);
+  const userRes = d.prepare(`
+    INSERT INTO users (email, name, password_hash, role) VALUES (?, ?, ?, 'school')
+  `).run(email, name, hash);
+  const ownerId = userRes.lastInsertRowid;
+
+  // إنشاء المؤسسة وربطها بحساب المؤسسة
   const r = d.prepare(`
-    INSERT INTO schools (name, code, phone, address, created_by)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(name, code, phone, address, req.user.id);
-  db.audit(req.user.id, 'create', 'school', r.lastInsertRowid, { name, code });
-  const school = d.prepare('SELECT * FROM schools WHERE id = ?').get(r.lastInsertRowid);
-  res.status(201).json({ school });
+    INSERT INTO schools (name, code, email, phone, address, owner_id, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(name, code, email, phone, address, ownerId, req.user.id);
+  const schoolId = r.lastInsertRowid;
+
+  // ربط حساب المؤسسة بالمؤسسة نفسها
+  d.prepare('UPDATE users SET school_id = ? WHERE id = ?').run(schoolId, ownerId);
+
+  db.audit(req.user.id, 'create', 'school', schoolId, { name, code, email });
+  const school = d.prepare('SELECT * FROM schools WHERE id = ?').get(schoolId);
+  res.status(201).json({ school, temp_password: rawPwd });
 }));
 
 /** PATCH /admin/schools/:id — تعديل بيانات مؤسسة (أدمين فقط) */

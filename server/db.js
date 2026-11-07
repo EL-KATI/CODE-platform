@@ -152,9 +152,11 @@ CREATE TABLE IF NOT EXISTS schools (
   id          INTEGER PRIMARY KEY,
   name        TEXT    NOT NULL,
   code        TEXT    NOT NULL UNIQUE,   -- رمز المؤسسة (مختصر فريد)
+  email       TEXT    NOT NULL DEFAULT '',  -- بريد حساب المؤسسة (للدخول)
   phone       TEXT    NOT NULL DEFAULT '',
   address     TEXT    NOT NULL DEFAULT '',
   active      INTEGER NOT NULL DEFAULT 1,
+  owner_id    INTEGER REFERENCES users(id) ON DELETE SET NULL, -- حساب المؤسسة
   created_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
 );
@@ -293,14 +295,27 @@ function open(file = config.dbFile) {
         id          INTEGER PRIMARY KEY,
         name        TEXT    NOT NULL,
         code        TEXT    NOT NULL UNIQUE,
+        email       TEXT    NOT NULL DEFAULT '',
         phone       TEXT    NOT NULL DEFAULT '',
         address     TEXT    NOT NULL DEFAULT '',
         active      INTEGER NOT NULL DEFAULT 1,
+        owner_id    INTEGER REFERENCES users(id) ON DELETE SET NULL,
         created_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
         created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
       );
     `);
     console.log('[db] migration: created schools table');
+  } else {
+    // Migration: إضافة أعمدة email و owner_id إذا لم تكن موجودة
+    const schoolsCols = db.prepare('PRAGMA table_info(schools)').all().map(c => c.name);
+    if (!schoolsCols.includes('email')) {
+      db.exec("ALTER TABLE schools ADD COLUMN email TEXT NOT NULL DEFAULT ''");
+      console.log('[db] migration: added schools.email');
+    }
+    if (!schoolsCols.includes('owner_id')) {
+      db.exec('ALTER TABLE schools ADD COLUMN owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL');
+      console.log('[db] migration: added schools.owner_id');
+    }
   }
 
   // Migration: تأكد أن عمود school_id هو INTEGER (قد كان TEXT في نسخ سابقة)

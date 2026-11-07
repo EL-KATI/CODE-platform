@@ -120,6 +120,11 @@ function openSchoolModal(root, school, onSave) {
         <span>${t('schools.code')} *</span>
         <input type="text" id="sc-code" value="" maxlength="30" placeholder="AUTO_ECOLE_1" />
         <small>${t('schools.codeHelp')}</small>
+      </label>
+      <label class="field">
+        <span>${t('schools.email')} *</span>
+        <input type="email" id="sc-email" value="" maxlength="200" placeholder="autoecole@example.com" />
+        <small>${t('schools.emailHelp')}</small>
       </label>` : ''}
       <label class="field">
         <span>${t('schools.phone')}</span>
@@ -152,14 +157,40 @@ function openSchoolModal(root, school, onSave) {
       phone: overlay.querySelector('#sc-phone').value.trim(),
       address: overlay.querySelector('#sc-address').value.trim(),
     };
-    if (!isEdit) body.code = overlay.querySelector('#sc-code').value.trim();
+    if (!isEdit) {
+      body.code  = overlay.querySelector('#sc-code').value.trim();
+      body.email = overlay.querySelector('#sc-email').value.trim();
+    }
     if (isEdit && overlay.querySelector('#sc-active')) body.active = overlay.querySelector('#sc-active').checked;
 
     try {
-      if (isEdit) await api.patch(`/admin/schools/${school.id}`, body);
-      else await api.post('/admin/schools', body);
-      overlay.remove();
-      onSave?.();
+      if (isEdit) {
+        await api.patch(`/admin/schools/${school.id}`, body);
+        overlay.remove();
+        onSave?.();
+      } else {
+        const res = await api.post('/admin/schools', body);
+        // عرض كلمة السر المؤقتة قبل الإغلاق
+        overlay.querySelector('.modal').innerHTML = `
+          <h3 style="color:var(--success)">✅ ${t('schools.created')}</h3>
+          <p>${t('schools.credentialsInfo')}</p>
+          <div class="temp-pwd-box">
+            <div class="field-row"><strong>${t('common.email')}:</strong> <code>${esc(body.email)}</code></div>
+            <div class="field-row"><strong>${t('schools.tempPassword')}:</strong>
+              <code id="tmp-pwd">${esc(res.temp_password)}</code>
+              <button class="btn btn-xs btn-ghost" id="copy-pwd">📋</button>
+            </div>
+          </div>
+          <p class="form-error" style="display:block">${t('schools.savePasswordWarning')}</p>
+          <div class="modal-actions">
+            <button class="btn btn-primary" id="sc-done">${t('common.understood')}</button>
+          </div>`;
+        overlay.querySelector('#copy-pwd').onclick = () => {
+          navigator.clipboard.writeText(res.temp_password);
+          overlay.querySelector('#copy-pwd').textContent = '✅';
+        };
+        overlay.querySelector('#sc-done').onclick = () => { overlay.remove(); onSave?.(); };
+      }
     } catch (e) {
       errP.textContent = e.message || t('common.error');
       errP.classList.remove('hidden');
