@@ -83,14 +83,18 @@ const ADMIN_TABS_CONTENT = [
   ['/admin/lessons', 'admin.lessons'], ['/admin/students', 'admin.students'], ['/admin/bookings', 'nav.bookings'],
 ];
 const ADMIN_TABS_MANAGE = [['/admin/schools', 'admin.schools'], ['/admin/users', 'admin.users'], ['/admin/settings', 'admin.settings'], ['/admin/audit', 'admin.audit']];
-// المؤسسة: طلابها + حجوزاتهم
-const SCHOOL_TABS = [['/admin/students', 'admin.students'], ['/admin/school/students', 'school.manageStudents'], ['/admin/bookings', 'nav.bookings'], ['/admin/exams', 'nav.exams']];
+// المؤسسة: بيانات المؤسسة + طلابها + حجوزاتهم
+function schoolTabs() {
+  const id = store.user?.schoolId;
+  const mySchool = id ? [[`/admin/schools/${id}`, 'admin.mySchool']] : [];
+  return [...mySchool, ['/admin/students', 'admin.students'], ['/admin/school/students', 'school.manageStudents'], ['/admin/bookings', 'nav.bookings'], ['/admin/exams', 'nav.exams']];
+}
 // المدرب: طلابه + حجوزاتهم
 const INSTRUCTOR_TABS = [['/admin/students', 'admin.students'], ['/admin/bookings', 'nav.bookings']];
 
 export function shell(root, current, body) {
   let tabs;
-  if (store.isSchool()) tabs = SCHOOL_TABS;
+  if (store.isSchool()) tabs = schoolTabs();
   else if (store.isInstructor()) tabs = INSTRUCTOR_TABS;
   else tabs = [...ADMIN_TABS_CONTENT, ...(store.isAdmin() ? ADMIN_TABS_MANAGE : [])];
 

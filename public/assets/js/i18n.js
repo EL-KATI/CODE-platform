@@ -144,7 +144,7 @@ const ar = {
   'booking.note': 'ملاحظة',
   'booking.available': 'مكان متاح',
   'common.optional': 'اختياري',
-  'admin.school': 'مدرسة القيادة', 'admin.schools': 'المؤسسات',
+  'admin.school': 'مدرسة القيادة', 'admin.schools': 'المؤسسات', 'admin.mySchool': 'مؤسستي',
 
   /* ── مؤسسات تعليم السياقة ── */
   'schools.title': 'مؤسسات تعليم السياقة',
@@ -408,7 +408,7 @@ const fr = {
   'booking.note': 'Note',
   'booking.available': 'place(s) dispo.',
   'common.optional': 'facultatif',
-  'admin.school': 'École de conduite', 'admin.schools': 'Établissements',
+  'admin.school': 'École de conduite', 'admin.schools': 'Établissements', 'admin.mySchool': 'Mon établissement',
 
   /* ── Établissements d'auto-école ── */
   'schools.title': "Établissements d'auto-école",

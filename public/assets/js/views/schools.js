@@ -8,6 +8,7 @@
 import { t, getLocale } from '../i18n.js';
 import { api } from '../api.js';
 import { shell } from './admin.js';
+import { store } from '../store.js';
 
 /* ── مساعدات ── */
 function esc(s) {
@@ -224,7 +225,8 @@ export async function schoolDetailView(root, ctx) {
   const id = ctx?.params?.id;
   if (!id) { root.innerHTML = `<p class="empty">${t('err.not_found')}</p>`; return; }
 
-  shell(root, '/admin/schools', '');
+  // للمؤسسة: نُبرز تبويب مؤسستهم بدلاً من /admin/schools (الذي لا يملكون صلاحيته)
+  shell(root, `/admin/schools/${id}`, '');
 
   const wrap = document.createElement('div');
   wrap.className = 'schools-view school-detail-view';
@@ -243,7 +245,7 @@ export async function schoolDetailView(root, ctx) {
       wrap.innerHTML = `
         <div class="page-head row" style="justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
           <div>
-            <a class="btn btn-ghost btn-xs" href="/admin/schools">← ${t('common.back')}</a>
+            ${store.isAdmin() ? `<a class="btn btn-ghost btn-xs" href="/admin/schools">← ${t('common.back')}</a>` : ''}
             <h2 style="margin:4px 0 2px">${esc(school.name)}</h2>
             <small class="text-muted">
               <code>${esc(school.code)}</code>
