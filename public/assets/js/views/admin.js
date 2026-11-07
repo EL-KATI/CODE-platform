@@ -89,11 +89,24 @@ export async function questionsView(root, { query }) {
         <a class="btn btn-primary" href="/admin/questions/new">+ ${t('common.new')}</a>
       </form>
       <p class="muted small">${t('admin.results', { n: data.total })}</p>
-      <div class="card" style="overflow:auto"><table class="table"><thead><tr><th>#</th><th>${t('admin.text')}</th><th>${t('admin.category')}</th><th>${t('admin.status')}</th><th>${t('admin.success')}</th></tr></thead><tbody>
+      <div class="card" style="overflow:auto"><table class="table"><thead><tr><th>#</th><th>${t('admin.text')}</th><th>${t('admin.category')}</th><th>${t('admin.status')}</th><th>${t('admin.success')}</th><th></th></tr></thead><tbody>
         ${data.items.map((r) => {
           const c = catById.get(r.category_id);
-          return html`<tr><td><a href="/admin/questions/${r.id}">${r.id}</a></td><td><a href="/admin/questions/${r.id}">${r.text}</a></td>
-            <td class="small">${c ? `${c.icon || ''} ${catName(c)}` : '—'}</td><td><span class="pill">${t('status.' + r.status)}</span></td><td>${r.success ?? '—'}${r.success != null ? '%' : ''}</td></tr>`;
+          const isArchived = r.status === 'archived';
+          const isHidden = r.status === 'draft';
+          return html`<tr style="${isArchived ? 'opacity:.5' : ''}">
+            <td><a href="/admin/questions/${r.id}">${r.id}</a></td>
+            <td><a href="/admin/questions/${r.id}">${r.text}</a></td>
+            <td class="small">${c ? `${c.icon || ''} ${catName(c)}` : '—'}</td>
+            <td><span class="pill pill-${r.status}">${t('status.' + r.status)}</span></td>
+            <td>${r.success ?? '—'}${r.success != null ? '%' : ''}</td>
+            <td class="row" style="gap:4px;justify-content:flex-end">
+              ${!isHidden && !isArchived ? html`<button class="btn btn-ghost btn-sm q-status-btn" data-id="${r.id}" data-status="draft" title="${t('admin.hide')}">🙈</button>` : ''}
+              ${isHidden ? html`<button class="btn btn-ghost btn-sm q-status-btn" data-id="${r.id}" data-status="published" title="${t('admin.publish')}">👁️</button>` : ''}
+              ${!isArchived ? html`<button class="btn btn-ghost btn-sm q-status-btn" data-id="${r.id}" data-status="archived" title="${t('admin.archive')}">📦</button>` : ''}
+              ${isArchived ? html`<button class="btn btn-ghost btn-sm q-status-btn" data-id="${r.id}" data-status="published" title="${t('admin.publish')}">♻️</button>` : ''}
+            </td>
+          </tr>`;
         })}
       </tbody></table></div>
       ${pages > 1 ? html`<div class="row" style="justify-content:center;margin-top:12px;gap:8px">
@@ -110,6 +123,18 @@ export async function questionsView(root, { query }) {
     form.onsubmit = (e) => { e.preventDefault(); submit(); };
     form.elements.category.onchange = submit;
     form.elements.status.onchange = submit;
+    // أزرار تغيير الحالة من القائمة مباشرة
+    root.querySelectorAll('.q-status-btn').forEach((btn) => {
+      btn.onclick = async () => {
+        const qid = btn.dataset.id;
+        const newStatus = btn.dataset.status;
+        try {
+          const existing = await api.get(`/admin/questions/${qid}`);
+          await api.put(`/admin/questions/${qid}`, { ...existing, categoryId: existing.category_id, imageAlt: existing.image_alt, audioText: existing.audio_text, status: newStatus });
+          navigate(`/admin/questions?${new URLSearchParams({ q, page: String(page), ...(category ? { category } : {}), ...(status ? { status } : {}) })}`);
+        } catch (err) { toast(errorMessage(err), 'error'); }
+      };
+    });
   });
 }
 
@@ -121,141 +146,196 @@ export async function questionEditView(root, { params }) {
       ? { categoryId: cats[0]?.id, text: '', options: ['', '', ''], correct: [1], explanation: '', difficulty: 2, status: 'published', is_double: 0, sub_questions: null, skill_type: 'معرفية' }
       : await api.get(`/admin/questions/${params.id}`);
     const catId = q.category_id ?? q.categoryId;
-    shell(root, '/admin/questions', html`
-      <form class="card stack" id="q-form" style="max-width:760px">
-        <label>${t('admin.category')}<select class="input" name="categoryId">${cats.map((c) => html`<option value="${c.id}" ${c.id === catId ? raw('selected') : ''}>${catName(c)}</option>`)}</select></label>
-        <label>${t('admin.text')}<textarea class="input" name="text" rows="3" required>${q.text}</textarea></label>
-        <label>${t('admin.options')}<textarea class="input" name="options" rows="4" required>${q.options.join('\n')}</textarea></label>
-        <label>${t('admin.correct')}<input class="input" name="correct" value="${q.correct.join(',')}" required></label>
-        <label>${t('admin.explanation')}<textarea class="input" name="explanation" rows="3">${q.explanation || ''}</textarea></label>
-        <fieldset class="stack" style="border:1px solid var(--border,#ccd);border-radius:10px;padding:12px">
-          <legend>${t('admin.media')}</legend>
-          <div id="img-prev"></div>
-          <div class="row" style="flex-wrap:wrap;gap:8px">
-            <label class="btn btn-secondary">🖼️ ${t('admin.uploadImage')}<input type="file" id="img-file" accept="image/png,image/jpeg,image/webp,image/gif" hidden></label>
-            <button class="btn btn-ghost" type="button" id="img-clear">${t('admin.removeImage')}</button>
+
+    // --- Step 1: اختيار نوع السؤال أولاً (للأسئلة الجديدة) ---
+    if (isNew) {
+      shell(root, '/admin/questions', html`
+        <div class="card stack" style="max-width:480px;margin:auto;text-align:center">
+          <h2 style="margin:0 0 8px">${t('admin.chooseKind')}</h2>
+          <p class="muted small" style="margin:0 0 24px">${t('admin.chooseKindHint')}</p>
+          <div class="row" style="justify-content:center;gap:16px">
+            <button class="btn btn-primary" style="font-size:1.1rem;padding:14px 32px" id="kind-single">
+              📄 ${t('admin.single')}
+            </button>
+            <button class="btn btn-secondary" style="font-size:1.1rem;padding:14px 32px" id="kind-double">
+              ⚡ ${t('admin.double')}
+            </button>
           </div>
-          <label>${t('admin.imageUrl')}<input class="input" name="image" dir="ltr" value="${q.image || ''}" placeholder="https://… ${t('admin.orPaste')}"></label>
-          <label>${t('admin.imageAlt')}<input class="input" name="imageAlt" value="${q.image_alt || ''}"></label>
-          <hr style="width:100%;opacity:.3">
-          <div id="vid-prev"></div>
-          <div class="row" style="flex-wrap:wrap;gap:8px">
-            <label class="btn btn-secondary">🎬 ${t('admin.uploadVideo')}<input type="file" id="vid-file" accept="video/mp4,video/webm" hidden></label>
-            <button class="btn btn-ghost" type="button" id="vid-clear">${t('admin.removeVideo')}</button>
-          </div>
-          <label>${t('admin.videoUrl')}<input class="input" name="video" dir="ltr" value="${q.video || ''}" placeholder="YouTube / https://…mp4"></label>
-          <hr style="width:100%;opacity:.3">
-          <label>${t('admin.audioText')}<textarea class="input" name="audioText" rows="3" placeholder="${t('admin.audioHelp')}">${q.audio_text || ''}</textarea></label>
-          <div><button class="btn btn-secondary" type="button" id="audio-test">🔊 ${t('admin.audioTest')}</button></div>
+        </div>`);
+      root.querySelector('#kind-single').onclick = () => renderForm(root, cats, q, catId, false, isNew, params);
+      root.querySelector('#kind-double').onclick = () => renderForm(root, cats, q, catId, true, isNew, params);
+      return;
+    }
+
+    renderForm(root, cats, q, catId, !!q.is_double, isNew, params);
+  });
+}
+
+function renderForm(root, cats, q, catId, startDouble, isNew, params) {
+  const isDouble = startDouble;
+  shell(root, '/admin/questions', html`
+    <form class="card stack" id="q-form" style="max-width:760px">
+
+      <!-- نوع السؤال — في أعلى الفورم -->
+      <div style="background:var(--surface2,#f4f4f5);border-radius:10px;padding:12px 16px">
+        <div class="row" style="align-items:center;gap:16px;flex-wrap:wrap">
+          <strong style="white-space:nowrap">📋 ${t('admin.questionKind')}</strong>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="radio" name="is_double" value="0" ${!isDouble ? 'checked' : ''}> ${t('admin.single')}
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="radio" name="is_double" value="1" ${isDouble ? 'checked' : ''}> ${t('admin.double')}
+          </label>
+        </div>
+      </div>
+
+      <!-- الفئة + النص المشترك -->
+      <label>${t('admin.category')}<select class="input" name="categoryId">${cats.map((c) => html`<option value="${c.id}" ${c.id === catId ? raw('selected') : ''}>${catName(c)}</option>`)}</select></label>
+      <label>${t('admin.text')}<textarea class="input" name="text" rows="3" required>${q.text}</textarea></label>
+
+      <!-- حقول السؤال المنفرد -->
+      <div id="single-fields" style="display:${isDouble ? 'none' : 'contents'}">
+        <label>${t('admin.options')}<textarea class="input" name="options" rows="4">${(q.options || []).join('\n')}</textarea></label>
+        <label>${t('admin.correct')}<input class="input" name="correct" value="${(q.correct || []).join(',')}"></label>
+      </div>
+
+      <!-- حقول السؤال المزدوج -->
+      <div id="double-fields" style="display:${isDouble ? 'block' : 'none'}">
+        <fieldset class="stack" style="border:1px solid var(--border,#ccd);border-radius:10px;padding:12px;margin-top:4px">
+          <legend>⚡ ${t('admin.double')} — ${t('admin.subQ1')}</legend>
+          <label>${t('admin.text')}<textarea class="input" name="sq1_text" rows="2">${q.sub_questions?.[0]?.text || ''}</textarea></label>
+          <label>${t('admin.options')}<textarea class="input" name="sq1_options" rows="3">${(q.sub_questions?.[0]?.options || ['', '']).join('\n')}</textarea></label>
+          <label>${t('admin.correct')}<input class="input" name="sq1_correct" value="${(q.sub_questions?.[0]?.correct || [1]).join(',')}"></label>
         </fieldset>
-        <div class="row" style="align-items:center;gap:16px">
-          <strong style="white-space:nowrap">${t('admin.questionKind')}</strong>
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
-            <input type="radio" name="is_double" value="0" ${!q.is_double ? 'checked' : ''}> ${t('admin.single')}
-          </label>
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
-            <input type="radio" name="is_double" value="1" ${q.is_double ? 'checked' : ''}> ${t('admin.double')}
-          </label>
+        <fieldset class="stack" style="border:1px solid var(--border,#ccd);border-radius:10px;padding:12px;margin-top:8px">
+          <legend>⚡ ${t('admin.double')} — ${t('admin.subQ2')}</legend>
+          <label>${t('admin.text')}<textarea class="input" name="sq2_text" rows="2">${q.sub_questions?.[1]?.text || ''}</textarea></label>
+          <label>${t('admin.options')}<textarea class="input" name="sq2_options" rows="3">${(q.sub_questions?.[1]?.options || ['', '']).join('\n')}</textarea></label>
+          <label>${t('admin.correct')}<input class="input" name="sq2_correct" value="${(q.sub_questions?.[1]?.correct || [1]).join(',')}"></label>
+        </fieldset>
+      </div>
+
+      <label>${t('admin.explanation')}<textarea class="input" name="explanation" rows="3">${q.explanation || ''}</textarea></label>
+
+      <!-- الوسائط -->
+      <fieldset class="stack" style="border:1px solid var(--border,#ccd);border-radius:10px;padding:12px">
+        <legend>${t('admin.media')}</legend>
+        <div id="img-prev"></div>
+        <div class="row" style="flex-wrap:wrap;gap:8px">
+          <label class="btn btn-secondary">🖼️ ${t('admin.uploadImage')}<input type="file" id="img-file" accept="image/png,image/jpeg,image/webp,image/gif" hidden></label>
+          <button class="btn btn-ghost" type="button" id="img-clear">${t('admin.removeImage')}</button>
         </div>
-        <!-- حقول السؤال المزدوج -->
-        <div id="double-fields" style="display:${q.is_double ? 'block' : 'none'}">
-          <fieldset class="stack" style="border:1px solid var(--border,#ccd);border-radius:10px;padding:12px;margin-top:4px">
-            <legend>⚡ ${t('admin.double')} — ${t('admin.subQ1')}</legend>
-            <label>${t('admin.text')}<textarea class="input" name="sq1_text" rows="2">${q.sub_questions?.[0]?.text || ''}</textarea></label>
-            <label>${t('admin.options')}<textarea class="input" name="sq1_options" rows="3">${(q.sub_questions?.[0]?.options || ['','']).join('\n')}</textarea></label>
-            <label>${t('admin.correct')}<input class="input" name="sq1_correct" value="${(q.sub_questions?.[0]?.correct || [1]).join(',')}"></label>
-          </fieldset>
-          <fieldset class="stack" style="border:1px solid var(--border,#ccd);border-radius:10px;padding:12px;margin-top:8px">
-            <legend>⚡ ${t('admin.double')} — ${t('admin.subQ2')}</legend>
-            <label>${t('admin.text')}<textarea class="input" name="sq2_text" rows="2">${q.sub_questions?.[1]?.text || ''}</textarea></label>
-            <label>${t('admin.options')}<textarea class="input" name="sq2_options" rows="3">${(q.sub_questions?.[1]?.options || ['','']).join('\n')}</textarea></label>
-            <label>${t('admin.correct')}<input class="input" name="sq2_correct" value="${(q.sub_questions?.[1]?.correct || [1]).join(',')}"></label>
-          </fieldset>
+        <label>${t('admin.imageUrl')}<input class="input" name="image" dir="ltr" value="${q.image || ''}" placeholder="https://… ${t('admin.orPaste')}"></label>
+        <label>${t('admin.imageAlt')}<input class="input" name="imageAlt" value="${q.image_alt || ''}"></label>
+        <hr style="width:100%;opacity:.3">
+        <div id="vid-prev"></div>
+        <div class="row" style="flex-wrap:wrap;gap:8px">
+          <label class="btn btn-secondary">🎬 ${t('admin.uploadVideo')}<input type="file" id="vid-file" accept="video/mp4,video/webm" hidden></label>
+          <button class="btn btn-ghost" type="button" id="vid-clear">${t('admin.removeVideo')}</button>
         </div>
-        <div class="row">
-          <label>${t('admin.skillType')}
-            <select class="input" name="skill_type">
-              ${[['معرفية','معرفية'],['سلوكية','سلوكية'],['اجتماعية','اجتماعية']].map(([v,l]) => html`<option value="${v}" ${v === (q.skill_type || 'معرفية') ? raw('selected') : ''}>${l}</option>`)}
-            </select>
-          </label>
-        </div>
-        <div class="row">
-          <label>${t('admin.difficulty')}<select class="input" name="difficulty">${[1, 2, 3].map((d) => html`<option ${d === q.difficulty ? raw('selected') : ''}>${d}</option>`)}</select></label>
-          <label>${t('admin.status')}<select class="input" name="status">${['draft', 'published', 'archived'].map((s) => html`<option ${s === q.status ? raw('selected') : ''}>${s}</option>`)}</select></label>
-        </div>
-        <div class="row"><button class="btn btn-primary" type="submit">${t('common.save')}</button>
-          ${isNew ? '' : html`<button class="btn btn-danger" type="button" id="q-del">${t('common.delete')}</button>`}</div>
-      </form>`);
-    const form = root.querySelector('#q-form');
-    const showMedia = () => {
-      const img = val(form, 'image').trim();
-      root.querySelector('#img-prev').innerHTML = img ? html`<img src="${img}" alt="" style="max-width:320px;max-height:220px;border-radius:8px">`.s : '';
-      root.querySelector('#vid-prev').innerHTML = videoBlock({ video: val(form, 'video').trim() }).s || '';
-    };
-    const readDataUrl = (file) => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(file); });
-    const sendImage = async (file) => {
-      try {
-        const { url } = await api.post('/admin/uploads', { dataUrl: await readDataUrl(file) });
-        form.elements.image.value = url; showMedia(); toast(t('common.saved'));
-      } catch (err) { toast(errorMessage(err), 'error'); }
-    };
-    root.querySelector('#img-file').onchange = (e) => { const f = e.target.files[0]; if (f) sendImage(f); };
-    root.querySelector('#img-clear').onclick = () => { form.elements.image.value = ''; showMedia(); };
-    root.querySelector('#vid-clear').onclick = () => { form.elements.video.value = ''; showMedia(); };
-    root.querySelector('#vid-file').onchange = async (e) => {
-      const f = e.target.files[0]; if (!f) return;
-      if (f.size > 30 * 1024 * 1024) { toast(t('admin.videoTooBig'), 'error'); return; }
-      toast(t('common.loading'));
-      try { const { url } = await uploadBlob('/admin/uploads-video', f); form.elements.video.value = url; showMedia(); toast(t('common.saved')); } catch (err) { toast(errorMessage(err), 'error'); }
-    };
-    form.addEventListener('paste', (e) => {
-      const f = [...(e.clipboardData?.files || [])].find((x) => x.type.startsWith('image/'));
-      if (f) { e.preventDefault(); sendImage(f); }
-    });
-    form.elements.image.addEventListener('change', showMedia);
-    form.elements.video.addEventListener('change', showMedia);
-    root.querySelector('#audio-test').onclick = () => speak(val(form, 'audioText') || val(form, 'text'));
-    // toggle حقول المزدوج عند تغيير الاختيار
-    const doubleFields = root.querySelector('#double-fields');
-    root.querySelectorAll('[name=is_double]').forEach((r) => {
-      r.onchange = () => { doubleFields.style.display = r.value === '1' ? 'block' : 'none'; };
-    });
-    showMedia();
-    form.onsubmit = async (e) => {
-      e.preventDefault();
-      const isDouble = val(form, 'is_double') === '1';
-      const subQuestions = isDouble ? [
-        {
-          text: val(form, 'sq1_text').trim(),
-          options: val(form, 'sq1_options').split('\n').map((s) => s.trim()).filter(Boolean),
-          correct: val(form, 'sq1_correct').split(',').map((s) => Number(s.trim())).filter(Boolean),
-        },
-        {
-          text: val(form, 'sq2_text').trim(),
-          options: val(form, 'sq2_options').split('\n').map((s) => s.trim()).filter(Boolean),
-          correct: val(form, 'sq2_correct').split(',').map((s) => Number(s.trim())).filter(Boolean),
-        },
-      ] : null;
-      const body = {
-        categoryId: Number(val(form, 'categoryId')), text: val(form, 'text'), explanation: val(form, 'explanation'),
-        options: val(form, 'options').split('\n').map((s) => s.trim()).filter(Boolean),
-        correct: val(form, 'correct').split(',').map((s) => Number(s.trim())).filter(Boolean),
-        difficulty: Number(val(form, 'difficulty')), status: val(form, 'status'),
-        is_double: isDouble ? 1 : 0, sub_questions: subQuestions, skill_type: val(form, 'skill_type'),
-        visual: q.visual || null, image: val(form, 'image').trim() || null, imageAlt: val(form, 'imageAlt'),
-        video: val(form, 'video').trim() || null, audioText: val(form, 'audioText'),
-      };
-      try {
-        if (isNew) await api.post('/admin/questions', body); else await api.put(`/admin/questions/${params.id}`, body);
-        toast(t('common.saved')); navigate('/admin/questions');
-      } catch (err) { toast(errorMessage(err), 'error'); }
-    };
-    const del = root.querySelector('#q-del');
-    if (del) del.onclick = async () => {
-      if (!(await confirmDialog(t('admin.confirmDelete'), { danger: true }))) return;
-      try { await api.del(`/admin/questions/${params.id}`); navigate('/admin/questions'); } catch (err) { toast(errorMessage(err), 'error'); }
+        <label>${t('admin.videoUrl')}<input class="input" name="video" dir="ltr" value="${q.video || ''}" placeholder="YouTube / https://…mp4"></label>
+        <hr style="width:100%;opacity:.3">
+        <label>${t('admin.audioText')}<textarea class="input" name="audioText" rows="3" placeholder="${t('admin.audioHelp')}">${q.audio_text || ''}</textarea></label>
+        <div><button class="btn btn-secondary" type="button" id="audio-test">🔊 ${t('admin.audioTest')}</button></div>
+      </fieldset>
+
+      <!-- الصعوبة + نوع المهارة فقط (بدون الحالة) -->
+      <div class="row">
+        <label>${t('admin.skillType')}
+          <select class="input" name="skill_type">
+            ${[['معرفية', 'معرفية'], ['سلوكية', 'سلوكية'], ['اجتماعية', 'اجتماعية']].map(([v, l]) => html`<option value="${v}" ${v === (q.skill_type || 'معرفية') ? raw('selected') : ''}>${l}</option>`)}
+          </select>
+        </label>
+        <label>${t('admin.difficulty')}<select class="input" name="difficulty">${[1, 2, 3].map((d) => html`<option ${d === (q.difficulty || 2) ? raw('selected') : ''}>${d}</option>`)}</select></label>
+      </div>
+
+      <!-- الحالة مخفية — تُدار من قائمة الأسئلة -->
+      <input type="hidden" name="status" value="${q.status || 'published'}">
+
+      <div class="row">
+        <button class="btn btn-primary" type="submit">${t('common.save')}</button>
+        ${isNew ? '' : html`<button class="btn btn-danger" type="button" id="q-del">${t('common.delete')}</button>`}
+      </div>
+    </form>`);
+
+  const form = root.querySelector('#q-form');
+  const showMedia = () => {
+    const img = val(form, 'image').trim();
+    root.querySelector('#img-prev').innerHTML = img ? html`<img src="${img}" alt="" style="max-width:320px;max-height:220px;border-radius:8px">`.s : '';
+    root.querySelector('#vid-prev').innerHTML = videoBlock({ video: val(form, 'video').trim() }).s || '';
+  };
+  const readDataUrl = (file) => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(file); });
+  const sendImage = async (file) => {
+    try {
+      const { url } = await api.post('/admin/uploads', { dataUrl: await readDataUrl(file) });
+      form.elements.image.value = url; showMedia(); toast(t('common.saved'));
+    } catch (err) { toast(errorMessage(err), 'error'); }
+  };
+  root.querySelector('#img-file').onchange = (e) => { const f = e.target.files[0]; if (f) sendImage(f); };
+  root.querySelector('#img-clear').onclick = () => { form.elements.image.value = ''; showMedia(); };
+  root.querySelector('#vid-clear').onclick = () => { form.elements.video.value = ''; showMedia(); };
+  root.querySelector('#vid-file').onchange = async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    if (f.size > 30 * 1024 * 1024) { toast(t('admin.videoTooBig'), 'error'); return; }
+    toast(t('common.loading'));
+    try { const { url } = await uploadBlob('/admin/uploads-video', f); form.elements.video.value = url; showMedia(); toast(t('common.saved')); } catch (err) { toast(errorMessage(err), 'error'); }
+  };
+  form.addEventListener('paste', (e) => {
+    const f = [...(e.clipboardData?.files || [])].find((x) => x.type.startsWith('image/'));
+    if (f) { e.preventDefault(); sendImage(f); }
+  });
+  form.elements.image.addEventListener('change', showMedia);
+  form.elements.video.addEventListener('change', showMedia);
+  root.querySelector('#audio-test').onclick = () => speak(val(form, 'audioText') || val(form, 'text'));
+
+  // toggle بين منفرد ومزدوج
+  const singleFields = root.querySelector('#single-fields');
+  const doubleFields = root.querySelector('#double-fields');
+  root.querySelectorAll('[name=is_double]').forEach((r) => {
+    r.onchange = () => {
+      const dbl = r.value === '1';
+      singleFields.style.display = dbl ? 'none' : 'contents';
+      doubleFields.style.display = dbl ? 'block' : 'none';
     };
   });
+  showMedia();
+
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const isDoubleNow = val(form, 'is_double') === '1';
+    const subQuestions = isDoubleNow ? [
+      {
+        text: val(form, 'sq1_text').trim(),
+        options: val(form, 'sq1_options').split('\n').map((s) => s.trim()).filter(Boolean),
+        correct: val(form, 'sq1_correct').split(',').map((s) => Number(s.trim())).filter(Boolean),
+      },
+      {
+        text: val(form, 'sq2_text').trim(),
+        options: val(form, 'sq2_options').split('\n').map((s) => s.trim()).filter(Boolean),
+        correct: val(form, 'sq2_correct').split(',').map((s) => Number(s.trim())).filter(Boolean),
+      },
+    ] : null;
+    // للسؤال المزدوج: options/correct ترسل فارغة ثم السيرفر يتجاهلها
+    const opts = isDoubleNow ? ['أ', 'ب'] : val(form, 'options').split('\n').map((s) => s.trim()).filter(Boolean);
+    const corr = isDoubleNow ? [1] : val(form, 'correct').split(',').map((s) => Number(s.trim())).filter(Boolean);
+    const body = {
+      categoryId: Number(val(form, 'categoryId')), text: val(form, 'text'), explanation: val(form, 'explanation'),
+      options: opts, correct: corr,
+      difficulty: Number(val(form, 'difficulty')), status: val(form, 'status'),
+      is_double: isDoubleNow ? 1 : 0, sub_questions: subQuestions, skill_type: val(form, 'skill_type'),
+      visual: q.visual || null, image: val(form, 'image').trim() || null, imageAlt: val(form, 'imageAlt'),
+      video: val(form, 'video').trim() || null, audioText: val(form, 'audioText'),
+    };
+    try {
+      if (isNew) await api.post('/admin/questions', body); else await api.put(`/admin/questions/${params.id}`, body);
+      toast(t('common.saved')); navigate('/admin/questions');
+    } catch (err) { toast(errorMessage(err), 'error'); }
+  };
+  const del = root.querySelector('#q-del');
+  if (del) del.onclick = async () => {
+    if (!(await confirmDialog(t('admin.confirmDelete'), { danger: true }))) return;
+    try { await api.del(`/admin/questions/${params.id}`); navigate('/admin/questions'); } catch (err) { toast(errorMessage(err), 'error'); }
+  };
 }
 
 // --- Séries ----------------------------------------------------------------------

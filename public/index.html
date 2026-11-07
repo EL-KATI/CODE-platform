@@ -18,11 +18,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/css/app.css">
   <script type="module" src="/assets/js/app.js"></script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
-    }
-  </script>
+  <script src="/assets/js/register-sw.js" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#app" data-i18n="a11y.skip">انتقل إلى المحتوى</a>
