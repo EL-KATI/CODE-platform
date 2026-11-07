@@ -359,11 +359,11 @@ function open(file = config.dbFile) {
       console.log('[db] migration: added schools.owner_id');
     }
     if (!schoolsCols.includes('agrement_num')) {
-      db.exec("ALTER TABLE schools ADD COLUMN agrement_num TEXT NOT NULL DEFAULT ''");
+      db.exec("ALTER TABLE schools ADD COLUMN agrement_num TEXT DEFAULT ''");
       console.log('[db] migration: added schools.agrement_num');
     }
     if (!schoolsCols.includes('raison_sociale')) {
-      db.exec("ALTER TABLE schools ADD COLUMN raison_sociale TEXT NOT NULL DEFAULT ''");
+      db.exec("ALTER TABLE schools ADD COLUMN raison_sociale TEXT DEFAULT ''");
       console.log('[db] migration: added schools.raison_sociale');
     }
   }

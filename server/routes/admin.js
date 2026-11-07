@@ -608,8 +608,8 @@ router.post('/schools', adminOnly, wrap(async (req, res) => {
   // إضافة الأعمدة الجديدة — SQLite لا يقبل NOT NULL في ALTER TABLE
   try { d.exec("ALTER TABLE schools ADD COLUMN email TEXT DEFAULT ''"); } catch (_) {}
   try { d.exec('ALTER TABLE schools ADD COLUMN owner_id INTEGER'); } catch (_) {}
-  try { d.exec("ALTER TABLE schools ADD COLUMN agrement_num TEXT NOT NULL DEFAULT ''"); } catch (_) {}
-  try { d.exec("ALTER TABLE schools ADD COLUMN raison_sociale TEXT NOT NULL DEFAULT ''"); } catch (_) {}
+  try { d.exec("ALTER TABLE schools ADD COLUMN agrement_num TEXT DEFAULT ''"); } catch (_) {}
+  try { d.exec("ALTER TABLE schools ADD COLUMN raison_sociale TEXT DEFAULT ''"); } catch (_) {}
 
   if (d.prepare('SELECT id FROM schools WHERE code = ?').get(code)) throw bad('slug_taken', { field: 'code' });
 
@@ -638,17 +638,17 @@ router.post('/schools', adminOnly, wrap(async (req, res) => {
   }
 
   try {
-    // إنشاء المؤسسة بدون email/owner_id أولاً (للتوافق مع الجدول القديم)
+    // بناء INSERT ديناميكياً بناءً على الأعمدة الموجودة فعلاً
     const cols = d.prepare('PRAGMA table_info(schools)').all().map(c => c.name);
-    let insertSQL, insertParams;
-    if (cols.includes('email') && cols.includes('owner_id')) {
-      insertSQL = 'INSERT INTO schools (name, code, email, phone, address, owner_id, created_by, agrement_num, raison_sociale) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
-      insertParams = [name, code, email, phone, address, ownerId, req.user.id, agrementNum, raisonSociale];
-    } else {
-      insertSQL = 'INSERT INTO schools (name, code, phone, address, created_by) VALUES (?, ?, ?, ?, ?)';
-      insertParams = [name, code, phone, address, req.user.id];
-    }
-    const r = d.prepare(insertSQL).run(...insertParams);
+    const insertCols = ['name', 'code', 'phone', 'address', 'created_by'];
+    const insertVals = [name, code, phone, address, req.user.id];
+    if (cols.includes('email'))        { insertCols.push('email');        insertVals.push(email); }
+    if (cols.includes('owner_id'))     { insertCols.push('owner_id');     insertVals.push(ownerId); }
+    if (cols.includes('agrement_num')) { insertCols.push('agrement_num'); insertVals.push(agrementNum); }
+    if (cols.includes('raison_sociale')) { insertCols.push('raison_sociale'); insertVals.push(raisonSociale); }
+
+    const placeholders = insertCols.map(() => '?').join(', ');
+    const r = d.prepare(`INSERT INTO schools (${insertCols.join(', ')}) VALUES (${placeholders})`).run(...insertVals);
     schoolId = r.lastInsertRowid;
   } catch(e) {
     // تراجع: حذف المستخدم الذي أُنشئ
@@ -659,11 +659,11 @@ router.post('/schools', adminOnly, wrap(async (req, res) => {
   // ربط حساب المؤسسة بالمؤسسة نفسها
   d.prepare('UPDATE users SET school_id = ? WHERE id = ?').run(schoolId, ownerId);
 
-  // تحديث email و owner_id في schools إذا لم يُدرجا
-  try {
-    d.prepare('UPDATE schools SET owner_id = ? WHERE id = ?').run(ownerId, schoolId);
-    d.prepare("UPDATE schools SET email = ? WHERE id = ?").run(email, schoolId);
-  } catch(_) { /* owner_id/email update optional — columns may not exist yet */ }
+  // تأكيد تحديث الأعمدة (للتوافق في حالة عدم إدراجها مباشرةً)
+  try { d.prepare('UPDATE schools SET owner_id = ? WHERE id = ?').run(ownerId, schoolId); } catch(_) {}
+  try { d.prepare('UPDATE schools SET email = ? WHERE id = ?').run(email, schoolId); } catch(_) {}
+  try { d.prepare('UPDATE schools SET agrement_num = ? WHERE id = ?').run(agrementNum, schoolId); } catch(_) {}
+  try { d.prepare('UPDATE schools SET raison_sociale = ? WHERE id = ?').run(raisonSociale, schoolId); } catch(_) {}
 
   db.audit(req.user.id, 'create', 'school', schoolId, { name, code, email });
   const school = d.prepare('SELECT * FROM schools WHERE id = ?').get(schoolId);
