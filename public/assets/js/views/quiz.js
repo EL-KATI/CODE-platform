@@ -8,13 +8,26 @@ import { navigate } from '../router.js';
 import { renderVisual } from '../scenario.js';
 import { modeLabel, videoBlock, speechText } from './common.js';
 
-export async function quizView(root, { params }) {
-  root.innerHTML = loading().s;
+export async function quizView(appRoot, { params }) {
+  appRoot.innerHTML = loading().s;
   let a;
   try { a = await api.get(`/attempts/${params.id}`); } catch { return navigate('/dashboard', { replace: true }); }
   if (a.finishedAt) return navigate(`/results/${a.id}`, { replace: true });
   const cats = new Map((await store.getCategories()).map((c) => [c.id, c]));
   const live = document.getElementById('live');
+
+  // ── نافذة منبثقة بملء الشاشة (تتكيّف مع الحاسوب والتابلت والهاتف) ──
+  appRoot.innerHTML = '';
+  const overlay = document.createElement('div');
+  overlay.className = 'qz-overlay';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  const root = document.createElement('div');
+  root.className = 'qz-window';
+  overlay.appendChild(root);
+  document.body.appendChild(overlay);
+  const prevOverflow = document.body.style.overflow;
+  document.body.style.overflow = 'hidden';
 
   const exam = !a.practice;
   let idx = Math.max(0, a.questions.findIndex((q) => !q.answer));
@@ -56,6 +69,7 @@ export async function quizView(root, { params }) {
         <button class="btn btn-secondary btn-sm" id="quit" style="border-color:var(--danger-mid);color:var(--danger)">
           ${exam ? '🏁 ' + t('quiz.finishNow') : '✓ ' + t('quiz.finish')}
         </button>
+        <button class="btn btn-ghost btn-sm" id="qz-close" type="button" aria-label="${t('quiz.close')}" title="${t('quiz.close')}">✕</button>
       </div>
 
       <!-- المحتوى الرئيسي -->
@@ -96,6 +110,10 @@ export async function quizView(root, { params }) {
       reading = !reading; autoRead.set(reading); drawAr();
       toast(reading ? t('quiz.autoReadOn') : t('quiz.autoReadOff'));
       if (reading) speak(speechText(q(), idx + 1), { silent: true }); else stopSpeaking();
+    };
+    root.querySelector('#qz-close').onclick = async () => {
+      if (exam && !finished && !(await confirmDialog(t('quiz.closeConfirm'), { okLabel: t('quiz.close') }))) return;
+      navigate(exam ? '/exam' : '/practice');
     };
     root.querySelector('#quit').onclick = async () => {
       const left = a.questions.length - answeredCount();
@@ -499,6 +517,8 @@ export async function quizView(root, { params }) {
   window.addEventListener('beforeunload', beforeUnload);
   return () => {
     stopTimer();
+    overlay.remove();
+    document.body.style.overflow = prevOverflow;
     document.removeEventListener('keydown', onKey);
     window.removeEventListener('beforeunload', beforeUnload);
     stopSpeaking();
