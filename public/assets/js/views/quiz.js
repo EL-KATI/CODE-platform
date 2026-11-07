@@ -88,6 +88,7 @@ export async function quizView(appRoot, { params }) {
                 <span class="q-timer-label">${t('quiz.timeLeft')}</span>
               </div>
             </div>` : ''}
+          <div class="q-pad-wrap" id="ans-pad" role="group" aria-label="${t('quiz.answerPad')}"></div>
           <div class="q-current" aria-live="polite">
             <span class="q-current-label">${t('quiz.qLabel')}</span>
             <span class="q-current-num" id="q-current-num"></span>
@@ -193,17 +194,7 @@ export async function quizView(appRoot, { params }) {
     const c = cats.get(cur.categoryId);
     const card = root.querySelector('#qcard');
 
-    // رأس البطاقة (فئة + أدوات)
-    const header = html`
-      <div class="qcard-header">
-        ${c ? html`<span class="pill" style="font-size:.8rem">${c.icon} ${catName(c)}</span>` : ''}
-        ${isDouble ? html`<span class="pill pill-info" style="font-size:.78rem">⚡ ${t('quiz.double')}</span>` : ''}
-        ${cur.skill_type ? html`<span class="pill" style="font-size:.74rem;opacity:.8">${cur.skill_type}</span>` : ''}
-        <div style="flex:1"></div>
-        <button class="btn btn-ghost btn-sm" id="speak" type="button" aria-label="${t('quiz.listen')}">🔊</button>
-        <button class="btn btn-ghost btn-sm" id="bm" type="button" aria-pressed="${!!cur.bookmarked}"
-          title="${t('quiz.bookmark')}">${cur.bookmarked ? '★' : '☆'}</button>
-      </div>`;
+    const header = '';
 
     // المنطقة المرئية (صورة / مشهد)
     const visual = html`
@@ -335,10 +326,11 @@ export async function quizView(appRoot, { params }) {
     }
 
     arrangeBody(card);
+    renderPad();
 
     // ربط الأزرار المشتركة
-    card.querySelector('#speak').onclick = () => speak(speechText(cur, idx + 1));
-    card.querySelector('#bm').onclick = toggleBookmark;
+    const spk = card.querySelector('#speak'); if (spk) spk.onclick = () => speak(speechText(cur, idx + 1));
+    const bmk = card.querySelector('#bm'); if (bmk) bmk.onclick = toggleBookmark;
     const v = card.querySelector('#validate'); if (v) v.onclick = validate;
     const cl = card.querySelector('#clear');
     if (cl) cl.onclick = () => {
@@ -354,10 +346,55 @@ export async function quizView(appRoot, { params }) {
     if (reading && !ans) speak(speechText(cur, idx + 1), { silent: true });
   }
 
+  // ── لوحة أرقام الإجابة (تحت العدّاد): 1..عدد الخيارات ───────────────
+  function renderPad() {
+    const el = root.querySelector('#ans-pad');
+    if (!el) return;
+    const cur = q();
+    const ans = cur.answer;
+    const reveal = !exam && ans;
+    const norm = (arr) => (arr || []).map((c) => (typeof c === 'string' && c.startsWith('opt_') ? Number(c.replace('opt_', '')) : Number(c))).filter(Boolean);
+    const isDouble = cur.is_double && Array.isArray(cur.sub_questions) && cur.sub_questions.length === 2;
+    const row = (count, prefix, correctArr, selSet, label) => {
+      const corr = new Set(norm(correctArr));
+      const btns = Array.from({ length: count }, (_, i) => {
+        const n = i + 1;
+        let cls = 'q-pad-btn';
+        if (reveal) { if (corr.has(n)) cls += ' opt-correct'; else if (selSet.has(n)) cls += ' opt-wrong'; }
+        return `<button type="button" class="${cls}" data-prefix="${prefix}" data-n="${n}" aria-pressed="${selSet.has(n)}" ${ans ? 'disabled' : ''}>${n}</button>`;
+      }).join('');
+      return `<div class="q-pad-row">${label ? `<span class="q-pad-label">${label}</span>` : ''}<div class="q-pad">${btns}</div></div>`;
+    };
+    el.innerHTML = isDouble
+      ? row(cur.sub_questions[0].options.length, 'a', cur.sub_questions[0].correct, selected.a, 'أ') + row(cur.sub_questions[1].options.length, 'b', cur.sub_questions[1].correct, selected.b, 'ب')
+      : row(cur.options.length, '', cur.correct, selected, '');
+    el.querySelectorAll('.q-pad-btn:not([disabled])').forEach((b) => {
+      b.onclick = () => {
+        const n = Number(b.dataset.n);
+        if (isDouble) {
+          const set = b.dataset.prefix === 'a' ? selected.a : selected.b;
+          if (set.has(n)) set.delete(n); else set.add(n);
+          sound.play('click');
+          syncDoubleOptions();
+        } else toggle(n);
+      };
+    });
+  }
+
+  function syncPad() {
+    const el = root.querySelector('#ans-pad');
+    if (!el) return;
+    el.querySelectorAll('.q-pad-btn').forEach((b) => {
+      const set = b.dataset.prefix === 'a' ? selected.a : b.dataset.prefix === 'b' ? selected.b : selected;
+      b.setAttribute('aria-pressed', String(!!set && set.has(Number(b.dataset.n))));
+    });
+  }
+
   function syncDoubleOptions() {
     const card = root.querySelector('#qcard');
     card.querySelectorAll('.q-option[data-prefix="a"]').forEach((b) => b.setAttribute('aria-pressed', String(selected.a.has(Number(b.dataset.n)))));
     card.querySelectorAll('.q-option[data-prefix="b"]').forEach((b) => b.setAttribute('aria-pressed', String(selected.b.has(Number(b.dataset.n)))));
+    syncPad();
   }
 
   // ── التغذية الراجعة ───────────────────────────────────────────────
@@ -393,6 +430,7 @@ export async function quizView(appRoot, { params }) {
 
   function syncOptions() {
     root.querySelectorAll('.q-option').forEach((b) => b.setAttribute('aria-pressed', String(selected.has(Number(b.dataset.n)))));
+    syncPad();
   }
 
   function toggle(n) {
@@ -480,6 +518,7 @@ export async function quizView(appRoot, { params }) {
       const r = await api.put(`/questions/${cur.id}/bookmark`, { bookmarked: !cur.bookmarked });
       cur.bookmarked = r.bookmarked;
       const b = root.querySelector('#bm');
+      if (!b) return;
       b.textContent = cur.bookmarked ? '★' : '☆';
       b.setAttribute('aria-pressed', String(cur.bookmarked));
       toast(cur.bookmarked ? t('quiz.bookmarked') : t('quiz.unbookmarked'));

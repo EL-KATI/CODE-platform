@@ -2071,3 +2071,24 @@ dialog::backdrop { background: rgb(12 10 9 / .7); backdrop-filter: blur(4px); }
 @media (min-width: 1001px) {
   .qz-window .qz-main .q-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 }
+
+/* ── لوحة أرقام الجواب في الشريط الجانبي ── */
+.q-pad-wrap { display: flex; flex-direction: column; gap: 8px; align-items: center; width: 100%; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.q-pad-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.q-pad-label { font-weight: 800; font-size: .8rem; color: var(--muted); }
+.q-pad { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.q-pad-btn { width: 42px; height: 42px; border-radius: 10px; border: 2px solid var(--border-strong, var(--border)); background: var(--surface); color: var(--text); font-size: 1.05rem; font-weight: 800; cursor: pointer; transition: transform .08s, background .12s; }
+.q-pad-btn:hover:not([disabled]) { background: var(--surface-3, var(--surface-2)); }
+.q-pad-btn:active:not([disabled]) { transform: scale(.94); }
+.q-pad-btn[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: #fff; }
+.q-pad-btn.opt-correct { background: var(--success-soft); border-color: var(--success); color: var(--success); }
+.q-pad-btn.opt-wrong { background: var(--danger-soft); border-color: var(--danger); color: var(--danger); }
+.q-pad-btn[disabled] { cursor: default; }
+/* صورة أوضح في الأعلى */
+.qz-window .qcard-body.has-media { grid-template-rows: minmax(0, 50%) minmax(0, 1fr); }
+@media (max-width: 1000px) {
+  .qz-window .quiz-sidebar { flex-wrap: wrap; }
+  .qz-window .q-pad-wrap { width: auto; padding: 0; border: 0; flex-direction: row; }
+  .qz-window .q-pad-btn { width: 36px; height: 36px; font-size: .95rem; }
+}
+@media (max-width: 1000px) { .qz-window .qcard-body.has-media { grid-template-rows: minmax(0, 36%) minmax(0, 1fr); } }
