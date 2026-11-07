@@ -786,6 +786,18 @@ router.delete('/schools/:id/members/:userId', schoolOrAdmin, wrap(async (req, re
   res.json({ ok: true });
 }));
 
+/** GET /admin/db-status — تشخيص حالة قاعدة البيانات */
+router.get('/db-status', adminOnly, wrap(async (req, res) => {
+  const d = db.get();
+  const tables = d.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all().map(r => r.name);
+  const schoolsCols = tables.includes('schools')
+    ? d.prepare('PRAGMA table_info(schools)').all().map(c => ({ name: c.name, type: c.type }))
+    : null;
+  const usersCols = d.prepare('PRAGMA table_info(users)').all().map(c => ({ name: c.name, type: c.type }));
+  const orphanSchoolUsers = d.prepare("SELECT id, email FROM users WHERE role='school' AND (school_id IS NULL OR school_id='')").all();
+  res.json({ tables, schoolsCols, usersCols, orphanSchoolUsers });
+}));
+
 /** POST /admin/cleanup-orphan-users — حذف المستخدمين اليتامى (school بلا school_id) */
 router.post('/cleanup-orphan-users', adminOnly, wrap(async (req, res) => {
   const d = db.get();
