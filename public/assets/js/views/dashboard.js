@@ -22,21 +22,21 @@ export async function dashboardView(root) {
     </div>
 
     <section class="grid grid-2" aria-label="${t('dash.readiness')}">
-      <div class="card">
+      <div class="card" style="border-top:3px solid ${r.ready ? 'var(--success)' : r.score >= 50 ? '#d97706' : 'var(--danger)'}">
         <div class="row" style="gap:20px;flex-wrap:nowrap">
-          ${ring(r.score, t('dash.readiness'), r.ready ? '#10b981' : r.score >= 50 ? '#f59e0b' : '#ef4444')}
+          ${ring(r.score, t('dash.readiness'), r.ready ? 'var(--success)' : r.score >= 50 ? '#d97706' : 'var(--danger)')}
           <div>
-            <h2 style="margin-bottom:6px">${r.ready ? t('dash.ready') : t('dash.notReady')}</h2>
+            <h2 style="margin-bottom:6px;color:${r.ready ? 'var(--success)' : r.score >= 50 ? '#d97706' : 'var(--danger)'}">${r.ready ? '✓ ' + t('dash.ready') : t('dash.notReady')}</h2>
             <p class="muted small">${t('dash.readinessHelp', { n: d.settings.readinessWindow, m: d.settings.readinessWindow - 1 })}</p>
             <p class="small" style="margin:0">${t('dash.examsPassed', { p: r.examsPassed, n: r.examsTaken })}${r.averageExamScore !== null ? ' · ' + t('dash.avg', { v: r.averageExamScore, n: d.settings.questionCount }) : ''}</p>
           </div>
         </div>
       </div>
       <div class="grid grid-2" style="gap:12px">
-        <div class="card stat"><span class="stat-value">${d.lessons.done}/${d.lessons.total}</span><span class="stat-label">${t('dash.lessonsDone')}</span></div>
+        <div class="card stat stat-card-primary"><span class="stat-value" style="color:var(--primary)">${d.lessons.done}/${d.lessons.total}</span><span class="stat-label">${t('dash.lessonsDone')}</span></div>
         <div class="card stat"><span class="stat-value">${d.counts.seen}/${d.counts.questions}</span><span class="stat-label">${t('dash.questionsSeen')}</span></div>
-        <div class="card stat"><span class="stat-value">${d.counts.due}</span><span class="stat-label">${t('dash.due')}</span></div>
-        <div class="card stat"><span class="stat-value">🔥 ${d.streak}</span><span class="stat-label">${t('dash.streak')}</span></div>
+        <div class="card stat stat-card-warning"><span class="stat-value" style="color:#d97706">${d.counts.due}</span><span class="stat-label">${t('dash.due')}</span></div>
+        <div class="card stat stat-card-success"><span class="stat-value" style="color:var(--success)">🔥 ${d.streak}</span><span class="stat-label">${t('dash.streak')}</span></div>
       </div>
     </section>
 

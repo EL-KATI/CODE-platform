@@ -57,8 +57,22 @@ export function renderShell() {
     <button class="icon-btn menu-toggle" id="menu-btn" type="button" aria-expanded="false" aria-controls="mobile-nav" aria-label="${t('a11y.menu')}">☰</button>`.s;
 
   document.getElementById('site-footer').innerHTML = html`
-    <p>© ${new Date().getFullYear()} ${t('brand.name')} — ${t('footer.text')}</p>
-    <p><a href="/privacy">${t('footer.privacy')}</a> · <span>${t('footer.disclaimer')}</span></p>`.s;
+    <div style="max-width:1240px;margin:0 auto;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:28px;height:28px;background:linear-gradient(145deg,#f97316,#c2410c);border-radius:7px;display:grid;place-items:center;flex:none">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 15.5V12l1.6-4.2A1.5 1.5 0 0 1 8 6.8h8a1.5 1.5 0 0 1 1.4 1l1.6 4.2v3.5"/><path d="M4.5 15.5h15"/><circle cx="8" cy="15.5" r="1.6" fill="#fff" stroke="none"/><circle cx="16" cy="15.5" r="1.6" fill="#fff" stroke="none"/></svg>
+        </div>
+        <span style="font-weight:700;color:var(--text-soft)">${t('brand.name')}</span>
+        <span>— ${t('footer.text')}</span>
+      </div>
+      <div style="display:flex;gap:16px;align-items:center">
+        <a href="/privacy" style="color:var(--muted)">${t('footer.privacy')}</a>
+        <span style="color:var(--border-strong)">·</span>
+        <span>${t('footer.disclaimer')}</span>
+        <span style="color:var(--border-strong)">·</span>
+        <span>© ${new Date().getFullYear()}</span>
+      </div>
+    </div>`.s;
 
   document.getElementById('lang-btn').onclick = async () => {
     const next = getLocale() === 'ar' ? 'fr' : 'ar';

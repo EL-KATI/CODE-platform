@@ -30,32 +30,70 @@ export async function quizView(root, { params }) {
   const q = () => a.questions[idx];
   const answeredCount = () => a.questions.filter((x) => x.answer).length;
 
+  // ── الهيكل الرئيسي ────────────────────────────────────────────────
   function layout() {
     root.innerHTML = html`
-      <div class="quiz-top">
-        <h1 style="font-size:1.2rem;margin:0">${a.mode === 'exam' ? t('mode.exam') : modeLabel(a)}</h1>
-        <span class="pill ${exam ? 'pill-warning' : 'pill-success'}">${exam ? t('mode.examConditions') : t('mode.practice')}</span>
-        <span class="spacer"></span>
-        <span class="pill" id="counter" aria-live="polite"></span>
+      <!-- شريط أعلى القيز -->
+      <div class="quiz-header">
+        <div class="quiz-title">
+          <span>${a.mode === 'exam' ? '📋' : '✏️'}</span>
+          <span>${a.mode === 'exam' ? t('mode.exam') : modeLabel(a)}</span>
+        </div>
+        <span class="${exam ? 'quiz-mode-badge exam-mode' : 'quiz-mode-badge'}">
+          ${exam ? '⏱ ' + t('mode.examConditions') : '✍️ ' + t('mode.practice')}
+        </span>
+        <div style="flex:1"></div>
+        <!-- عداد التقدم -->
+        <div class="quiz-progress-wrap" style="margin:0;width:140px">
+          <div class="quiz-progress-info">
+            <span id="counter" aria-live="polite"></span>
+            <span id="answered-count" style="color:var(--primary)"></span>
+          </div>
+          <div class="quiz-progress-bar"><span id="progress-fill"></span></div>
+        </div>
+        <!-- أزرار أدوات -->
         <button class="btn btn-ghost btn-sm" id="autoread" type="button" aria-pressed="${reading}" title="${t('quiz.autoRead')}"></button>
-        <button class="btn btn-secondary btn-sm" id="quit">${exam ? t('quiz.finishNow') : t('quiz.finish')}</button>
+        <button class="btn btn-secondary btn-sm" id="quit" style="border-color:var(--danger-mid);color:var(--danger)">
+          ${exam ? '🏁 ' + t('quiz.finishNow') : '✓ ' + t('quiz.finish')}
+        </button>
       </div>
-      <div class="quiz">
-        <section class="card" id="qcard" aria-live="off"></section>
-        <aside class="card">
-          ${exam ? html`<div class="row" style="justify-content:center;margin-bottom:12px"><div class="timer" id="timer" role="timer" aria-label="${t('quiz.timeLeft')}"><span id="timer-v"></span></div></div>` : ''}
-          <h2 class="small muted" style="margin-bottom:8px">${t('quiz.questions')}</h2>
-          <div class="qnav" id="qnav"></div>
-          <p class="small muted" style="margin:14px 0 0">${t('quiz.kbdHelp')} <span class="kbd">1</span>–<span class="kbd">4</span> · <span class="kbd">Enter</span>${exam ? '' : html` · <span class="kbd">←</span><span class="kbd">→</span>`}</p>
+
+      <!-- المحتوى الرئيسي -->
+      <div class="quiz-layout">
+        <!-- بطاقة السؤال -->
+        <div id="qcard" class="qcard" aria-live="off"></div>
+
+        <!-- الشريط الجانبي -->
+        <aside class="quiz-sidebar">
+          ${exam ? html`
+            <div class="q-timer-wrap">
+              <div style="position:relative">
+                <div class="q-timer" id="timer" role="timer" aria-label="${t('quiz.timeLeft')}">
+                  <span class="q-timer-val" id="timer-v">—</span>
+                </div>
+                <span class="q-timer-label">${t('quiz.timeLeft')}</span>
+              </div>
+            </div>` : ''}
+          <h3>${t('quiz.questions')}</h3>
+          <div class="q-nav-grid" id="qnav"></div>
+          <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+            <p class="small muted" style="margin:0;line-height:1.7">
+              <span class="kbd">1</span>–<span class="kbd">4</span> ${t('quiz.kbdHelp')}
+              ${!exam ? html` · <span class="kbd">←</span><span class="kbd">→</span>` : ''}
+            </p>
+          </div>
         </aside>
       </div>`.s;
+
+    // ربط أزرار الأدوات
     const ar = root.querySelector('#autoread');
-    const drawAr = () => { ar.textContent = `${reading ? '🔊' : '🔇'} ${t('quiz.autoRead')}`; ar.setAttribute('aria-pressed', String(reading)); };
+    const drawAr = () => {
+      ar.textContent = `${reading ? '🔊' : '🔇'} ${t('quiz.autoRead')}`;
+      ar.setAttribute('aria-pressed', String(reading));
+    };
     drawAr();
     ar.onclick = () => {
-      reading = !reading;
-      autoRead.set(reading);
-      drawAr();
+      reading = !reading; autoRead.set(reading); drawAr();
       toast(reading ? t('quiz.autoReadOn') : t('quiz.autoReadOff'));
       if (reading) speak(speechText(q(), idx + 1), { silent: true }); else stopSpeaking();
     };
@@ -66,43 +104,57 @@ export async function quizView(root, { params }) {
     };
   }
 
+  // ── شريط التنقل بين الأسئلة ───────────────────────────────────────
   function renderNav() {
     const nav = root.querySelector('#qnav');
     nav.innerHTML = html`${a.questions.map((x, i) => {
       let cls = '';
-      if (x.answer) cls = x.answer.isCorrect === true ? 'ok' : x.answer.isCorrect === false ? 'ko' : 'done';
-      if (i === idx) cls += ' cur';
+      if (x.answer) cls = x.answer.isCorrect === true ? 'nav-ok' : x.answer.isCorrect === false ? 'nav-ko' : 'nav-done';
+      if (i === idx) cls += ' nav-cur';
       const label = t('quiz.qn', { n: i + 1 });
-      return exam ? html`<span class="${cls}" aria-label="${label}">${i + 1}</span>`
+      return exam
+        ? html`<span class="${cls}" aria-label="${label}">${i + 1}</span>`
         : html`<button type="button" class="${cls}" data-i="${i}" aria-label="${label}" ${i === idx ? html`aria-current="step"` : ''}>${i + 1}</button>`;
     })}`.s;
     if (!exam) nav.querySelectorAll('button').forEach((b) => (b.onclick = () => go(Number(b.dataset.i))));
-    root.querySelector('#counter').textContent = t('quiz.counter', { i: idx + 1, n: a.questions.length });
+
+    // تحديث العداد والشريط
+    const answered = answeredCount();
+    const counter = root.querySelector('#counter');
+    const fill = root.querySelector('#progress-fill');
+    const ac = root.querySelector('#answered-count');
+    if (counter) counter.textContent = t('quiz.counter', { i: idx + 1, n: a.questions.length });
+    if (ac) ac.textContent = `${answered}/${a.questions.length}`;
+    if (fill) fill.style.width = `${(answered / a.questions.length) * 100}%`;
   }
 
-    // --- مساعدة رسم مجموعة خيارات (منفرد أو جزء من مزدوج) ---
+  // ── رسم مجموعة خيارات ─────────────────────────────────────────────
   function renderOptions(opts, correctSet, selSet, reveal, answered, prefix = '') {
     return opts.map((o, i) => {
       const n = i + 1;
       let cls = '';
       let mark = '';
       if (reveal) {
-        if (correctSet.has(n)) { cls = 'is-correct'; mark = '✓'; }
-        else if (selSet.has(n)) { cls = 'is-wrong'; mark = '✗'; }
+        if (correctSet.has(n)) { cls = 'opt-correct'; mark = '✓'; }
+        else if (selSet.has(n)) { cls = 'opt-wrong'; mark = '✗'; }
       }
-      return html`<button type="button" class="option ${cls}" data-prefix="${prefix}" data-n="${n}" aria-pressed="${selSet.has(n)}" ${answered ? 'disabled' : ''} lang="ar" dir="rtl">
-        <span class="num">${n}</span><span>${o}</span>${mark ? html`<span class="mark" aria-hidden="true">${mark}</span>` : ''}
-        ${reveal && correctSet.has(n) ? html`<span class="sr-only">${t('quiz.correctAnswer')}</span>` : ''}</button>`;
+      return html`
+        <button type="button" class="q-option ${cls}" data-prefix="${prefix}" data-n="${n}"
+          aria-pressed="${selSet.has(n)}" ${answered ? 'disabled' : ''} lang="ar" dir="rtl">
+          <span class="q-option-num">${n}</span>
+          <span class="q-option-text">${o}</span>
+          ${mark ? html`<span class="q-option-mark" aria-hidden="true">${mark}</span>` : ''}
+          ${reveal && correctSet.has(n) ? html`<span class="sr-only">${t('quiz.correctAnswer')}</span>` : ''}
+        </button>`;
     }).join('');
   }
 
+  // ── رسم السؤال ────────────────────────────────────────────────────
   function renderQuestion() {
     const cur = q();
     const ans = cur.answer;
     const isDouble = cur.is_double && Array.isArray(cur.sub_questions) && cur.sub_questions.length === 2;
 
-    // للسؤال المنفرد: selected = Set عادي
-    // للسؤال المزدوج: selectedA + selectedB (مخزنة كـ {a:[..], b:[..]} في ans.selected)
     if (isDouble) {
       const saved = ans?.selected_double || { a: [], b: [] };
       selected = { a: new Set(saved.a), b: new Set(saved.b) };
@@ -114,99 +166,152 @@ export async function quizView(root, { params }) {
     const c = cats.get(cur.categoryId);
     const card = root.querySelector('#qcard');
 
-    // --- رأس البطاقة ---
+    // رأس البطاقة (فئة + أدوات)
     const header = html`
-      <div class="row" style="margin-bottom:10px;flex-wrap:wrap;gap:6px">
-        ${c ? html`<span class="pill">${c.icon} ${catName(c)}</span>` : ''}
-        ${isDouble ? html`<span class="pill pill-info">⚡ ${t('quiz.double')}</span>` : ''}
-        ${cur.skill_type ? html`<span class="pill pill-muted" style="font-size:.75rem">${cur.skill_type}</span>` : ''}
-        <span class="spacer"></span>
-        <button class="btn btn-ghost btn-sm" id="speak" type="button" aria-label="${t('quiz.listen')}">🔊 ${t('quiz.listen')}</button>
-        <button class="btn btn-ghost btn-sm" id="bm" type="button" aria-pressed="${!!cur.bookmarked}">${cur.bookmarked ? '★' : '☆'} ${t('quiz.bookmark')}</button>
-      </div>
+      <div class="qcard-header">
+        ${c ? html`<span class="pill" style="font-size:.8rem">${c.icon} ${catName(c)}</span>` : ''}
+        ${isDouble ? html`<span class="pill pill-info" style="font-size:.78rem">⚡ ${t('quiz.double')}</span>` : ''}
+        ${cur.skill_type ? html`<span class="pill" style="font-size:.74rem;opacity:.8">${cur.skill_type}</span>` : ''}
+        <div style="flex:1"></div>
+        <button class="btn btn-ghost btn-sm" id="speak" type="button" aria-label="${t('quiz.listen')}">🔊</button>
+        <button class="btn btn-ghost btn-sm" id="bm" type="button" aria-pressed="${!!cur.bookmarked}"
+          title="${t('quiz.bookmark')}">${cur.bookmarked ? '★' : '☆'}</button>
+      </div>`;
+
+    // المنطقة المرئية (صورة / مشهد)
+    const visual = html`
       ${raw(videoBlock(cur).s || '')}
-      ${cur.image || cur.visual ? html`<figure class="scene" style="margin:0 0 16px">${raw(renderVisual(cur))}</figure>` : ''}`;
+      ${cur.image || cur.visual ? html`<figure class="scene" style="margin:0 0 20px;border-radius:12px;overflow:hidden">${raw(renderVisual(cur))}</figure>` : ''}`;
+
+    // رقم السؤال
+    const qNum = html`<div class="q-number">${t('quiz.qn', { n: idx + 1 })}</div>`;
 
     if (isDouble) {
-      // --- سؤال مزدوج: سؤالان منفصلان ---
       const sq = cur.sub_questions;
       const corrA = new Set(sq[0].correct || []);
       const corrB = new Set(sq[1].correct || []);
-      const selA = isDouble ? selected.a : new Set();
-      const selB = isDouble ? selected.b : new Set();
+      const selA = selected.a;
+      const selB = selected.b;
+
+      const subOkA = reveal && corrA.size && [...corrA].every((n) => selA.has(n)) && selA.size === corrA.size;
+      const subOkB = reveal && corrB.size && [...corrB].every((n) => selB.has(n)) && selB.size === corrB.size;
 
       card.innerHTML = html`
         ${header}
-        <p class="small muted" style="margin:0 0 12px" lang="ar" dir="rtl">${t('quiz.doubleHint')}</p>
-        <h2 class="question-text" lang="ar" dir="rtl" style="margin-bottom:4px">${cur.text}</h2>
-        <section style="margin:16px 0;padding:12px;border:2px solid var(--border,#dde);border-radius:10px">
-          <h3 class="small" style="margin:0 0 8px;opacity:.7">${t('quiz.subQ1')}</h3>
-          <p class="question-text" lang="ar" dir="rtl" id="sq1text">${sq[0].text}</p>
-          <div class="options" role="group" aria-labelledby="sq1text">
-            ${raw(renderOptions(sq[0].options, corrA, selA, reveal, !!ans, 'a'))}
+        <div class="qcard-body">
+          ${visual}
+          ${qNum}
+          <p class="q-hint">⚡ ${t('quiz.doubleHint')}</p>
+          <p class="q-text" lang="ar" dir="rtl">${cur.text}</p>
+
+          <!-- السؤال الفرعي أ -->
+          <div class="sub-q-block">
+            <div class="sub-q-label">
+              <span class="sub-q-dot">أ</span>
+              <span>${t('quiz.subQ1')}</span>
+            </div>
+            <p class="sub-q-text" lang="ar" dir="rtl" id="sq1text">${sq[0].text}</p>
+            <div class="sub-q-options" role="group" aria-labelledby="sq1text">
+              ${raw(renderOptions(sq[0].options, corrA, selA, reveal, !!ans, 'a'))}
+            </div>
+            ${reveal ? html`<div style="padding:0 12px 12px"><div class="q-feedback ${subOkA ? 'fb-ok' : 'fb-ko'}" style="margin:0"><div class="q-feedback-title">${subOkA ? '✓' : '✗'} ${t('quiz.correctAnswer')}: ${[...corrA].join(', ')}</div></div></div>` : ''}
           </div>
-          ${reveal ? html`<div class="feedback ${corrA.size && [...corrA].every((n) => selA.has(n)) && selA.size === corrA.size ? 'ok' : 'ko'}">${[...corrA].join(',')} ${t('quiz.correctAnswer')}</div>` : ''}
-        </section>
-        <section style="margin:16px 0;padding:12px;border:2px solid var(--border,#dde);border-radius:10px">
-          <h3 class="small" style="margin:0 0 8px;opacity:.7">${t('quiz.subQ2')}</h3>
-          <p class="question-text" lang="ar" dir="rtl" id="sq2text">${sq[1].text}</p>
-          <div class="options" role="group" aria-labelledby="sq2text">
-            ${raw(renderOptions(sq[1].options, corrB, selB, reveal, !!ans, 'b'))}
+
+          <!-- السؤال الفرعي ب -->
+          <div class="sub-q-block">
+            <div class="sub-q-label">
+              <span class="sub-q-dot">ب</span>
+              <span>${t('quiz.subQ2')}</span>
+            </div>
+            <p class="sub-q-text" lang="ar" dir="rtl" id="sq2text">${sq[1].text}</p>
+            <div class="sub-q-options" role="group" aria-labelledby="sq2text">
+              ${raw(renderOptions(sq[1].options, corrB, selB, reveal, !!ans, 'b'))}
+            </div>
+            ${reveal ? html`<div style="padding:0 12px 12px"><div class="q-feedback ${subOkB ? 'fb-ok' : 'fb-ko'}" style="margin:0"><div class="q-feedback-title">${subOkB ? '✓' : '✗'} ${t('quiz.correctAnswer')}: ${[...corrB].join(', ')}</div></div></div>` : ''}
           </div>
-          ${reveal ? html`<div class="feedback ${corrB.size && [...corrB].every((n) => selB.has(n)) && selB.size === corrB.size ? 'ok' : 'ko'}">${[...corrB].join(',')} ${t('quiz.correctAnswer')}</div>` : ''}
-        </section>
-        <div id="fb">${reveal && ans ? feedbackDouble(cur) : ''}</div>
-        <div class="quiz-actions">
-          ${ans
-            ? html`${!exam && idx > 0 ? html`<button class="btn btn-secondary" id="prev">${t('quiz.prev')}</button>` : ''}
-                   <button class="btn btn-primary" id="next">${idx < a.questions.length - 1 ? t('quiz.next') : t('quiz.seeResults')}</button>`
-            : html`<button class="btn btn-secondary" id="clear">${t('quiz.clear')}</button>
-                   <button class="btn btn-primary" id="validate">${t('quiz.validate')}</button>
-                   ${!exam && idx > 0 ? html`<button class="btn btn-ghost" id="prev">${t('quiz.prev')}</button>` : ''}`}
+
+          <!-- الشرح والتغذية الراجعة الكلية -->
+          <div id="fb">${reveal && ans ? feedbackDouble(cur) : ''}</div>
+
+          <!-- أزرار الإجراءات -->
+          <div class="q-actions">
+            ${ans
+              ? html`
+                ${!exam && idx > 0 ? html`<button class="btn btn-secondary" id="prev">← ${t('quiz.prev')}</button>` : ''}
+                <div class="spacer"></div>
+                <button class="btn btn-primary" id="next">
+                  ${idx < a.questions.length - 1 ? t('quiz.next') + ' →' : '🏁 ' + t('quiz.seeResults')}
+                </button>`
+              : html`
+                <button class="btn btn-secondary btn-sm" id="clear" style="color:var(--muted)">↺ ${t('quiz.clear')}</button>
+                <div class="spacer"></div>
+                ${!exam && idx > 0 ? html`<button class="btn btn-ghost" id="prev">← ${t('quiz.prev')}</button>` : ''}
+                <button class="btn btn-primary" id="validate">✓ ${t('quiz.validate')}</button>`}
+          </div>
         </div>`.s;
 
-      // ربط الأحداث للخيارات المزدوجة
-      card.querySelectorAll('.option:not([disabled])').forEach((b) => {
+      card.querySelectorAll('.q-option:not([disabled])').forEach((b) => {
         b.onclick = () => {
-          const pre = b.dataset.prefix; const n = Number(b.dataset.n);
+          const pre = b.dataset.prefix;
+          const n = Number(b.dataset.n);
           const set = pre === 'a' ? selected.a : selected.b;
           if (set.has(n)) set.delete(n); else set.add(n);
           syncDoubleOptions();
         };
       });
+
     } else {
-      // --- سؤال منفرد ---
+      // ── سؤال منفرد ────────────────────────────────────────────────
       const correct = new Set(cur.correct || []);
+      const multiAnswer = cur.correct && cur.correct.length > 1;
+
       card.innerHTML = html`
         ${header}
-        <h2 class="question-text" id="qtext" lang="ar" dir="rtl">${cur.text}</h2>
-        <p class="small muted" style="margin-top:-6px">${cur.correct && cur.correct.length > 1 ? t('quiz.multiHint') : ''}</p>
-        <div class="options" role="group" aria-labelledby="qtext">
-          ${raw(renderOptions(cur.options, correct, selected, reveal, !!ans, ''))}
-        </div>
-        <div id="fb">${reveal ? feedback(cur) : ''}</div>
-        <div class="quiz-actions">
-          ${ans
-            ? html`${!exam && idx > 0 ? html`<button class="btn btn-secondary" id="prev">${t('quiz.prev')}</button>` : ''}
-                   <button class="btn btn-primary" id="next">${idx < a.questions.length - 1 ? t('quiz.next') : t('quiz.seeResults')}</button>`
-            : html`<button class="btn btn-secondary" id="clear">${t('quiz.clear')}</button>
-                   <button class="btn btn-primary" id="validate">${t('quiz.validate')}</button>
-                   ${!exam && idx > 0 ? html`<button class="btn btn-ghost" id="prev">${t('quiz.prev')}</button>` : ''}`}
+        <div class="qcard-body">
+          ${visual}
+          ${qNum}
+          ${multiAnswer && !ans ? html`<div class="q-hint">📌 ${t('quiz.multiHint')}</div>` : ''}
+          <h2 class="q-text" id="qtext" lang="ar" dir="rtl">${cur.text}</h2>
+
+          <div class="q-options" role="group" aria-labelledby="qtext">
+            ${raw(renderOptions(cur.options, correct, selected, reveal, !!ans, ''))}
+          </div>
+
+          <!-- التغذية الراجعة بعد الإجابة -->
+          <div id="fb">${reveal ? feedback(cur) : ''}</div>
+
+          <!-- أزرار الإجراءات -->
+          <div class="q-actions">
+            ${ans
+              ? html`
+                ${!exam && idx > 0 ? html`<button class="btn btn-secondary" id="prev">← ${t('quiz.prev')}</button>` : ''}
+                <div class="spacer"></div>
+                <button class="btn btn-primary" id="next">
+                  ${idx < a.questions.length - 1 ? t('quiz.next') + ' →' : '🏁 ' + t('quiz.seeResults')}
+                </button>`
+              : html`
+                <button class="btn btn-secondary btn-sm" id="clear" style="color:var(--muted)">↺ ${t('quiz.clear')}</button>
+                <div class="spacer"></div>
+                ${!exam && idx > 0 ? html`<button class="btn btn-ghost" id="prev">← ${t('quiz.prev')}</button>` : ''}
+                <button class="btn btn-primary" id="validate">✓ ${t('quiz.validate')}</button>`}
+          </div>
         </div>`.s;
 
-      card.querySelectorAll('.option:not([disabled])').forEach((b) => (b.onclick = () => toggle(Number(b.dataset.n))));
+      card.querySelectorAll('.q-option:not([disabled])').forEach((b) => (b.onclick = () => toggle(Number(b.dataset.n))));
     }
 
+    // ربط الأزرار المشتركة
     card.querySelector('#speak').onclick = () => speak(speechText(cur, idx + 1));
     card.querySelector('#bm').onclick = toggleBookmark;
     const v = card.querySelector('#validate'); if (v) v.onclick = validate;
     const cl = card.querySelector('#clear');
     if (cl) cl.onclick = () => {
-      if (isDouble) { selected.a.clear(); selected.b.clear(); syncDoubleOptions(); }
+      if (cur.is_double) { selected.a.clear(); selected.b.clear(); syncDoubleOptions(); }
       else { selected.clear(); syncOptions(); }
     };
     const nx = card.querySelector('#next'); if (nx) nx.onclick = next;
     const pv = card.querySelector('#prev'); if (pv) pv.onclick = () => go(idx - 1);
+
     renderNav();
     shownAt = Date.now();
     if (exam && !ans) startTimer();
@@ -215,25 +320,43 @@ export async function quizView(root, { params }) {
 
   function syncDoubleOptions() {
     const card = root.querySelector('#qcard');
-    card.querySelectorAll('.option[data-prefix="a"]').forEach((b) => b.setAttribute('aria-pressed', selected.a.has(Number(b.dataset.n))));
-    card.querySelectorAll('.option[data-prefix="b"]').forEach((b) => b.setAttribute('aria-pressed', selected.b.has(Number(b.dataset.n))));
+    card.querySelectorAll('.q-option[data-prefix="a"]').forEach((b) => b.setAttribute('aria-pressed', String(selected.a.has(Number(b.dataset.n)))));
+    card.querySelectorAll('.q-option[data-prefix="b"]').forEach((b) => b.setAttribute('aria-pressed', String(selected.b.has(Number(b.dataset.n)))));
   }
 
+  // ── التغذية الراجعة ───────────────────────────────────────────────
   function feedback(cur) {
     const ok = cur.answer.isCorrect;
-    return html`<div class="feedback ${ok ? 'ok' : 'ko'}" role="status"><strong>${ok ? '✓ ' + t('quiz.right') : '✗ ' + t('quiz.wrong', { a: (cur.correct || []).join(' + ') })}</strong>
-      <span lang="ar" dir="rtl">${cur.explanation || ''}</span></div>`;
+    return html`
+      <div class="q-feedback ${ok ? 'fb-ok' : 'fb-ko'}" role="status">
+        <div class="q-feedback-title">
+          <span>${ok ? '✓' : '✗'}</span>
+          <span>${ok ? t('quiz.right') : t('quiz.wrong', { a: (cur.correct || []).join(' + ') })}</span>
+        </div>
+        ${cur.explanation ? html`<div class="q-explain" style="margin-top:8px;background:transparent;border:0;padding:0">
+          <span class="q-explain-icon">💡</span>
+          <span class="q-feedback-explain" lang="ar" dir="rtl">${cur.explanation}</span>
+        </div>` : ''}
+      </div>`;
   }
 
   function feedbackDouble(cur) {
     const ok = cur.answer.isCorrect;
-    return html`<div class="feedback ${ok ? 'ok' : 'ko'}" role="status">
-      <strong>${ok ? '✓ ' + t('quiz.right') : '✗ ' + t('quiz.wrong', { a: '' })}</strong>
-      <span lang="ar" dir="rtl">${cur.explanation || ''}</span></div>`;
+    return html`
+      <div class="q-feedback ${ok ? 'fb-ok' : 'fb-ko'}" role="status">
+        <div class="q-feedback-title">
+          <span>${ok ? '✓' : '✗'}</span>
+          <span>${ok ? t('quiz.right') : t('quiz.wrong', { a: '' })}</span>
+        </div>
+        ${cur.explanation ? html`<div class="q-explain" style="margin-top:8px;background:transparent;border:0;padding:0">
+          <span class="q-explain-icon">💡</span>
+          <span class="q-feedback-explain" lang="ar" dir="rtl">${cur.explanation}</span>
+        </div>` : ''}
+      </div>`;
   }
 
   function syncOptions() {
-    root.querySelectorAll('.option').forEach((b) => b.setAttribute('aria-pressed', String(selected.has(Number(b.dataset.n)))));
+    root.querySelectorAll('.q-option').forEach((b) => b.setAttribute('aria-pressed', String(selected.has(Number(b.dataset.n)))));
   }
 
   function toggle(n) {
@@ -253,7 +376,6 @@ export async function quizView(root, { params }) {
     stopTimer();
     stopSpeaking();
     try {
-      // إرسال للخادم: السؤال المزدوج يرسل selected_double
       const payload = isDouble
         ? { questionId: cur.id, selected: [], selected_double: { a: [...selected.a], b: [...selected.b] }, timeMs: Date.now() - shownAt }
         : { questionId: cur.id, selected: [...selected], timeMs: Date.now() - shownAt };
@@ -315,13 +437,13 @@ export async function quizView(root, { params }) {
       const r = await api.put(`/questions/${cur.id}/bookmark`, { bookmarked: !cur.bookmarked });
       cur.bookmarked = r.bookmarked;
       const b = root.querySelector('#bm');
-      b.textContent = `${cur.bookmarked ? '★' : '☆'} ${t('quiz.bookmark')}`;
+      b.textContent = cur.bookmarked ? '★' : '☆';
       b.setAttribute('aria-pressed', String(cur.bookmarked));
       toast(cur.bookmarked ? t('quiz.bookmarked') : t('quiz.unbookmarked'));
     } catch (e) { toast(errorMessage(e), 'error'); }
   }
 
-  // --- Chronomètre par question -------------------------------------------------------
+  // ── المؤقت ────────────────────────────────────────────────────────
   function startTimer(from) {
     stopTimer();
     const total = a.secondsPerQuestion;
@@ -331,7 +453,7 @@ export async function quizView(root, { params }) {
     const draw = () => {
       val.textContent = remaining;
       el.style.setProperty('--p', String((100 * remaining) / total));
-      el.classList.toggle('low', remaining <= 5);
+      el.classList.toggle('timer-low', remaining <= 5);
     };
     draw();
     timer = setInterval(() => {
@@ -344,7 +466,7 @@ export async function quizView(root, { params }) {
   }
   function stopTimer() { if (timer) clearInterval(timer); timer = null; }
 
-  // --- Clavier ------------------------------------------------------------------------
+  // ── لوحة المفاتيح ─────────────────────────────────────────────────
   function onKey(e) {
     if (e.target.closest('input, textarea, select, dialog')) return;
     if (/^[1-4]$/.test(e.key)) { e.preventDefault(); toggle(Number(e.key)); }
