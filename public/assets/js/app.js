@@ -19,7 +19,6 @@ import * as admin from './views/admin.js';
 import { bookingsView, adminBookingsView } from './views/bookings.js';
 import { schoolStudentsView } from './views/school.js';
 import { schoolExamsView, studentExamView } from './views/exams.js';
-import { schoolsView, schoolDetailView } from './views/schools.js';
 
 const app = document.getElementById('app');
 
@@ -170,8 +169,6 @@ route('/admin/audit', view(admin.auditView), adminOnly);
 route('/admin/bookings', view(adminBookingsView), staff);
 route('/admin/school/students', view(schoolStudentsView), { auth: true, roles: ['admin', 'school'] });
 route('/admin/exams', view(schoolExamsView), { auth: true, roles: ['admin', 'school'] });
-route('/admin/schools', view(schoolsView), { auth: true, roles: ['admin'] });
-route('/admin/schools/:id', view(schoolDetailView), { auth: true, roles: ['admin', 'school'] });
 route('/my-exams', view(studentExamView), { auth: true, roles: ['student'] });
 route('*', view(notFoundView));
 

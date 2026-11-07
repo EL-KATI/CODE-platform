@@ -82,12 +82,10 @@ const ADMIN_TABS_CONTENT = [
   ['/admin', 'admin.stats'], ['/admin/questions', 'admin.questions'], ['/admin/series', 'admin.series'],
   ['/admin/lessons', 'admin.lessons'], ['/admin/students', 'admin.students'], ['/admin/bookings', 'nav.bookings'],
 ];
-const ADMIN_TABS_MANAGE = [['/admin/schools', 'admin.schools'], ['/admin/users', 'admin.users'], ['/admin/settings', 'admin.settings'], ['/admin/audit', 'admin.audit']];
+const ADMIN_TABS_MANAGE = [['/admin/users', 'admin.users'], ['/admin/settings', 'admin.settings'], ['/admin/audit', 'admin.audit']];
 // المؤسسة: بيانات المؤسسة + طلابها + حجوزاتهم
 function schoolTabs() {
-  const id = store.user?.schoolId;
-  const mySchool = id ? [[`/admin/schools/${id}`, 'admin.mySchool']] : [];
-  return [...mySchool, ['/admin/students', 'admin.students'], ['/admin/school/students', 'school.manageStudents'], ['/admin/bookings', 'nav.bookings'], ['/admin/exams', 'nav.exams']];
+  return [['/admin/students', 'admin.students'], ['/admin/school/students', 'school.manageStudents'], ['/admin/bookings', 'nav.bookings'], ['/admin/exams', 'nav.exams']];
 }
 // المدرب: طلابه + حجوزاتهم
 const INSTRUCTOR_TABS = [['/admin/students', 'admin.students'], ['/admin/bookings', 'nav.bookings']];
@@ -765,14 +763,102 @@ export async function studentView(root, { params }) {
 }
 
 // --- Utilisateurs (admin) --------------------------------------------------------
+// الحقول الإضافية حسب الدور
+function roleExtraFields(role, schools) {
+  if (role === 'student') return html`
+    <label>${t('admin.phone') || 'الهاتف'}<input class="input" name="phone" type="tel" placeholder="06xxxxxxxx"></label>
+    <label>${t('admin.school') || 'المؤسسة'}
+      <select class="input" name="school_id">
+        <option value="">— ${t('admin.noSchool') || 'بدون مؤسسة'}</option>
+        ${schools.map((s) => html`<option value="${s.id}">${s.name}</option>`)}
+      </select>
+    </label>`;
+  if (role === 'instructor') return html`
+    <label>${t('admin.phone') || 'الهاتف'}<input class="input" name="phone" type="tel" placeholder="06xxxxxxxx"></label>
+    <label>${t('admin.school') || 'المؤسسة'}
+      <select class="input" name="school_id">
+        <option value="">— ${t('admin.noSchool') || 'بدون مؤسسة'}</option>
+        ${schools.map((s) => html`<option value="${s.id}">${s.name}</option>`)}
+      </select>
+    </label>`;
+  if (role === 'school') return html`
+    <label>${t('admin.phone') || 'الهاتف'}<input class="input" name="phone" type="tel" placeholder="06xxxxxxxx"></label>
+    <label>${t('admin.address') || 'العنوان'}<input class="input" name="address" placeholder="${t('admin.addressPlaceholder') || 'عنوان المؤسسة'}"></label>`;
+  if (role === 'admin') return html`
+    <label>${t('admin.phone') || 'الهاتف'}<input class="input" name="phone" type="tel" placeholder="06xxxxxxxx"></label>`;
+  return '';
+}
+
 export async function usersView(root) {
   await load(root, '/admin/users', async () => {
     const [list, schoolsData] = await Promise.all([
       api.get('/admin/users'),
-      api.get('/admin/schools').catch(() => ({ schools: [] })),
+      api.get('/admin/users').then((u) => ({ schools: u.filter((x) => x.role === 'school') })).catch(() => ({ schools: [] })),
     ]);
     const schools = schoolsData.schools || [];
     let showAddForm = false;
+    let addRole = 'student';
+
+    function renderAddForm() {
+      const wrap = root.querySelector('#add-form-wrap');
+      if (!wrap) return;
+      wrap.innerHTML = '';
+      const div = document.createElement('div');
+      div.className = 'card';
+      div.style.marginBottom = '16px';
+      div.innerHTML = `<h3 style="margin-top:0">${t('admin.addUser')}</h3>
+        <form id="add-user-form" class="stack" style="max-width:440px">
+          <label>${t('admin.role')}
+            <select class="input" name="role" id="role-select">
+              ${['student', 'instructor', 'school', 'admin'].map((r) => `<option value="${r}" ${r === addRole ? 'selected' : ''}>${t('role.' + r)}</option>`).join('')}
+            </select>
+          </label>
+          <label>${t('admin.name')}<input class="input" name="name" required minlength="2" maxlength="80" placeholder="${t('admin.namePlaceholder') || 'الاسم الكامل'}"></label>
+          <label>${t('admin.email')}<input class="input" name="email" type="email" required placeholder="exemple@gmail.com"></label>
+          <label>${t('admin.password')}<input class="input" name="password" type="password" required minlength="8" placeholder="${t('admin.passwordHint') || 'كلمة السر (8 أحرف على الأقل)'}"></label>
+          <div id="role-extra-fields">${roleExtraFields(addRole, schools)}</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary" type="submit">${t('common.save')}</button>
+            <button class="btn btn-secondary" type="button" id="btn-cancel-user">${t('common.cancel')}</button>
+          </div>
+        </form>`;
+      wrap.appendChild(div);
+
+      // تغيير الدور → تحديث الحقول الإضافية
+      const roleSelect = div.querySelector('#role-select');
+      roleSelect.onchange = () => {
+        addRole = roleSelect.value;
+        const extra = div.querySelector('#role-extra-fields');
+        // نعيد رسم الحقول الإضافية فقط
+        const tmp = document.createElement('div');
+        tmp.innerHTML = roleExtraFields(addRole, schools);
+        extra.innerHTML = '';
+        [...tmp.childNodes].forEach((n) => extra.appendChild(n));
+      };
+
+      div.querySelector('#btn-cancel-user').onclick = () => { showAddForm = false; render(); };
+
+      div.querySelector('#add-user-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const fd = new FormData(div.querySelector('#add-user-form'));
+        const body = {
+          name: fd.get('name'), email: fd.get('email'), password: fd.get('password'),
+          role: fd.get('role'), phone: fd.get('phone') || undefined,
+          address: fd.get('address') || undefined,
+          school_id: fd.get('school_id') ? parseInt(fd.get('school_id'), 10) : undefined,
+          acceptTerms: true,
+        };
+        try {
+          await api.post('/admin/users', body);
+          toast(t('common.saved'));
+          showAddForm = false;
+          const updated = await api.get('/admin/users');
+          list.splice(0, list.length, ...updated);
+          schools.splice(0, schools.length, ...updated.filter((x) => x.role === 'school'));
+          render();
+        } catch (err) { toast(errorMessage(err), 'error'); }
+      };
+    }
 
     function render() {
       shell(root, '/admin/users', html`
@@ -780,24 +866,7 @@ export async function usersView(root) {
           <h2 style="margin:0">${t('admin.users')}</h2>
           <button class="btn btn-primary btn-sm" id="btn-add-user">＋ ${t('admin.addUser')}</button>
         </div>
-        ${showAddForm ? html`
-        <div class="card" style="margin-bottom:16px">
-          <h3 style="margin-top:0">${t('admin.addUser')}</h3>
-          <form id="add-user-form" class="stack" style="max-width:420px">
-            <label>${t('admin.name')}<input class="input" name="name" required minlength="2" maxlength="80" placeholder="${t('admin.namePlaceholder')}"></label>
-            <label>${t('admin.email')}<input class="input" name="email" type="email" required placeholder="exemple@gmail.com"></label>
-            <label>${t('admin.password')}<input class="input" name="password" type="password" required minlength="8" placeholder="${t('admin.passwordHint')}"></label>
-            <label>${t('admin.role')}
-              <select class="input" name="role">
-                ${['student', 'instructor', 'school', 'admin'].map((r) => html`<option value="${r}">${t('role.' + r)}</option>`)}
-              </select>
-            </label>
-            <div style="display:flex;gap:8px">
-              <button class="btn btn-primary" type="submit">${t('common.save')}</button>
-              <button class="btn btn-secondary" type="button" id="btn-cancel-user">${t('common.cancel')}</button>
-            </div>
-          </form>
-        </div>` : ''}
+        <div id="add-form-wrap"></div>
         <div class="card table-wrap"><table class="table"><thead><tr>
           <th>${t('admin.name')}</th><th>${t('admin.email')}</th><th>${t('admin.role')}</th><th>${t('admin.active')}</th><th>${t('admin.school')}</th><th></th>
         </tr></thead><tbody>
@@ -806,37 +875,13 @@ export async function usersView(root) {
             <td style="font-size:.85rem">${u.email}</td>
             <td><select class="input" data-role="${u.id}">${['student', 'instructor', 'school', 'admin'].map((r) => html`<option value="${r}" ${r === u.role ? raw('selected') : ''}>${t('role.' + r)}</option>`)}</select></td>
             <td><input type="checkbox" data-active="${u.id}" ${u.active ? raw('checked') : ''} aria-label="${t('admin.active')}"></td>
-            <td>
-              <select class="input" style="width:140px;font-size:.8rem" data-school="${u.id}"
-                title="${t('admin.schoolHelp')}">
-                <option value="">—</option>
-                ${schools.map((s) => html`<option value="${s.id}" ${u.school_id == s.id ? raw('selected') : ''}>${s.name}</option>`)}
-              </select>
-            </td>
+            <td style="font-size:.8rem">${u.school_id ? (schools.find((s) => s.id === u.school_id)?.name || u.school_id) : (u.role === 'school' ? '—' : '—')}</td>
             <td><button class="btn btn-danger btn-sm" data-del="${u.id}" title="${t('admin.deleteUser')}">🗑</button></td>
           </tr>`)}
         </tbody></table></div>`);
 
-      root.querySelector('#btn-add-user').onclick = () => { showAddForm = !showAddForm; render(); };
-      const cancelBtn = root.querySelector('#btn-cancel-user');
-      if (cancelBtn) cancelBtn.onclick = () => { showAddForm = false; render(); };
-
-      const addForm = root.querySelector('#add-user-form');
-      if (addForm) {
-        addForm.onsubmit = async (e) => {
-          e.preventDefault();
-          const fd = new FormData(addForm);
-          const body = { name: fd.get('name'), email: fd.get('email'), password: fd.get('password'), role: fd.get('role'), acceptTerms: true };
-          try {
-            await api.post('/admin/users', body);
-            toast(t('common.saved'));
-            showAddForm = false;
-            const updated = await api.get('/admin/users');
-            list.splice(0, list.length, ...updated);
-            render();
-          } catch (err) { toast(errorMessage(err), 'error'); }
-        };
-      }
+      root.querySelector('#btn-add-user').onclick = () => { showAddForm = !showAddForm; if (showAddForm) renderAddForm(); else { root.querySelector('#add-form-wrap').innerHTML = ''; } };
+      if (showAddForm) renderAddForm();
 
       const patch = async (id, body) => {
         try { await api.patch(`/admin/users/${id}`, body); toast(t('common.saved')); }
@@ -844,15 +889,13 @@ export async function usersView(root) {
       };
       root.querySelectorAll('[data-role]').forEach((s) => s.onchange = () => patch(s.dataset.role, { role: s.value }));
       root.querySelectorAll('[data-active]').forEach((c) => c.onchange = () => patch(c.dataset.active, { active: c.checked }));
-      root.querySelectorAll('[data-school]').forEach((sel) => {
-        sel.onchange = () => patch(sel.dataset.school, { school_id: sel.value ? parseInt(sel.value, 10) : null });
-      });
       root.querySelectorAll('[data-del]').forEach((b) => b.onclick = async () => {
         if (!confirm(t('admin.confirmDelete'))) return;
         try {
           await api.del(`/admin/users/${b.dataset.del}`);
           const updated = await api.get('/admin/users');
           list.splice(0, list.length, ...updated);
+          schools.splice(0, schools.length, ...updated.filter((x) => x.role === 'school'));
           render();
         } catch (err) { toast(errorMessage(err), 'error'); }
       });
