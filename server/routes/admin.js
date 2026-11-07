@@ -464,22 +464,70 @@ router.post('/users', adminOnly, wrap(async (req, res) => {
   if (!EMAIL_RE.test(email)) throw bad('invalid_email');
   const pw = str(body.password, { min: 8, max: 200, field: 'password' });
   const role = body.role && ['student', 'instructor', 'admin', 'school'].includes(body.role) ? body.role : 'student';
-  const locale = body.locale === 'fr' ? 'fr' : 'ar';
+  const locale = ['fr', 'ar', 'ar-dialect'].includes(body.locale) ? body.locale : 'ar';
   const phone   = (body.phone   || '').toString().trim().slice(0, 30) || null;
   const address = (body.address || '').toString().trim().slice(0, 200) || null;
   const school_id = body.school_id ? parseInt(body.school_id, 10) || null : null;
+
+  // NARSA fields — stored for all roles but mainly used by students
+  const trim = (v, max = 100) => (v || '').toString().trim().slice(0, max) || null;
+  const gender          = ['M', 'F'].includes(body.gender) ? body.gender : null;
+  const nationality     = trim(body.nationality, 50);
+  const id_type         = ['CIN', 'CD', 'CS'].includes(body.id_type) ? body.id_type : null;
+  const cin             = trim(body.cin, 20);
+  const first_name_fr   = trim(body.first_name_fr, 80);
+  const last_name_fr    = trim(body.last_name_fr, 80);
+  const first_name_ar   = trim(body.first_name_ar, 80);
+  const last_name_ar    = trim(body.last_name_ar, 80);
+  const birth_date      = trim(body.birth_date, 10);
+  const birth_place_fr  = trim(body.birth_place_fr, 100);
+  const birth_place_ar  = trim(body.birth_place_ar, 100);
+  const address_fr      = trim(body.address_fr, 200);
+  const address_ar      = trim(body.address_ar, 200);
+  const city            = trim(body.city, 80);
+  const license_cat     = trim(body.license_cat, 20);
+  const registration_center = trim(body.registration_center, 100);
+  const license_num         = trim(body.license_num, 30);
+  const valid_categories    = trim(body.valid_categories, 100);
+
+  // instructor-specific fields
+  const pc_num  = trim(body.pc_num,  30);
+  const cap_num = trim(body.cap_num, 30);
+  const instructor_categories = trim(body.instructor_categories, 100);
+
   const d = db.get();
   if (d.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) throw new HttpError(409, 'email_taken');
+
+  const hash = await auth.hashPassword(pw);
   let info;
   try {
-    info = d.prepare('INSERT INTO users (email, name, password_hash, role, locale, phone, address, school_id) VALUES (?,?,?,?,?,?,?,?)')
-      .run(email, name, await auth.hashPassword(pw), role, locale, phone, address, school_id);
+    info = d.prepare(`INSERT INTO users (
+        email, name, password_hash, role, locale, phone, address, school_id,
+        gender, nationality, id_type, cin,
+        first_name_fr, last_name_fr, first_name_ar, last_name_ar,
+        birth_date, birth_place_fr, birth_place_ar,
+        address_fr, address_ar, city, license_cat, registration_center,
+        license_num, valid_categories,
+        pc_num, cap_num, instructor_categories
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .run(email, name, hash, role, locale, phone, address, school_id,
+        gender, nationality, id_type, cin,
+        first_name_fr, last_name_fr, first_name_ar, last_name_ar,
+        birth_date, birth_place_fr, birth_place_ar,
+        address_fr, address_ar, city, license_cat, registration_center,
+        license_num, valid_categories,
+        pc_num, cap_num, instructor_categories);
   } catch (e) {
     console.error('[POST /users] INSERT error:', e.message);
-    if (e.message && e.message.includes('no column named address')) {
-      // address column missing — insert without it
-      info = d.prepare('INSERT INTO users (email, name, password_hash, role, locale, phone, school_id) VALUES (?,?,?,?,?,?,?)')
-        .run(email, name, await auth.hashPassword(pw), role, locale, phone, school_id);
+    if (e.message && (e.message.includes('no column named') || e.message.includes('table users has no column'))) {
+      // Fallback: insert with minimal columns for old DBs
+      try {
+        info = d.prepare('INSERT INTO users (email, name, password_hash, role, locale, phone, school_id) VALUES (?,?,?,?,?,?,?)')
+          .run(email, name, hash, role, locale, phone, school_id);
+      } catch (e2) {
+        if (e2.message && e2.message.includes('UNIQUE')) throw new HttpError(409, 'email_taken');
+        throw new HttpError(500, 'server_error');
+      }
     } else if (e.message && e.message.includes('UNIQUE')) {
       throw new HttpError(409, 'email_taken');
     } else {

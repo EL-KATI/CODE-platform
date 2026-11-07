@@ -766,14 +766,128 @@ export async function studentView(root, { params }) {
 // الحقول الإضافية حسب الدور — تُرجع HTML string
 function roleExtraFields(role, schools) {
   const esc = (s) => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  const lPhone   = t('admin.phone')   || 'الهاتف';
-  const lAddr    = t('admin.address') || 'العنوان';
-  const lAddrPh  = t('admin.addressPlaceholder') || 'عنوان المؤسسة';
-  const phoneField = `<label>${lPhone}<input class="input" name="phone" type="tel" placeholder="06xxxxxxxx"></label>`;
-  if (role === 'student')    return phoneField;
-  if (role === 'instructor') return phoneField;
-  if (role === 'school')     return phoneField + `<label>${lAddr}<input class="input" name="address" placeholder="${esc(lAddrPh)}"></label>`;
-  if (role === 'admin')      return phoneField;
+
+  if (role === 'student') return `
+    <fieldset style="border:1px solid var(--border);border-radius:8px;padding:12px;margin:4px 0">
+      <legend style="font-weight:600;padding:0 6px">الهوية</legend>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <label>الجنس
+          <select class="input" name="gender">
+            <option value="M">ذكر</option>
+            <option value="F">أنثى</option>
+          </select>
+        </label>
+        <label>الجنسية<input class="input" name="nationality" value="MAROCAINE" placeholder="MAROCAINE"></label>
+        <label>نوع الهوية
+          <select class="input" name="id_type">
+            <option value="CIN">CIN</option>
+            <option value="CD">CD</option>
+            <option value="CS">CS</option>
+          </select>
+        </label>
+        <label>رقم الهوية (CIN)<input class="input" name="cin" required placeholder="AB123456" style="text-transform:uppercase"></label>
+        <label>الاسم الشخصي (فرنسي)<input class="input" name="first_name_fr" required placeholder="Prénom"></label>
+        <label>الاسم العائلي (فرنسي)<input class="input" name="last_name_fr" required placeholder="Nom"></label>
+        <label>الاسم الشخصي (عربي)<input class="input" name="first_name_ar" placeholder="الاسم الشخصي"></label>
+        <label>الاسم العائلي (عربي)<input class="input" name="last_name_ar" placeholder="الاسم العائلي"></label>
+        <label>تاريخ الميلاد<input class="input" name="birth_date" type="date"></label>
+        <label>مكان الميلاد (فرنسي)<input class="input" name="birth_place_fr" placeholder="Lieu de naissance"></label>
+        <label>مكان الازدياد (عربي)<input class="input" name="birth_place_ar" placeholder="مكان الازدياد"></label>
+        <label>المدينة<input class="input" name="city" placeholder="Tanger"></label>
+      </div>
+    </fieldset>
+    <fieldset style="border:1px solid var(--border);border-radius:8px;padding:12px;margin:4px 0">
+      <legend style="font-weight:600;padding:0 6px">التواصل والسكن</legend>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <label>الهاتف<input class="input" name="phone" type="tel" placeholder="06xxxxxxxx"></label>
+        <label>العنوان (فرنسي)<input class="input" name="address_fr" placeholder="Adresse"></label>
+        <label>العنوان (عربي)<input class="input" name="address_ar" placeholder="العنوان"></label>
+      </div>
+    </fieldset>
+    <fieldset style="border:1px solid var(--border);border-radius:8px;padding:12px;margin:4px 0">
+      <legend style="font-weight:600;padding:0 6px">الترشح</legend>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <label>اللغة
+          <select class="input" name="locale">
+            <option value="ar-dialect">عربية دارجة</option>
+            <option value="ar">عربية فصحى</option>
+            <option value="fr">Français</option>
+          </select>
+        </label>
+        <label>الصنف المطلوب
+          <select class="input" name="license_cat">
+            <option value="B">B</option>
+            <option value="A">A</option>
+            <option value="A1">A1</option>
+            <option value="C">C</option>
+            <option value="D">D</option>
+            <option value="EB">EB</option>
+            <option value="EC">EC</option>
+            <option value="ED">ED</option>
+          </select>
+        </label>
+        <label style="grid-column:1/-1">مركز التسجيل<input class="input" name="registration_center" placeholder="Centre Immatriculateur"></label>
+      </div>
+    </fieldset>
+    <fieldset style="border:1px solid var(--border);border-radius:8px;padding:12px;margin:4px 0">
+      <legend style="font-weight:600;padding:0 6px">التمديد (Extension) — اختياري</legend>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <label style="grid-column:1/-1">رقم الرخصة (Numéro du permis)<input class="input" name="license_num" placeholder="00000000"></label>
+      </div>
+      <div style="margin-top:8px">
+        <span style="font-size:.85em;opacity:.7;display:block;margin-bottom:6px">الأصناف الصالحة حالياً</span>
+        <div style="display:flex;flex-wrap:wrap;gap:10px">
+          ${['A','A1','B','C','D','EB','EC','ED'].map(c => `<label style="display:flex;align-items:center;gap:4px;font-weight:normal"><input type="checkbox" name="valid_cat_${c}" value="${c}"> ${c}</label>`).join('')}
+        </div>
+      </div>
+    </fieldset>`;
+
+  if (role === 'instructor') return `
+    <fieldset style="border:1px solid var(--border);border-radius:8px;padding:12px;margin:4px 0">
+      <legend style="font-weight:600;padding:0 6px">الهوية</legend>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <label>الاسم العائلي (NOM)<input class="input" name="last_name_fr" required placeholder="NFISSI"></label>
+        <label>الاسم الشخصي (PRENOM)<input class="input" name="first_name_fr" required placeholder="HAMZA"></label>
+        <label>الاسم العائلي (عربي)<input class="input" name="last_name_ar" placeholder="النسب"></label>
+        <label>الاسم الشخصي (عربي)<input class="input" name="first_name_ar" placeholder="الاسم الشخصي"></label>
+        <label>رقم الهوية (CIN)<input class="input" name="cin" required placeholder="KB193777" style="text-transform:uppercase"></label>
+        <label>الجنس
+          <select class="input" name="gender">
+            <option value="M">ذكر</option>
+            <option value="F">أنثى</option>
+          </select>
+        </label>
+      </div>
+    </fieldset>
+    <fieldset style="border:1px solid var(--border);border-radius:8px;padding:12px;margin:4px 0">
+      <legend style="font-weight:600;padding:0 6px">ملف NARSA</legend>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <label>رقم الملف (PC)<input class="input" name="pc_num" placeholder="11/317275"></label>
+        <label>رقم التأهيل (CAP)<input class="input" name="cap_num" placeholder="11871"></label>
+      </div>
+      <div style="margin-top:8px">
+        <span style="font-size:.85em;opacity:.7;display:block;margin-bottom:6px">فئات التأهيل (Catégories)</span>
+        <div style="display:flex;flex-wrap:wrap;gap:10px">
+          ${['A','A1','B','C','D','EB','EC','ED'].map(c => `<label style="display:flex;align-items:center;gap:4px;font-weight:normal"><input type="checkbox" name="instructor_cat_${c}" value="${c}"> ${c}</label>`).join('')}
+        </div>
+      </div>
+    </fieldset>
+    <fieldset style="border:1px solid var(--border);border-radius:8px;padding:12px;margin:4px 0">
+      <legend style="font-weight:600;padding:0 6px">التواصل</legend>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <label>الهاتف<input class="input" name="phone" type="tel" placeholder="06xxxxxxxx"></label>
+        <label>المدينة<input class="input" name="city" placeholder="Tanger"></label>
+      </div>
+    </fieldset>`;
+
+  if (role === 'school') return `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <label>الهاتف<input class="input" name="phone" type="tel" placeholder="06xxxxxxxx"></label>
+      <label>المدينة<input class="input" name="city" placeholder="Tanger"></label>
+      <label style="grid-column:1/-1">العنوان<input class="input" name="address" placeholder="عنوان المؤسسة"></label>
+    </div>`;
+
+  if (role === 'admin') return `<label>الهاتف<input class="input" name="phone" type="tel" placeholder="06xxxxxxxx"></label>`;
   return '';
 }
 
@@ -792,10 +906,10 @@ export async function usersView(root) {
       div.className = 'card';
       div.style.marginBottom = '16px';
       div.innerHTML = `<h3 style="margin-top:0">${t('admin.addUser')}</h3>
-        <form id="add-user-form" class="stack" style="max-width:440px">
+        <form id="add-user-form" class="stack" style="max-width:680px">
           <label>${t('admin.role')}
             <select class="input" name="role" id="role-select">
-              ${['student', 'instructor', 'school', 'admin'].map((r) => `<option value="${r}" ${r === addRole ? 'selected' : ''}>${t('role.' + r)}</option>`).join('')}
+              ${['student', 'school', 'admin'].map((r) => `<option value="${r}" ${r === addRole ? 'selected' : ''}>${t('role.' + r)}</option>`).join('')}
             </select>
           </label>
           <label>${t('admin.name')}<input class="input" name="name" required minlength="2" maxlength="80" placeholder="${t('admin.namePlaceholder') || 'الاسم الكامل'}"></label>
@@ -830,11 +944,40 @@ export async function usersView(root) {
         submitBtn.disabled = true;
         const fd = new FormData(div.querySelector('#add-user-form'));
         const emailVal = (fd.get('email') || '').trim();
+        const g = (key) => fd.get(key) || undefined;
         const body = {
           name: fd.get('name'), email: emailVal, password: fd.get('password'),
-          role: fd.get('role'), phone: fd.get('phone') || undefined,
-          address: fd.get('address') || undefined,
+          role: fd.get('role'), phone: g('phone'),
+          address: g('address'),
+          locale: g('locale'),
           school_id: fd.get('school_id') ? parseInt(fd.get('school_id'), 10) : undefined,
+          // NARSA student fields
+          gender: g('gender'),
+          nationality: g('nationality'),
+          id_type: g('id_type'),
+          cin: g('cin'),
+          first_name_fr: g('first_name_fr'),
+          last_name_fr: g('last_name_fr'),
+          first_name_ar: g('first_name_ar'),
+          last_name_ar: g('last_name_ar'),
+          birth_date: g('birth_date'),
+          birth_place_fr: g('birth_place_fr'),
+          birth_place_ar: g('birth_place_ar'),
+          address_fr: g('address_fr'),
+          address_ar: g('address_ar'),
+          city: g('city'),
+          license_cat: g('license_cat'),
+          registration_center: g('registration_center'),
+          license_num: g('license_num'),
+          valid_categories: JSON.stringify(
+            ['A','A1','B','C','D','EB','EC','ED'].filter(c => fd.get('valid_cat_' + c))
+          ) || undefined,
+          // instructor-specific NARSA fields
+          pc_num: g('pc_num'),
+          cap_num: g('cap_num'),
+          instructor_categories: JSON.stringify(
+            ['A','A1','B','C','D','EB','EC','ED'].filter(c => fd.get('instructor_cat_' + c))
+          ) || undefined,
           acceptTerms: true,
         };
         try {

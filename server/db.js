@@ -275,6 +275,30 @@ function open(file = config.dbFile) {
   if (file !== ':memory:') fs.mkdirSync(path.dirname(file), { recursive: true });
   db = new Database(file);
   db.pragma('journal_mode = WAL');
+  db.pragma('foreign_keys = OFF');
+
+  // تنظيف جداول migration قديمة تعطلت وبقيت في DB
+  const tableNames = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(r => r.name);
+  if (tableNames.includes('_users_old')) {
+    // migration فاشلة قديمة — نعيد بناء users من _users_old
+    if (!tableNames.includes('users')) {
+      db.exec('ALTER TABLE _users_old RENAME TO users');
+      console.log('[db] recovered users from _users_old');
+    } else {
+      db.exec('DROP TABLE _users_old');
+      console.log('[db] cleaned up stale _users_old table');
+    }
+  }
+  if (tableNames.includes('_users_migrate_sid')) {
+    if (!tableNames.includes('users')) {
+      db.exec('ALTER TABLE _users_migrate_sid RENAME TO users');
+      console.log('[db] recovered users from _users_migrate_sid');
+    } else {
+      db.exec('DROP TABLE _users_migrate_sid');
+      console.log('[db] cleaned up stale _users_migrate_sid table');
+    }
+  }
+
   db.pragma('foreign_keys = ON');
   db.exec(SCHEMA);
   const cols = db.prepare('PRAGMA table_info(questions)').all().map((c) => c.name);
