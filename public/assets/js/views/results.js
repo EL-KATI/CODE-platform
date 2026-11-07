@@ -6,6 +6,62 @@ import { store } from '../store.js';
 import { navigate } from '../router.js';
 import { renderVisual } from '../scenario.js';
 
+// ── دالة مشتركة: بطاقة مراجعة سؤال واحد (مُصدَّرة لـ mistakes.js) ──
+export function reviewItem(q, originalIdx, catMap) {
+  const ok = q.answer?.isCorrect === true;
+  const ans = q.answer;
+  const isDouble = q.is_double && Array.isArray(q.sub_questions) && q.sub_questions.length === 2;
+  const c = catMap?.get(q.categoryId);
+
+  const reviewOptions = (opts, correct, selected) => opts.map((o, i) => {
+    const n = i + 1;
+    const isCorrect = correct.includes(n);
+    const isSelected = (selected || []).includes(n);
+    const cls = isCorrect ? 'ans-c' : isSelected && !isCorrect ? 'ans-w' : '';
+    return html`<li class="${cls}">
+      <span class="ans-num">${n}</span>
+      <span>${o}</span>
+      ${isCorrect ? html`<span class="ans-mark" aria-label="${t('quiz.correctAnswer')}">✓</span>` : ''}
+      ${isSelected && !isCorrect ? html`<span class="ans-mark" style="color:var(--danger)" aria-label="${t('quiz.yourAnswer')}">✗</span>` : ''}
+    </li>`;
+  }).join('');
+
+  return html`
+    <div class="review-card ${ok ? 'rc-ok' : 'rc-ko'}">
+      <div class="review-card-header">
+        ${originalIdx != null ? html`<span class="q-number" style="font-size:.85rem">${t('quiz.qn', { n: originalIdx + 1 })}</span>` : ''}
+        ${c ? html`<span class="pill" style="font-size:.74rem">${c.icon} ${catName(c)}</span>` : ''}
+        <span class="${ok ? 'review-verdict-ok' : 'review-verdict-ko'}">
+          ${ok ? '✓' : '✗'}
+        </span>
+      </div>
+      <div class="review-card-body">
+        ${q.image || q.visual ? html`<figure class="scene" style="margin:0 0 16px;border-radius:10px;overflow:hidden">${raw(renderVisual(q))}</figure>` : ''}
+        ${isDouble ? html`
+          <p class="q-text" style="font-size:1.05rem" lang="ar" dir="rtl">${q.text}</p>
+          ${q.sub_questions.map((sq, si) => {
+            const selArr = ans?.selected_double?.[si === 0 ? 'a' : 'b'] || [];
+            return html`
+              <div class="sub-q-block" style="margin-bottom:12px">
+                <div class="sub-q-label">
+                  <span class="sub-q-dot">${si === 0 ? 'أ' : 'ب'}</span>
+                  <span>${sq.text}</span>
+                </div>
+                <ul class="ans-list">${raw(reviewOptions(sq.options, sq.correct || [], selArr))}</ul>
+              </div>`;
+          }).join('')}`
+        : html`
+          <p class="q-text" style="font-size:1.05rem" lang="ar" dir="rtl">${q.text}</p>
+          <ul class="ans-list">${raw(reviewOptions(q.options, q.correct || [], ans?.selected || []))}</ul>`}
+        ${q.explanation ? html`
+          <div class="q-explain">
+            <span class="q-explain-icon">💡</span>
+            <span lang="ar" dir="rtl">${q.explanation}</span>
+          </div>` : ''}
+      </div>
+    </div>`;
+}
+
 export async function resultsView(root, { params }) {
   root.innerHTML = loading().s;
 
@@ -167,70 +223,9 @@ export async function resultsView(root, { params }) {
       return;
     }
 
-    list.innerHTML = filtered.map((q, ri) => {
+    list.innerHTML = filtered.map((q) => {
       const originalIdx = questions.indexOf(q);
-      const ok = q.answer?.isCorrect === true;
-      const ans = q.answer;
-      const isDouble = q.is_double && Array.isArray(q.sub_questions) && q.sub_questions.length === 2;
-      const c = catMap.get(q.categoryId);
-
-      // بناء قائمة الخيارات للمراجعة
-      const reviewOptions = (opts, correct, selected) => opts.map((o, i) => {
-        const n = i + 1;
-        const isCorrect = correct.includes(n);
-        const isSelected = (selected || []).includes(n);
-        const cls = isCorrect ? 'ans-c' : isSelected && !isCorrect ? 'ans-w' : '';
-        return html`<li class="${cls}">
-          <span class="ans-num">${n}</span>
-          <span>${o}</span>
-          ${isCorrect ? html`<span class="ans-mark" aria-label="${t('quiz.correctAnswer')}">✓</span>` : ''}
-          ${isSelected && !isCorrect ? html`<span class="ans-mark" style="color:var(--danger)" aria-label="${t('quiz.yourAnswer')}">✗</span>` : ''}
-        </li>`;
-      }).join('');
-
-      return html`
-        <div class="review-card ${ok ? 'rc-ok' : 'rc-ko'}">
-          <div class="review-card-header">
-            <span class="q-number" style="font-size:.85rem">${t('quiz.qn', { n: originalIdx + 1 })}</span>
-            ${c ? html`<span class="pill" style="font-size:.74rem">${c.icon} ${catName(c)}</span>` : ''}
-            <span class="${ok ? 'review-verdict-ok' : 'review-verdict-ko'}" aria-label="${ok ? t('quiz.right') : t('quiz.wrong', { a: '' })}">
-              ${ok ? '✓' : '✗'}
-            </span>
-          </div>
-
-          <div class="review-card-body">
-            <!-- صورة أو مشهد إن وجد -->
-            ${q.image || q.visual ? html`<figure class="scene" style="margin:0 0 16px;border-radius:10px;overflow:hidden">${raw(renderVisual(q))}</figure>` : ''}
-
-            ${isDouble ? html`
-              <p class="q-text" style="font-size:1.05rem" lang="ar" dir="rtl">${q.text}</p>
-              ${q.sub_questions.map((sq, si) => {
-                const selArr = ans?.selected_double?.[si === 0 ? 'a' : 'b'] || [];
-                return html`
-                  <div class="sub-q-block" style="margin-bottom:12px">
-                    <div class="sub-q-label">
-                      <span class="sub-q-dot">${si === 0 ? 'أ' : 'ب'}</span>
-                      <span>${sq.text}</span>
-                    </div>
-                    <ul class="ans-list">
-                      ${raw(reviewOptions(sq.options, sq.correct || [], selArr))}
-                    </ul>
-                  </div>`;
-              }).join('')}`
-            : html`
-              <p class="q-text" style="font-size:1.05rem" lang="ar" dir="rtl">${q.text}</p>
-              <ul class="ans-list">
-                ${raw(reviewOptions(q.options, q.correct || [], ans?.selected || []))}
-              </ul>`}
-
-            <!-- شرح الإجابة -->
-            ${q.explanation ? html`
-              <div class="q-explain">
-                <span class="q-explain-icon">💡</span>
-                <span lang="ar" dir="rtl">${q.explanation}</span>
-              </div>` : ''}
-          </div>
-        </div>`;
+      return reviewItem(q, originalIdx, catMap);
     }).join('');
   }
 
