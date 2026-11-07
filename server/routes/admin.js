@@ -527,6 +527,16 @@ router.get('/audit', adminOnly, (req, res) => {
 /** GET /admin/schools — قائمة المؤسسات مع عدد المستخدمين */
 router.get('/schools', wrap(async (req, res) => {
   const d = db.get();
+  d.exec(`CREATE TABLE IF NOT EXISTS schools (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    code TEXT NOT NULL UNIQUE,
+    phone TEXT NOT NULL DEFAULT '',
+    address TEXT NOT NULL DEFAULT '',
+    active INTEGER NOT NULL DEFAULT 1,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`);
   const rows = d.prepare(`
     SELECT s.*,
       (SELECT COUNT(*) FROM users u WHERE u.school_id = s.id AND u.role = 'student') AS students_count,
@@ -573,6 +583,17 @@ router.post('/schools', adminOnly, wrap(async (req, res) => {
   const phone = (b.phone || '').toString().trim().slice(0, 30);
   const address = (b.address || '').toString().trim().slice(0, 200);
   const d = db.get();
+  // تأكد من وجود جدول schools — إنشاؤه إذا لم يكن موجوداً
+  d.exec(`CREATE TABLE IF NOT EXISTS schools (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    code TEXT NOT NULL UNIQUE,
+    phone TEXT NOT NULL DEFAULT '',
+    address TEXT NOT NULL DEFAULT '',
+    active INTEGER NOT NULL DEFAULT 1,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`);
   if (d.prepare('SELECT id FROM schools WHERE code = ?').get(code)) throw bad('slug_taken', { field: 'code' });
   const r = d.prepare(`
     INSERT INTO schools (name, code, phone, address, created_by)
