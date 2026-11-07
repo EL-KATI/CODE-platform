@@ -152,11 +152,11 @@ CREATE TABLE IF NOT EXISTS schools (
   id          INTEGER PRIMARY KEY,
   name        TEXT    NOT NULL,
   code        TEXT    NOT NULL UNIQUE,   -- رمز المؤسسة (مختصر فريد)
-  email       TEXT    NOT NULL DEFAULT '',  -- بريد حساب المؤسسة (للدخول)
+  email       TEXT    DEFAULT '',        -- بريد حساب المؤسسة (للدخول)
   phone       TEXT    NOT NULL DEFAULT '',
   address     TEXT    NOT NULL DEFAULT '',
   active      INTEGER NOT NULL DEFAULT 1,
-  owner_id    INTEGER REFERENCES users(id) ON DELETE SET NULL, -- حساب المؤسسة
+  owner_id    INTEGER,                   -- حساب المؤسسة (FK يُضاف بعد users)
   created_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
 );
@@ -309,11 +309,11 @@ function open(file = config.dbFile) {
     // Migration: إضافة أعمدة email و owner_id إذا لم تكن موجودة
     const schoolsCols = db.prepare('PRAGMA table_info(schools)').all().map(c => c.name);
     if (!schoolsCols.includes('email')) {
-      db.exec("ALTER TABLE schools ADD COLUMN email TEXT NOT NULL DEFAULT ''");
+      db.exec("ALTER TABLE schools ADD COLUMN email TEXT DEFAULT ''");
       console.log('[db] migration: added schools.email');
     }
     if (!schoolsCols.includes('owner_id')) {
-      db.exec('ALTER TABLE schools ADD COLUMN owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL');
+      db.exec('ALTER TABLE schools ADD COLUMN owner_id INTEGER');
       console.log('[db] migration: added schools.owner_id');
     }
   }

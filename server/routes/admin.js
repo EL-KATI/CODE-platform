@@ -534,8 +534,8 @@ router.get('/schools', wrap(async (req, res) => {
     created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`);
-  try { d.exec("ALTER TABLE schools ADD COLUMN email TEXT NOT NULL DEFAULT ''"); } catch (_) {}
-  try { d.exec('ALTER TABLE schools ADD COLUMN owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL'); } catch (_) {}
+  try { d.exec("ALTER TABLE schools ADD COLUMN email TEXT DEFAULT ''"); } catch (_) {}
+  try { d.exec('ALTER TABLE schools ADD COLUMN owner_id INTEGER'); } catch (_) {}
   const rows = d.prepare(`
     SELECT s.*,
       (SELECT COUNT(*) FROM users u WHERE u.school_id = s.id AND u.role = 'student') AS students_count,
@@ -577,6 +577,7 @@ router.get('/schools/:id', wrap(async (req, res) => {
 /** POST /admin/schools — إضافة مؤسسة جديدة (أدمين فقط) */
 router.post('/schools', adminOnly, wrap(async (req, res) => {
   const b = req.body || {};
+  console.log('[POST /schools] body:', JSON.stringify(b));
   const name    = str(b.name,  { min: 2, max: 120, field: 'name' });
   const code    = str(b.code,  { min: 2, max: 30,  field: 'code' }).toUpperCase().replace(/\s+/g, '_');
   const email   = str(b.email, { min: 5, max: 200, field: 'email' }).toLowerCase();
@@ -593,9 +594,9 @@ router.post('/schools', adminOnly, wrap(async (req, res) => {
     created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`);
-  // إضافة الأعمدة الجديدة واحداً بواحد (ALTER يفشل بصمت إذا كان موجوداً)
-  try { d.exec("ALTER TABLE schools ADD COLUMN email TEXT NOT NULL DEFAULT ''"); } catch (_) {}
-  try { d.exec('ALTER TABLE schools ADD COLUMN owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL'); } catch (_) {}
+  // إضافة الأعمدة الجديدة — SQLite لا يقبل NOT NULL في ALTER TABLE
+  try { d.exec("ALTER TABLE schools ADD COLUMN email TEXT DEFAULT ''"); } catch (_) {}
+  try { d.exec('ALTER TABLE schools ADD COLUMN owner_id INTEGER'); } catch (_) {}
 
   if (d.prepare('SELECT id FROM schools WHERE code = ?').get(code)) throw bad('slug_taken', { field: 'code' });
 
@@ -612,19 +613,49 @@ router.post('/schools', adminOnly, wrap(async (req, res) => {
   const { hashPassword } = auth;
   const rawPwd = Math.random().toString(36).slice(2, 6) + Math.random().toString(36).slice(2, 6).toUpperCase() + Math.floor(Math.random() * 90 + 10);
   const hash = await hashPassword(rawPwd);
-  const userRes = d.prepare(
-    `INSERT INTO users (email, name, password_hash, role) VALUES (?, ?, ?, 'school')`
-  ).run(email, name, hash);
-  const ownerId = userRes.lastInsertRowid;
 
-  // إنشاء المؤسسة وربطها بحساب المؤسسة
-  const r = d.prepare(
-    `INSERT INTO schools (name, code, email, phone, address, owner_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).run(name, code, email, phone, address, ownerId, req.user.id);
-  const schoolId = r.lastInsertRowid;
+  let ownerId, schoolId;
+  try {
+    const userRes = d.prepare(
+      `INSERT INTO users (email, name, password_hash, role) VALUES (?, ?, ?, 'school')`
+    ).run(email, name, hash);
+    ownerId = userRes.lastInsertRowid;
+    console.log('[POST /schools] user created, ownerId:', ownerId);
+  } catch(e) {
+    console.error('[POST /schools] INSERT users FAILED:', e.message);
+    throw e;
+  }
+
+  try {
+    // إنشاء المؤسسة بدون email/owner_id أولاً (للتوافق مع الجدول القديم)
+    const cols = d.prepare('PRAGMA table_info(schools)').all().map(c => c.name);
+    console.log('[POST /schools] schools columns:', cols.join(', '));
+    let insertSQL, insertParams;
+    if (cols.includes('email') && cols.includes('owner_id')) {
+      insertSQL = 'INSERT INTO schools (name, code, email, phone, address, owner_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)';
+      insertParams = [name, code, email, phone, address, ownerId, req.user.id];
+    } else {
+      insertSQL = 'INSERT INTO schools (name, code, phone, address, created_by) VALUES (?, ?, ?, ?, ?)';
+      insertParams = [name, code, phone, address, req.user.id];
+    }
+    const r = d.prepare(insertSQL).run(...insertParams);
+    schoolId = r.lastInsertRowid;
+    console.log('[POST /schools] school created, schoolId:', schoolId);
+  } catch(e) {
+    // تراجع: حذف المستخدم الذي أُنشئ
+    d.prepare('DELETE FROM users WHERE id = ?').run(ownerId);
+    console.error('[POST /schools] INSERT schools FAILED:', e.message);
+    throw e;
+  }
 
   // ربط حساب المؤسسة بالمؤسسة نفسها
   d.prepare('UPDATE users SET school_id = ? WHERE id = ?').run(schoolId, ownerId);
+
+  // تحديث email و owner_id في schools إذا لم يُدرجا
+  try {
+    d.prepare('UPDATE schools SET owner_id = ? WHERE id = ?').run(ownerId, schoolId);
+    d.prepare("UPDATE schools SET email = ? WHERE id = ?").run(email, schoolId);
+  } catch(e) { console.warn('[POST /schools] UPDATE email/owner_id skipped:', e.message); }
 
   db.audit(req.user.id, 'create', 'school', schoolId, { name, code, email });
   const school = d.prepare('SELECT * FROM schools WHERE id = ?').get(schoolId);
