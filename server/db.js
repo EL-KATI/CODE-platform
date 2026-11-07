@@ -304,6 +304,7 @@ function open(file = config.dbFile) {
   if (!userCols.includes('address_ar'))    db.exec("ALTER TABLE users ADD COLUMN address_ar TEXT DEFAULT ''");
   if (!userCols.includes('city'))          db.exec("ALTER TABLE users ADD COLUMN city TEXT DEFAULT ''");
   if (!userCols.includes('phone'))         db.exec("ALTER TABLE users ADD COLUMN phone TEXT DEFAULT ''");
+  if (!userCols.includes('address'))       db.exec("ALTER TABLE users ADD COLUMN address TEXT DEFAULT ''");
   if (!userCols.includes('license_cat'))        db.exec("ALTER TABLE users ADD COLUMN license_cat TEXT DEFAULT 'B'");
   if (!userCols.includes('narsa_request_num'))  db.exec("ALTER TABLE users ADD COLUMN narsa_request_num TEXT DEFAULT ''");
   if (!userCols.includes('narsa_status'))       db.exec("ALTER TABLE users ADD COLUMN narsa_status INTEGER DEFAULT 0");
