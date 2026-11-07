@@ -233,23 +233,25 @@ export async function adminBookingsView(root) {
   try {
     const today = new Date().toISOString().slice(0, 10);
     const toDate = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
-    const [slots, bookings] = await Promise.all([
+    const [slots, bookingsRes] = await Promise.all([
       api.get(`/bookings/slots?from=${today}&to=${toDate}`),
       api.get('/bookings?status=pending'),
     ]);
-    renderAdminBookings(root, slots, bookings, today, toDate);
+    const bookings = bookingsRes.bookings ?? bookingsRes;
+    const canManage = bookingsRes.canManage !== false;
+    renderAdminBookings(root, slots, bookings, today, toDate, canManage);
   } catch (err) {
     root.innerHTML = html`<div class="empty"><p>${errorMessage(err)}</p></div>`.s;
   }
 }
 
-function renderAdminBookings(root, slots, pendingBookings, today, toDate) {
+function renderAdminBookings(root, slots, pendingBookings, today, toDate, canManage = true) {
   root.innerHTML = html`
   <div class="page-head">
     <div><h1>📅 ${t('booking.adminTitle')}</h1></div>
-    <div class="row" style="gap:8px">
+    ${canManage ? html`<div class="row" style="gap:8px">
       <button class="btn btn-primary" id="add-slot-btn">+ ${t('booking.addSlot')}</button>
-    </div>
+    </div>` : ''}
   </div>
 
   <!-- طلبات انتظار الموافقة -->
@@ -265,11 +267,11 @@ function renderAdminBookings(root, slots, pendingBookings, today, toDate) {
           <td><strong>${b.student_name}</strong><br><span class="small muted">${b.student_email}</span></td>
           <td>${b.slot_date} — ${hourLabel(b.slot_hour)}</td>
           <td>
-            <div class="row" style="gap:6px;flex-wrap:wrap">
+            ${canManage ? html`<div class="row" style="gap:6px;flex-wrap:wrap">
               <button class="btn btn-primary btn-sm review-btn" data-id="${b.id}" data-action="approved">${t('booking.approve')}</button>
               <button class="btn btn-secondary btn-sm review-btn" data-id="${b.id}" data-action="rescheduled">${t('booking.reschedule')}</button>
               <button class="btn btn-danger btn-sm review-btn" data-id="${b.id}" data-action="rejected">${t('booking.reject')}</button>
-            </div>
+            </div>` : html`<span class="pill pill-warning">${t('booking.pending')}</span>`}
           </td>
         </tr>`)}
       </tbody>
@@ -304,7 +306,7 @@ function renderAdminBookings(root, slots, pendingBookings, today, toDate) {
                   <span class="small">${a.name} ${statusPill(a.status)}</span>`)}</div>`}
             </td>
             <td>
-              <button class="btn btn-secondary btn-sm all-bookings-btn" data-slot="${s.id}">${t('booking.manage')}</button>
+              <button class="btn btn-secondary btn-sm all-bookings-btn" data-slot="${s.id}">${canManage ? t('booking.manage') : t('common.view')}</button>
             </td>
           </tr>`)}
       </tbody>
@@ -316,8 +318,8 @@ function renderAdminBookings(root, slots, pendingBookings, today, toDate) {
   <div id="review-modal"></div>
   <div id="slot-modal"></div>`.s;
 
-  // زر إضافة حصة
-  root.querySelector('#add-slot-btn').onclick = () => showAddSlotModal(root.querySelector('#slot-modal'), root);
+  // زر إضافة حصة (مؤسسة/أدمين فقط)
+  if (canManage) root.querySelector('#add-slot-btn')?.addEventListener('click', () => showAddSlotModal(root.querySelector('#slot-modal'), root));
 
   // أزرار الموافقة/الرفض/إعادة الجدولة
   root.querySelectorAll('.review-btn').forEach((btn) => {

@@ -104,7 +104,8 @@ router.get('/slots', wrap(async (req, res) => {
 
 /* ── إنشاء حصة (مدرب/أدمن) ──────────────────────────────────────────── */
 router.post('/slots', wrap(async (req, res) => {
-  if (req.user.role === 'student') return res.status(403).json({ error: 'forbidden' });
+  // إنشاء حصة: أدمين أو مؤسسة فقط — المدرب لا يملك هذه الصلاحية
+  if (!['admin', 'school'].includes(req.user.role)) return res.status(403).json({ error: 'forbidden', details: { reason: 'school_or_admin_only' } });
   const { date, hour } = req.body || {};
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw bad('invalid_field', { field: 'date' });
   if (!ALLOWED_HOURS.includes(Number(hour))) throw bad('invalid_field', { field: 'hour' });
@@ -169,13 +170,13 @@ router.get('/my', wrap(async (req, res) => {
   res.json(list);
 }));
 
-/* ── كل الحجوزات (مدرب/أدمن) ────────────────────────────────────────── */
+/* ── كل الحجوزات (مدرب/مؤسسة/أدمن — الاطلاع فقط للمدرب) ─────────── */
 router.get('/', wrap(async (req, res) => {
   if (req.user.role === 'student') return res.status(403).json({ error: 'forbidden' });
   const { status, date } = req.query;
   let query = `
     SELECT b.*, s.slot_date, s.slot_hour,
-           u.name AS student_name, u.email AS student_email,
+           u.name AS student_name, u.email AS student_email, u.school_id AS student_school_id,
            r.name AS reviewer_name
     FROM training_bookings b
     JOIN training_slots s ON s.id = b.slot_id
@@ -184,15 +185,23 @@ router.get('/', wrap(async (req, res) => {
     WHERE 1=1
   `;
   const params = [];
+  // المدرب والمؤسسة يريان حجوزات متعلمي مؤسستهم فقط
+  if (['school', 'instructor'].includes(req.user.role) && req.user.school_id) {
+    query += ' AND u.school_id = ?';
+    params.push(req.user.school_id);
+  }
   if (status && STATUSES.includes(status)) { query += ' AND b.status = ?'; params.push(status); }
   if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) { query += ' AND s.slot_date = ?'; params.push(date); }
   query += ' ORDER BY s.slot_date DESC, s.slot_hour DESC, b.created_at';
-  res.json(db.get().prepare(query).all(...params));
+  const bookings = db.get().prepare(query).all(...params);
+  // المدرب: يرى البيانات لكن بدون أزرار تعديل (يُرجع canManage=false)
+  res.json({ bookings, canManage: ['admin', 'school'].includes(req.user.role) });
 }));
 
 /* ── تعديل حالة الحجز (مدرب/أدمن) ──────────────────────────────────── */
 router.patch('/:id', wrap(async (req, res) => {
-  if (req.user.role === 'student') return res.status(403).json({ error: 'forbidden' });
+  // الموافقة/الرفض/إعادة الجدولة: أدمين أو مؤسسة فقط — المدرب للاطلاع فقط
+  if (!['admin', 'school'].includes(req.user.role)) return res.status(403).json({ error: 'forbidden', details: { reason: 'school_or_admin_only' } });
   const id = int(req.params.id, { min: 1 });
   const d = db.get();
   const booking = bookingWithSlot(id);
