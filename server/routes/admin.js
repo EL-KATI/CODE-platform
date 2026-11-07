@@ -641,7 +641,6 @@ router.post('/schools', adminOnly, wrap(async (req, res) => {
   try {
     // بناء INSERT ديناميكياً بناءً على الأعمدة الموجودة فعلاً
     const cols = d.prepare('PRAGMA table_info(schools)').all().map(c => c.name);
-        const cols = d.prepare('PRAGMA table_info(schools)').all().map(c => c.name);
     const insertCols = ['name', 'code', 'phone', 'address', 'created_by'];
     const insertVals = [name, code, phone, address, req.user.id];
     if (cols.includes('email'))          { insertCols.push('email');          insertVals.push(email); }
