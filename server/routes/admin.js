@@ -105,7 +105,7 @@ function validateQuestion(b) {
   let image = null;
   if (b.image) {
     image = str(b.image, { max: 500, field: 'image' });
-    if (!/^(\/uploads\/[\w.-]+|https:\/\/[^\s"'<>]+)$/.test(image)) throw bad('invalid_field', { field: 'image' });
+    if (!/^(\/uploads\/[\w.-]+|\/assets\/[\w./-]+|https:\/\/[^\s"'<>]+)$/.test(image)) throw bad('invalid_field', { field: 'image' });
   }
   let video = null;
   if (b.video) {
