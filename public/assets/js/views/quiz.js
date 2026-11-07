@@ -146,7 +146,7 @@ export async function quizView(root, { params }) {
           <span class="q-option-text">${text}</span>
           ${mark ? html`<span class="q-option-mark" aria-hidden="true">${mark}</span>` : ''}
           ${reveal && correctSet.has(n) ? html`<span class="sr-only">${t('quiz.correctAnswer')}</span>` : ''}
-        </button>`;
+        </button>`.s;
     }).join('');
   }
 
