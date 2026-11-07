@@ -33,7 +33,7 @@ const instructorReadOnly = contentReadOnly;
 const VISUAL_TYPES = ['sign', 'junction', 'driver', 'overtake', 'distance', 'road', 'parking', 'speed', 'dashboard', 'lights', 'mechanic', 'firstaid', 'safety', 'photo'];
 
 // --- Statistiques -------------------------------------------------------------
-router.get('/stats', (req, res) => {
+router.get('/stats', adminOnly, (req, res) => {
   const d = db.get();
   const s = db.getSettings();
   res.json({
@@ -83,12 +83,14 @@ router.get('/students', (req, res) => {
 });
 
 router.get('/students/:id', wrap(async (req, res) => {
-  const u = db.get().prepare('SELECT * FROM users WHERE id = ?').get(int(req.params.id, { min: 1 }));
+  const u = db.get().prepare(
+    'SELECT id,email,name,role,locale,exam_date,active,created_at,last_login_at,school_id,cin,gender,first_name_fr,last_name_fr,first_name_ar,last_name_ar,birth_date,birth_place_fr,birth_place_ar,address_fr,address_ar,city,phone,license_cat,narsa_request_num,narsa_status,narsa_date_saisie,narsa_date_cloture,narsa_date_examen,id_type,nationality,license_num,valid_categories,registration_center FROM users WHERE id = ?'
+  ).get(int(req.params.id, { min: 1 }));
   if (!u) throw notFound();
   // المؤسسة والمدرب لا يريان إلا طلاب مؤسستهم
   const viewerSchoolId = ['school','instructor'].includes(req.user.role) ? req.user.school_id : null;
-  if (viewerSchoolId && u.school_id !== viewerSchoolId) return res.status(403).json({ error: 'forbidden' });
-  res.json({ user: auth.publicUser(u), dashboard: progress.dashboard(u.id) });
+  if (viewerSchoolId && String(u.school_id) !== String(viewerSchoolId)) return res.status(403).json({ error: 'forbidden' });
+  res.json({ user: u, dashboard: progress.dashboard(u.id) });
 }));
 
 // --- إدارة طلاب المؤسسة (school + admin) ------------------------------------
@@ -271,7 +273,7 @@ router.delete('/questions/:id', instructorReadOnly, wrap(async (req, res) => {
   res.json({ ok: true, archived: !!used });
 }));
 
-router.get('/questions-export', (req, res) => {
+router.get('/questions-export', adminOnly, (req, res) => {
   const d = db.get();
   const cats = new Map(d.prepare('SELECT id, slug FROM categories').all().map((c) => [c.id, c.slug]));
   const items = d.prepare('SELECT * FROM questions ORDER BY id').all().map((r) => {
@@ -309,7 +311,7 @@ router.post('/questions-import', instructorReadOnly, wrap(async (req, res) => {
 }));
 
 // Téléversement d'image (JSON base64, 2 Mo max) -> /uploads/<hash>.<ext>
-router.post('/uploads', wrap(async (req, res) => {
+router.post('/uploads', instructorReadOnly, wrap(async (req, res) => {
   const m = /^data:image\/(png|jpe?g|webp|gif|svg\+xml);base64,([A-Za-z0-9+/=]+)$/.exec((req.body && req.body.dataUrl) || '');
   if (!m) throw bad('invalid_image');
   const buf = Buffer.from(m[2], 'base64');
@@ -324,7 +326,7 @@ router.post('/uploads', wrap(async (req, res) => {
 }));
 
 // Téléversement de vidéo (corps binaire brut mp4/webm, 30 Mo max) -> /uploads/<hash>.<ext>
-router.post('/uploads-video', express.raw({ type: ['video/mp4', 'video/webm'], limit: '30mb' }), wrap(async (req, res) => {
+router.post('/uploads-video', instructorReadOnly, express.raw({ type: ['video/mp4', 'video/webm'], limit: '30mb' }), wrap(async (req, res) => {
   const buf = req.body;
   if (!Buffer.isBuffer(buf) || !buf.length) throw bad('invalid_video');
   const isMp4 = buf.length > 12 && buf.toString('latin1', 4, 8) === 'ftyp';
@@ -585,7 +587,6 @@ router.get('/schools/:id', schoolOrAdmin, wrap(async (req, res) => {
 /** POST /admin/schools — إضافة مؤسسة جديدة (أدمين فقط) */
 router.post('/schools', adminOnly, wrap(async (req, res) => {
   const b = req.body || {};
-  console.log('[POST /schools] body:', JSON.stringify(b));
   const name    = str(b.name,  { min: 2, max: 120, field: 'name' });
   const code    = str(b.code,  { min: 2, max: 30,  field: 'code' }).toUpperCase().replace(/\s+/g, '_');
   const email   = str(b.email, { min: 5, max: 200, field: 'email' }).toLowerCase();
@@ -632,16 +633,13 @@ router.post('/schools', adminOnly, wrap(async (req, res) => {
       `INSERT INTO users (email, name, password_hash, role) VALUES (?, ?, ?, 'school')`
     ).run(email, name, hash);
     ownerId = userRes.lastInsertRowid;
-    console.log('[POST /schools] user created, ownerId:', ownerId);
   } catch(e) {
-    console.error('[POST /schools] INSERT users FAILED:', e.message);
     throw e;
   }
 
   try {
     // إنشاء المؤسسة بدون email/owner_id أولاً (للتوافق مع الجدول القديم)
     const cols = d.prepare('PRAGMA table_info(schools)').all().map(c => c.name);
-    console.log('[POST /schools] schools columns:', cols.join(', '));
     let insertSQL, insertParams;
     if (cols.includes('email') && cols.includes('owner_id')) {
       insertSQL = 'INSERT INTO schools (name, code, email, phone, address, owner_id, created_by, agrement_num, raison_sociale) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
@@ -652,11 +650,9 @@ router.post('/schools', adminOnly, wrap(async (req, res) => {
     }
     const r = d.prepare(insertSQL).run(...insertParams);
     schoolId = r.lastInsertRowid;
-    console.log('[POST /schools] school created, schoolId:', schoolId);
   } catch(e) {
     // تراجع: حذف المستخدم الذي أُنشئ
     d.prepare('DELETE FROM users WHERE id = ?').run(ownerId);
-    console.error('[POST /schools] INSERT schools FAILED:', e.message);
     throw e;
   }
 
@@ -667,7 +663,7 @@ router.post('/schools', adminOnly, wrap(async (req, res) => {
   try {
     d.prepare('UPDATE schools SET owner_id = ? WHERE id = ?').run(ownerId, schoolId);
     d.prepare("UPDATE schools SET email = ? WHERE id = ?").run(email, schoolId);
-  } catch(e) { console.warn('[POST /schools] UPDATE email/owner_id skipped:', e.message); }
+  } catch(_) { /* owner_id/email update optional — columns may not exist yet */ }
 
   db.audit(req.user.id, 'create', 'school', schoolId, { name, code, email });
   const school = d.prepare('SELECT * FROM schools WHERE id = ?').get(schoolId);

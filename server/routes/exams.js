@@ -166,7 +166,7 @@ router.post('/enroll', schoolOrAdmin, wrap(async (req, res) => {
   // التحقق من أن الطالب ينتمي للمؤسسة
   const student = d.prepare('SELECT id, school_id FROM users WHERE id = ? AND role = ?').get(student_id, 'student');
   if (!student) return res.status(404).json({ error: 'student_not_found' });
-  if (req.user.role !== 'admin' && student.school_id !== req.user.school_id) {
+  if (req.user.role !== 'admin' && String(student.school_id) !== String(req.user.school_id)) {
     return res.status(403).json({ error: 'forbidden' });
   }
 
@@ -193,17 +193,19 @@ router.post('/enroll', schoolOrAdmin, wrap(async (req, res) => {
    ───────────────────────────────────────────────────────────────────────── */
 router.patch('/:studentId/date', schoolOrAdmin, wrap(async (req, res) => {
   const d = getDb();
-  const { studentId } = req.params;
+  const studentId = parseInt(req.params.studentId, 10);
+  if (!Number.isInteger(studentId) || studentId < 1) return res.status(400).json({ error: 'invalid_student_id' });
   const { exam_type, date } = req.body;
 
   const ALLOWED_TYPES = ['theory_1', 'theory_2', 'practical_1', 'practical_2'];
   if (!ALLOWED_TYPES.includes(exam_type) || !date) {
     return res.status(400).json({ error: 'invalid exam_type or missing date' });
   }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'invalid_date_format' });
 
   const journey = d.prepare('SELECT * FROM exam_journey WHERE student_id = ?').get(studentId);
   if (!journey) return res.status(404).json({ error: 'journey_not_found' });
-  if (req.user.role !== 'admin' && journey.school_id !== req.user.school_id) {
+  if (req.user.role !== 'admin' && String(journey.school_id) !== String(req.user.school_id)) {
     return res.status(403).json({ error: 'forbidden' });
   }
 
@@ -229,7 +231,8 @@ router.patch('/:studentId/date', schoolOrAdmin, wrap(async (req, res) => {
    ───────────────────────────────────────────────────────────────────────── */
 router.patch('/:studentId/result', schoolOrAdmin, wrap(async (req, res) => {
   const d = getDb();
-  const { studentId } = req.params;
+  const studentId = parseInt(req.params.studentId, 10);
+  if (!Number.isInteger(studentId) || studentId < 1) return res.status(400).json({ error: 'invalid_student_id' });
   const { exam_type, result } = req.body;
 
   const ALLOWED_TYPES = ['theory_1', 'theory_2', 'practical_1', 'practical_2'];
@@ -240,7 +243,7 @@ router.patch('/:studentId/result', schoolOrAdmin, wrap(async (req, res) => {
   const journey = d.prepare('SELECT * FROM exam_journey WHERE student_id = ?').get(studentId);
   if (!journey) return res.status(404).json({ error: 'journey_not_found' });
   if (journey.status === 'archived') return res.status(409).json({ error: 'already_archived' });
-  if (req.user.role !== 'admin' && journey.school_id !== req.user.school_id) {
+  if (req.user.role !== 'admin' && String(journey.school_id) !== String(req.user.school_id)) {
     return res.status(403).json({ error: 'forbidden' });
   }
 
