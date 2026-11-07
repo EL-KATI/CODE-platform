@@ -526,51 +526,22 @@ router.get('/audit', adminOnly, (req, res) => {
    مؤسسات تعليم السياقة — Schools (أدمين فقط للإضافة/التعديل/الحذف)
    ══════════════════════════════════════════════════════════════════════════ */
 
-/** GET /admin/schools — قائمة المؤسسات مع عدد المستخدمين (أدمين + مؤسسة) */
+/** GET /admin/schools — قائمة المؤسسات = المستخدمون بدور school */
 router.get('/schools', schoolOrAdmin, wrap(async (req, res) => {
   const d = db.get();
-  d.exec(`CREATE TABLE IF NOT EXISTS schools (
-    id INTEGER PRIMARY KEY, name TEXT NOT NULL, code TEXT NOT NULL UNIQUE,
-    phone TEXT NOT NULL DEFAULT '', address TEXT NOT NULL DEFAULT '',
-    active INTEGER NOT NULL DEFAULT 1,
-    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  )`);
-  try { d.exec("ALTER TABLE schools ADD COLUMN email TEXT DEFAULT ''"); } catch (_) {}
-  try { d.exec('ALTER TABLE schools ADD COLUMN owner_id INTEGER'); } catch (_) {}
-  try { d.exec("ALTER TABLE schools ADD COLUMN agrement_num TEXT DEFAULT ''"); } catch (_) {}
-  try { d.exec("ALTER TABLE schools ADD COLUMN raison_sociale TEXT DEFAULT ''"); } catch (_) {}
-
-  // إذا كان المستخدم school بدون school_id → أنشئ له مؤسسة تلقائياً
-  if (req.user.role === 'school' && !req.user.school_id) {
-    const u = d.prepare('SELECT id, name, email FROM users WHERE id = ?').get(req.user.id);
-    if (u) {
-      let baseCode = (u.name || 'SCHOOL').toUpperCase().replace(/[^A-Z0-9]/g,'_').replace(/_+/g,'_').slice(0,25);
-      let code = baseCode, suffix = 1;
-      while (d.prepare('SELECT id FROM schools WHERE code = ?').get(code)) code = `${baseCode}_${suffix++}`;
-      try {
-        const r = d.prepare(`INSERT INTO schools (name, code, email, owner_id) VALUES (?,?,?,?)`)
-          .run(u.name || 'مؤسسة', code, u.email || '', u.id);
-        const newSchoolId = r.lastInsertRowid;
-        d.prepare('UPDATE users SET school_id = ? WHERE id = ?').run(newSchoolId, u.id);
-        req.user.school_id = newSchoolId;
-      } catch(_) {}
-    }
-  }
-
   // المؤسسة ترى نفسها فقط، الأدمين يرى الكل
-  const whereClause = req.user.role === 'school'
-    ? `WHERE CAST(s.id AS TEXT) = CAST(? AS TEXT)`
-    : '';
-  const params = req.user.role === 'school' ? [req.user.school_id] : [];
+  const whereExtra = req.user.role === 'school' ? 'AND u.id = ?' : '';
+  const params = req.user.role === 'school' ? [req.user.id] : [];
   const rows = d.prepare(`
-    SELECT s.*,
-      (SELECT COUNT(*) FROM users u WHERE CAST(u.school_id AS TEXT) = CAST(s.id AS TEXT) AND u.role = 'student') AS students_count,
-      (SELECT COUNT(*) FROM users u WHERE CAST(u.school_id AS TEXT) = CAST(s.id AS TEXT) AND u.role = 'instructor') AS instructors_count,
-      (SELECT COUNT(*) FROM users u WHERE CAST(u.school_id AS TEXT) = CAST(s.id AS TEXT) AND u.role = 'school') AS managers_count
-    FROM schools s
-    ${whereClause}
-    ORDER BY s.name
+    SELECT
+      u.id, u.name, u.email, u.phone, u.active, u.created_at, u.school_id,
+      u.id AS code,
+      (SELECT COUNT(*) FROM users s WHERE s.school_id = u.id AND s.role = 'student')    AS students_count,
+      (SELECT COUNT(*) FROM users i WHERE i.school_id = u.id AND i.role = 'instructor') AS instructors_count
+    FROM users u
+    WHERE u.role = 'school'
+    ${whereExtra}
+    ORDER BY u.name
   `).all(...params);
   res.json({ schools: rows });
 }));
@@ -589,150 +560,86 @@ router.get('/schools/search-students', schoolOrAdmin, wrap(async (req, res) => {
   res.json({ users: rows });
 }));
 
-/** GET /admin/schools/:id — تفاصيل مؤسسة واحدة */
+/** GET /admin/schools/:id — تفاصيل مؤسسة = مستخدم بدور school */
 router.get('/schools/:id', schoolOrAdmin, wrap(async (req, res) => {
   const d = db.get();
   const id = int(req.params.id, { min: 1 });
   // المؤسسة لا تستطيع رؤية مؤسسة أخرى
-  if (req.user.role === 'school' && String(req.user.school_id) !== String(id)) throw bad('forbidden');
-  const school = d.prepare('SELECT * FROM schools WHERE id = ?').get(id);
+  if (req.user.role === 'school' && req.user.id !== id) throw bad('forbidden');
+  const school = d.prepare("SELECT * FROM users WHERE id = ? AND role = 'school'").get(id);
   if (!school) throw notFound();
+  // المتعلمون والمدربون المرتبطون بهذه المؤسسة (school_id = id المؤسسة)
   const members = d.prepare(`
     SELECT id, name, email, role, active, created_at, last_login_at
-    FROM users WHERE CAST(school_id AS TEXT) = CAST(? AS TEXT) ORDER BY role, name
+    FROM users WHERE school_id = ? AND role IN ('student','instructor') ORDER BY role, name
   `).all(id);
   res.json({ school, members });
 }));
 
-/** POST /admin/schools — إضافة مؤسسة جديدة (أدمين فقط) */
+/** POST /admin/schools — إضافة مؤسسة = إنشاء مستخدم بدور school */
 router.post('/schools', adminOnly, wrap(async (req, res) => {
   const b = req.body || {};
-  const name    = str(b.name,  { min: 2, max: 120, field: 'name' });
-  const code    = str(b.code,  { min: 2, max: 30,  field: 'code' }).toUpperCase().replace(/\s+/g, '_');
-  const email   = str(b.email, { min: 5, max: 200, field: 'email' }).toLowerCase();
+  const name  = str(b.name,  { min: 2, max: 120, field: 'name' });
+  const email = str(b.email, { min: 5, max: 200, field: 'email' }).toLowerCase();
   if (!EMAIL_RE.test(email)) throw bad('invalid_email', { field: 'email' });
-  const phone       = (b.phone       || '').toString().trim().slice(0, 30);
-  const address     = (b.address     || '').toString().trim().slice(0, 200);
-  const agrementNum = (b.agrement_num  || '').toString().trim().slice(0, 30);
-  const raisonSociale = (b.raison_sociale || '').toString().trim().slice(0, 120);
+  const phone   = (b.phone   || '').toString().trim().slice(0, 30);
+  const address = (b.address || '').toString().trim().slice(0, 200);
   const d = db.get();
 
-  // ── تهيئة جدول schools وأعمدته (دفاعي، يعمل حتى بدون إعادة تشغيل الخادم) ──
-  d.exec(`CREATE TABLE IF NOT EXISTS schools (
-    id INTEGER PRIMARY KEY, name TEXT NOT NULL, code TEXT NOT NULL UNIQUE,
-    phone TEXT NOT NULL DEFAULT '', address TEXT NOT NULL DEFAULT '',
-    active INTEGER NOT NULL DEFAULT 1,
-    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  )`);
-  // إضافة الأعمدة الجديدة — SQLite لا يقبل NOT NULL في ALTER TABLE
-  try { d.exec("ALTER TABLE schools ADD COLUMN email TEXT DEFAULT ''"); } catch (_) {}
-  try { d.exec('ALTER TABLE schools ADD COLUMN owner_id INTEGER'); } catch (_) {}
-  try { d.exec("ALTER TABLE schools ADD COLUMN agrement_num TEXT DEFAULT ''"); } catch (_) {}
-  try { d.exec("ALTER TABLE schools ADD COLUMN raison_sociale TEXT DEFAULT ''"); } catch (_) {}
+  if (d.prepare('SELECT id FROM users WHERE email = ?').get(email)) throw bad('email_taken', { field: 'email' });
 
-  if (d.prepare('SELECT id FROM schools WHERE code = ?').get(code)) throw bad('slug_taken', { field: 'code' });
-
-  // إذا كان البريد مستعملاً لكن المستخدم بلا مؤسسة (فشل سابق) → نحذفه ونعيد الإنشاء
-  const existingUser = d.prepare('SELECT id, role, school_id FROM users WHERE email = ?').get(email);
-  if (existingUser) {
-    if (existingUser.school_id) throw bad('email_taken', { field: 'email' }); // مرتبط بمؤسسة حقيقية
-    if (existingUser.role !== 'school') throw bad('email_taken', { field: 'email' }); // مستخدم عادي
-    // مستخدم school يتيم من محاولة فاشلة → حذفه
-    d.prepare('DELETE FROM users WHERE id = ?').run(existingUser.id);
-  }
-
-  // إنشاء حساب المؤسسة (role=school) بكلمة سر عشوائية
-  const { hashPassword } = auth;
   const rawPwd = Math.random().toString(36).slice(2, 6) + Math.random().toString(36).slice(2, 6).toUpperCase() + Math.floor(Math.random() * 90 + 10);
-  const hash = await hashPassword(rawPwd);
+  const hash = await auth.hashPassword(rawPwd);
 
-  let ownerId, schoolId;
+  let newId;
   try {
-    const userRes = d.prepare(
-      `INSERT INTO users (email, name, password_hash, role) VALUES (?, ?, ?, 'school')`
-    ).run(email, name, hash);
-    ownerId = userRes.lastInsertRowid;
+    const r = d.prepare(`INSERT INTO users (email, name, password_hash, role, phone, address) VALUES (?,?,?,'school',?,?)`)
+      .run(email, name, hash, phone, address);
+    newId = r.lastInsertRowid;
   } catch(e) {
     if (e.message && e.message.includes('UNIQUE')) throw bad('email_taken', { field: 'email' });
     throw new HttpError(500, 'server_error');
   }
 
-  try {
-    // بناء INSERT ديناميكياً بناءً على الأعمدة الموجودة فعلاً
-    const cols = d.prepare('PRAGMA table_info(schools)').all().map(c => c.name);
-    const insertCols = ['name', 'code', 'phone', 'address', 'created_by'];
-    const insertVals = [name, code, phone, address, req.user.id];
-    if (cols.includes('email'))          { insertCols.push('email');          insertVals.push(email); }
-    if (cols.includes('owner_id'))       { insertCols.push('owner_id');       insertVals.push(ownerId); }
-    if (cols.includes('agrement_num'))   { insertCols.push('agrement_num');   insertVals.push(agrementNum); }
-    if (cols.includes('raison_sociale')) { insertCols.push('raison_sociale'); insertVals.push(raisonSociale); }
-
-    const placeholders = insertCols.map(() => '?').join(', ');
-    const r = d.prepare(`INSERT INTO schools (${insertCols.join(', ')}) VALUES (${placeholders})`).run(...insertVals);
-    schoolId = r.lastInsertRowid;
-  } catch(e) {
-    // تراجع: حذف المستخدم الذي أُنشئ
-    try { d.prepare('DELETE FROM users WHERE id = ?').run(ownerId); } catch(_) {}
-    if (e.message && e.message.includes('UNIQUE')) throw bad('slug_taken', { field: 'code' });
-    throw new HttpError(500, 'server_error');
-  }
-
-  // ربط حساب المؤسسة بالمؤسسة نفسها
-  d.prepare('UPDATE users SET school_id = ? WHERE id = ?').run(schoolId, ownerId);
-
-  // تأكيد تحديث الأعمدة (للتوافق في حالة عدم إدراجها مباشرةً)
-  try { d.prepare('UPDATE schools SET owner_id = ? WHERE id = ?').run(ownerId, schoolId); } catch(_) {}
-  try { d.prepare('UPDATE schools SET email = ? WHERE id = ?').run(email, schoolId); } catch(_) {}
-  try { d.prepare('UPDATE schools SET agrement_num = ? WHERE id = ?').run(agrementNum, schoolId); } catch(_) {}
-  try { d.prepare('UPDATE schools SET raison_sociale = ? WHERE id = ?').run(raisonSociale, schoolId); } catch(_) {}
-
-  db.audit(req.user.id, 'create', 'school', schoolId, { name, code, email });
-  const school = d.prepare('SELECT * FROM schools WHERE id = ?').get(schoolId);
+  db.audit(req.user.id, 'create', 'school', newId, { name, email });
+  const school = d.prepare('SELECT * FROM users WHERE id = ?').get(newId);
   res.status(201).json({ school, temp_password: rawPwd });
 }));
 
-/** PATCH /admin/schools/:id — تعديل بيانات مؤسسة (أدمين فقط) */
+/** PATCH /admin/schools/:id — تعديل بيانات مؤسسة */
 router.patch('/schools/:id', adminOnly, wrap(async (req, res) => {
   const id = int(req.params.id, { min: 1 });
   const b = req.body || {};
   const d = db.get();
-  if (!d.prepare('SELECT id FROM schools WHERE id = ?').get(id)) throw notFound();
-  if (b.name    !== undefined) d.prepare('UPDATE schools SET name    = ? WHERE id = ?').run(str(b.name, { min: 2, max: 120 }), id);
-  if (b.phone   !== undefined) d.prepare('UPDATE schools SET phone   = ? WHERE id = ?').run(b.phone.toString().trim().slice(0, 30), id);
-  if (b.address !== undefined) d.prepare('UPDATE schools SET address = ? WHERE id = ?').run(b.address.toString().trim().slice(0, 200), id);
-  if (b.active  !== undefined) d.prepare('UPDATE schools SET active  = ? WHERE id = ?').run(b.active ? 1 : 0, id);
-  if (b.agrement_num  !== undefined) d.prepare('UPDATE schools SET agrement_num  = ? WHERE id = ?').run(b.agrement_num.toString().trim().slice(0, 30), id);
-  if (b.raison_sociale !== undefined) d.prepare('UPDATE schools SET raison_sociale = ? WHERE id = ?').run(b.raison_sociale.toString().trim().slice(0, 120), id);
+  if (!d.prepare("SELECT id FROM users WHERE id = ? AND role = 'school'").get(id)) throw notFound();
+  if (b.name    !== undefined) d.prepare('UPDATE users SET name    = ? WHERE id = ?').run(str(b.name, { min: 2, max: 120 }), id);
+  if (b.phone   !== undefined) d.prepare('UPDATE users SET phone   = ? WHERE id = ?').run(b.phone.toString().trim().slice(0, 30), id);
+  if (b.address !== undefined) d.prepare('UPDATE users SET address = ? WHERE id = ?').run(b.address.toString().trim().slice(0, 200), id);
+  if (b.active  !== undefined) d.prepare('UPDATE users SET active  = ? WHERE id = ?').run(b.active ? 1 : 0, id);
   db.audit(req.user.id, 'update', 'school', id, b);
-  res.json({ school: d.prepare('SELECT * FROM schools WHERE id = ?').get(id) });
+  res.json({ school: d.prepare('SELECT * FROM users WHERE id = ?').get(id) });
 }));
 
-/** POST /admin/schools/:id/reset-password — تعيين كلمة سر جديدة لحساب المؤسسة */
+/** POST /admin/schools/:id/reset-password — تعيين كلمة سر جديدة */
 router.post('/schools/:id/reset-password', adminOnly, wrap(async (req, res) => {
   const id = int(req.params.id, { min: 1 });
   const d = db.get();
-  const school = d.prepare('SELECT * FROM schools WHERE id = ?').get(id);
-  if (!school) throw notFound();
-  // ابحث عن المستخدم المرتبط (owner_id أو أول مستخدم school مرتبط)
-  let owner = school.owner_id ? d.prepare('SELECT id FROM users WHERE id = ? AND role = ?').get(school.owner_id, 'school') : null;
-  if (!owner) owner = d.prepare('SELECT id FROM users WHERE school_id = ? AND role = ? LIMIT 1').get(id, 'school');
-  if (!owner) throw new HttpError(404, 'no_school_user');
+  if (!d.prepare("SELECT id FROM users WHERE id = ? AND role = 'school'").get(id)) throw notFound();
   const rawPwd = Math.random().toString(36).slice(2, 6) + Math.random().toString(36).slice(2, 6).toUpperCase() + Math.floor(Math.random() * 90 + 10);
-  const hash = await auth.hashPassword(rawPwd);
-  d.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, owner.id);
+  d.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(await auth.hashPassword(rawPwd), id);
   db.audit(req.user.id, 'reset_password', 'school', id);
   res.json({ temp_password: rawPwd });
 }));
 
-/** DELETE /admin/schools/:id — حذف مؤسسة (أدمين فقط، يفصل أعضاءها) */
+/** DELETE /admin/schools/:id — حذف مؤسسة = حذف المستخدم school وفصل أعضائه */
 router.delete('/schools/:id', adminOnly, wrap(async (req, res) => {
   const id = int(req.params.id, { min: 1 });
   const d = db.get();
-  if (!d.prepare('SELECT id FROM schools WHERE id = ?').get(id)) throw notFound();
-  // فصل جميع أعضاء المؤسسة — CAST للتوافق مع school_id TEXT أو INTEGER
-  d.prepare('UPDATE users SET school_id = NULL WHERE CAST(school_id AS TEXT) = CAST(? AS TEXT)').run(id);
-  d.prepare('DELETE FROM schools WHERE id = ?').run(id);
+  if (!d.prepare("SELECT id FROM users WHERE id = ? AND role = 'school'").get(id)) throw notFound();
+  // فصل جميع الأعضاء المرتبطين
+  d.prepare('UPDATE users SET school_id = NULL WHERE school_id = ?').run(id);
+  // حذف المستخدم/المؤسسة نفسها
+  d.prepare('DELETE FROM users WHERE id = ?').run(id);
   db.audit(req.user.id, 'delete', 'school', id);
   res.json({ ok: true });
 }));
