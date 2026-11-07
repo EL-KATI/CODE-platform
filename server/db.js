@@ -437,6 +437,29 @@ function open(file = config.dbFile) {
     console.log('[db] migration: created exam_journey table');
   }
 
+  // ── مزامنة: أنشئ سجل schools لكل مستخدم بدور school بدون school_id ──
+  try {
+    const schoolCols = db.prepare('PRAGMA table_info(schools)').all().map(c => c.name);
+    if (!schoolCols.includes('email'))          db.exec("ALTER TABLE schools ADD COLUMN email TEXT DEFAULT ''");
+    if (!schoolCols.includes('owner_id'))       db.exec('ALTER TABLE schools ADD COLUMN owner_id INTEGER');
+    if (!schoolCols.includes('agrement_num'))   db.exec("ALTER TABLE schools ADD COLUMN agrement_num TEXT DEFAULT ''");
+    if (!schoolCols.includes('raison_sociale')) db.exec("ALTER TABLE schools ADD COLUMN raison_sociale TEXT DEFAULT ''");
+
+    const orphans = db.prepare(
+      "SELECT id, name, email FROM users WHERE role = 'school' AND (school_id IS NULL OR school_id = '' OR school_id = 0)"
+    ).all();
+    for (const u of orphans) {
+      let baseCode = (u.name || 'SCHOOL').toUpperCase().replace(/[^A-Z0-9]/g,'_').replace(/_+/g,'_').slice(0,25) || 'SCHOOL';
+      let code = baseCode, suffix = 1;
+      while (db.prepare('SELECT id FROM schools WHERE code = ?').get(code)) code = `${baseCode}_${suffix++}`;
+      const r = db.prepare("INSERT INTO schools (name, code, email, owner_id) VALUES (?,?,?,?)").run(u.name || 'مؤسسة', code, u.email || '', u.id);
+      db.prepare('UPDATE users SET school_id = ? WHERE id = ?').run(r.lastInsertRowid, u.id);
+      console.log(`[db] auto-created school #${r.lastInsertRowid} for user #${u.id} (${u.name})`);
+    }
+  } catch(e) {
+    console.warn('[db] school sync warning:', e.message);
+  }
+
   return db;
 }
 

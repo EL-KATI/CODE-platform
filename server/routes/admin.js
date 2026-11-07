@@ -538,6 +538,26 @@ router.get('/schools', schoolOrAdmin, wrap(async (req, res) => {
   )`);
   try { d.exec("ALTER TABLE schools ADD COLUMN email TEXT DEFAULT ''"); } catch (_) {}
   try { d.exec('ALTER TABLE schools ADD COLUMN owner_id INTEGER'); } catch (_) {}
+  try { d.exec("ALTER TABLE schools ADD COLUMN agrement_num TEXT DEFAULT ''"); } catch (_) {}
+  try { d.exec("ALTER TABLE schools ADD COLUMN raison_sociale TEXT DEFAULT ''"); } catch (_) {}
+
+  // إذا كان المستخدم school بدون school_id → أنشئ له مؤسسة تلقائياً
+  if (req.user.role === 'school' && !req.user.school_id) {
+    const u = d.prepare('SELECT id, name, email FROM users WHERE id = ?').get(req.user.id);
+    if (u) {
+      let baseCode = (u.name || 'SCHOOL').toUpperCase().replace(/[^A-Z0-9]/g,'_').replace(/_+/g,'_').slice(0,25);
+      let code = baseCode, suffix = 1;
+      while (d.prepare('SELECT id FROM schools WHERE code = ?').get(code)) code = `${baseCode}_${suffix++}`;
+      try {
+        const r = d.prepare(`INSERT INTO schools (name, code, email, owner_id) VALUES (?,?,?,?)`)
+          .run(u.name || 'مؤسسة', code, u.email || '', u.id);
+        const newSchoolId = r.lastInsertRowid;
+        d.prepare('UPDATE users SET school_id = ? WHERE id = ?').run(newSchoolId, u.id);
+        req.user.school_id = newSchoolId;
+      } catch(_) {}
+    }
+  }
+
   // المؤسسة ترى نفسها فقط، الأدمين يرى الكل
   const whereClause = req.user.role === 'school'
     ? `WHERE CAST(s.id AS TEXT) = CAST(? AS TEXT)`
