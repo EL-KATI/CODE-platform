@@ -755,4 +755,14 @@ router.delete('/schools/:id/members/:userId', schoolOrAdmin, wrap(async (req, re
   res.json({ ok: true });
 }));
 
+/** POST /admin/cleanup-orphan-users — حذف المستخدمين اليتامى (school بلا school_id) */
+router.post('/cleanup-orphan-users', adminOnly, wrap(async (req, res) => {
+  const d = db.get();
+  const orphans = d.prepare("SELECT id, email FROM users WHERE role = 'school' AND (school_id IS NULL OR school_id = '')").all();
+  for (const u of orphans) {
+    d.prepare('DELETE FROM users WHERE id = ?').run(u.id);
+  }
+  res.json({ deleted: orphans.length, emails: orphans.map(u => u.email) });
+}));
+
 module.exports = router;
