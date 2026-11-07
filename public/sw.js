@@ -53,6 +53,8 @@ self.addEventListener('fetch', (e) => {
   }
 
   // باقي الملفات: network-first مع fallback للكاش
+  // تجاهل الـ URLs اللي ما كاينيش http/https (chrome-extension, etc.)
+  if (!e.request.url.startsWith('http')) return;
   e.respondWith(
     fetch(e.request).then((res) => {
       if (res.ok && e.request.method === 'GET') {
