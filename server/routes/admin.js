@@ -587,6 +587,7 @@ router.get('/schools/:id', schoolOrAdmin, wrap(async (req, res) => {
 /** POST /admin/schools — إضافة مؤسسة جديدة (أدمين فقط) */
 router.post('/schools', adminOnly, wrap(async (req, res) => {
   const b = req.body || {};
+  console.log('[POST /schools] body keys:', Object.keys(b), '| name type:', typeof b.name, '| email type:', typeof b.email);
   const name    = str(b.name,  { min: 2, max: 120, field: 'name' });
   const code    = str(b.code,  { min: 2, max: 30,  field: 'code' }).toUpperCase().replace(/\s+/g, '_');
   const email   = str(b.email, { min: 5, max: 200, field: 'email' }).toLowerCase();
@@ -633,13 +634,16 @@ router.post('/schools', adminOnly, wrap(async (req, res) => {
       `INSERT INTO users (email, name, password_hash, role) VALUES (?, ?, ?, 'school')`
     ).run(email, name, hash);
     ownerId = userRes.lastInsertRowid;
+    console.log('[POST /schools] user created, ownerId:', ownerId);
   } catch(e) {
+    console.error('[POST /schools] user INSERT error:', e.message);
     throw e;
   }
 
   try {
     // بناء INSERT ديناميكياً بناءً على الأعمدة الموجودة فعلاً
     const cols = d.prepare('PRAGMA table_info(schools)').all().map(c => c.name);
+    console.log('[POST /schools] schools cols:', cols.join(','));
     const insertCols = ['name', 'code', 'phone', 'address', 'created_by'];
     const insertVals = [name, code, phone, address, req.user.id];
     if (cols.includes('email'))        { insertCols.push('email');        insertVals.push(email); }
@@ -648,9 +652,12 @@ router.post('/schools', adminOnly, wrap(async (req, res) => {
     if (cols.includes('raison_sociale')) { insertCols.push('raison_sociale'); insertVals.push(raisonSociale); }
 
     const placeholders = insertCols.map(() => '?').join(', ');
+    console.log('[POST /schools] INSERT SQL cols:', insertCols.join(','));
     const r = d.prepare(`INSERT INTO schools (${insertCols.join(', ')}) VALUES (${placeholders})`).run(...insertVals);
     schoolId = r.lastInsertRowid;
+    console.log('[POST /schools] school created, schoolId:', schoolId);
   } catch(e) {
+    console.error('[POST /schools] school INSERT error:', e.message);
     // تراجع: حذف المستخدم الذي أُنشئ
     d.prepare('DELETE FROM users WHERE id = ?').run(ownerId);
     throw e;
