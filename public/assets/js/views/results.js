@@ -209,8 +209,7 @@ export async function resultsView(root, { params }) {
     };
   });
 
-  // ── مراجعة الأسئلة: شبكة أرقام (أحمر = خاطئ، أخضر = صحيح) + سؤال واحد مفتوح ──
-  let openIdx = null;
+  // ── مراجعة الأسئلة: شبكة أرقام (أحمر = خاطئ، أخضر = صحيح) + نافذة منبثقة للسؤال ──
   const statusOf = (q) => (q.answer?.isCorrect === true ? 'ok' : 'ko');
 
   function renderReview() {
@@ -222,22 +221,50 @@ export async function resultsView(root, { params }) {
       list.innerHTML = html`<div class="empty-state" style="padding:32px">${t('results.noItems')}</div>`.s;
       return;
     }
-    if (openIdx !== null && !shown.some(({ i }) => i === openIdx)) openIdx = null;
-
     list.innerHTML = html`
       <div class="q-nav-grid review-nav" style="grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:8px;margin-bottom:16px">
-        ${shown.map(({ q, i }) => raw(`<button type="button" class="nav-${statusOf(q)}${i === openIdx ? ' nav-cur' : ''}" data-i="${i}" aria-pressed="${i === openIdx}" aria-label="${esc(t('quiz.qn', { n: i + 1 }))}">${i + 1}</button>`))}
+        ${shown.map(({ q, i }) => raw(`<button type="button" class="nav-${statusOf(q)}" data-i="${i}" aria-label="${esc(t('quiz.qn', { n: i + 1 }))}">${i + 1}</button>`))}
       </div>
-      <div id="review-detail">${openIdx !== null ? reviewItem(questions[openIdx], openIdx, catMap) : html`<p class="muted small" style="text-align:center">${t('results.tapToReview')}</p>`}</div>`.s;
+      <p class="muted small" style="text-align:center">${t('results.tapToReview')}</p>`.s;
+    list.querySelectorAll('button[data-i]').forEach((b) => { b.onclick = () => openModal(Number(b.dataset.i)); });
+  }
 
-    list.querySelectorAll('button[data-i]').forEach((b) => {
-      b.onclick = () => {
-        const i = Number(b.dataset.i);
-        openIdx = openIdx === i ? null : i;
-        renderReview();
-        if (openIdx !== null) list.querySelector('#review-detail')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      };
-    });
+  // ── النافذة المنبثقة ─────────────────────────────────────────────
+  function openModal(startIdx) {
+    let cur = startIdx;
+    const ov = document.createElement('div');
+    ov.className = 'rv-overlay';
+    ov.setAttribute('role', 'dialog');
+    ov.setAttribute('aria-modal', 'true');
+    document.body.appendChild(ov);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const nextWrong = () => questions.findIndex((q, i) => i > cur && statusOf(q) === 'ko');
+    const close = () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+      ov.remove();
+    };
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+
+    function draw() {
+      const nx = nextWrong();
+      ov.innerHTML = html`
+        <div class="rv-modal">
+          <div class="rv-body">${reviewItem(questions[cur], cur, catMap)}</div>
+          <div class="rv-foot">
+            <button type="button" class="btn btn-ghost" id="rv-close">✕ ${t('results.close')}</button>
+            ${nx !== -1 ? html`<button type="button" class="btn btn-primary" id="rv-next">${t('results.nextWrong')} ✗</button>` : ''}
+          </div>
+        </div>`.s;
+      ov.querySelector('#rv-close').onclick = close;
+      const nb = ov.querySelector('#rv-next');
+      if (nb) nb.onclick = () => { cur = nx; draw(); ov.querySelector('.rv-body').scrollTop = 0; };
+    }
+    draw();
   }
 
   renderReview();
