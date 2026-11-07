@@ -7,7 +7,7 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 
-const DB_PATH = path.join(__dirname, 'data', 'app.db');
+const DB_PATH = process.env.DB_FILE || path.join(__dirname, 'data', 'platform.db');
 if (!fs.existsSync(DB_PATH)) {
   console.error('❌ ملف قاعدة البيانات غير موجود:', DB_PATH);
   console.error('   شغّل السيرفر أولاً: npm start');
