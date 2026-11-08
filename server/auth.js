@@ -39,6 +39,7 @@ function publicUser(u) {
     id: u.id, email: u.email, name: u.name, role: u.role,
     locale: u.locale, examDate: u.exam_date, createdAt: u.created_at,
     schoolId,
+    isSuperAdmin: u.is_super_admin === 1,
   };
 }
 

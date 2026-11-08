@@ -377,6 +377,14 @@ function open(file = config.dbFile) {
   if (!userCols.includes('tax_id'))          db.exec("ALTER TABLE users ADD COLUMN tax_id TEXT DEFAULT ''");
   if (!userCols.includes('pro_license_num')) db.exec("ALTER TABLE users ADD COLUMN pro_license_num TEXT DEFAULT ''");
   if (!userCols.includes('narsa_num'))       db.exec("ALTER TABLE users ADD COLUMN narsa_num TEXT DEFAULT ''");
+  // is_super_admin: الأدمين الأكبر لا يراه ولا يعدّله أدمين آخر
+  if (!userCols.includes('is_super_admin'))  db.exec('ALTER TABLE users ADD COLUMN is_super_admin INTEGER NOT NULL DEFAULT 0');
+  // ترقية أول أدمين موجود إلى سوبر أدمين إن لم يوجد واحد بعد
+  const noSuper = !db.prepare("SELECT 1 FROM users WHERE is_super_admin = 1 LIMIT 1").get();
+  if (noSuper) {
+    const firstAdmin = db.prepare("SELECT id FROM users WHERE role = 'admin' ORDER BY id LIMIT 1").get();
+    if (firstAdmin) db.prepare('UPDATE users SET is_super_admin = 1 WHERE id = ?').run(firstAdmin.id);
+  }
   // Migration: نظّف كل الجداول المؤقتة تُركت من migrations فاشلة سابقة
   try {
     const tmpTables = db.prepare(

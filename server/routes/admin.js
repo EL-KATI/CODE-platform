@@ -520,10 +520,15 @@ router.put('/categories/:id', adminOnly, wrap(async (req, res) => {
 }));
 
 // --- Utilisateurs : admin uniquement -------------------------------------------
+// هل المستخدم الحالي سوبر أدمين؟
+const isSuperAdmin = (req) => !!(req.user && req.user.is_super_admin);
+
 router.get('/users', adminOnly, (req, res) => {
   const q = `%${(req.query.q || '').toString().slice(0, 80)}%`;
-  res.json(db.get().prepare(`SELECT id, name, email, role, active, locale, school_id, phone, city, pw_reset_at, created_at, last_login_at FROM users
-    WHERE name LIKE ? OR email LIKE ? ORDER BY id DESC LIMIT 500`).all(q, q));
+  // الأدمين الأكبر لا يظهر في قائمة المستخدمين لأدمين عادي
+  const hideSuperClause = isSuperAdmin(req) ? '' : "AND (u.is_super_admin = 0 OR u.is_super_admin IS NULL)";
+  res.json(db.get().prepare(`SELECT id, name, email, role, active, locale, school_id, phone, city, pw_reset_at, created_at, last_login_at, is_super_admin FROM users u
+    WHERE (name LIKE ? OR email LIKE ?) ${hideSuperClause} ORDER BY id DESC LIMIT 500`).all(q, q));
 });
 
 // حقول المستخدم القابلة للتعديل حسب الدور (قائمة بيضاء → أسماء الأعمدة)
@@ -564,11 +569,14 @@ function displayName(role, f, fallback) {
   return fallback;
 }
 
-/** المؤسسة تدير متعلميها ومدربيها فقط؛ الأدمن يدير الجميع */
+/** المؤسسة تدير متعلميها ومدربيها فقط؛ الأدمن يدير الجميع؛ الأدمين الأكبر محمي من الأدمين العادي */
 const userScope = wrap(async (req, res, next) => {
-  if (req.user.role === 'admin') return next();
-  const u = db.get().prepare('SELECT id, role, school_id FROM users WHERE id = ?').get(int(req.params.id, { min: 1 }));
+  const targetId = int(req.params.id, { min: 1 });
+  const u = db.get().prepare('SELECT id, role, school_id, is_super_admin FROM users WHERE id = ?').get(targetId);
   if (!u) throw notFound();
+  // الأدمين العادي لا يمكنه الوصول لحساب الأدمين الأكبر
+  if (u.is_super_admin && !isSuperAdmin(req)) return res.status(403).json({ error: 'forbidden' });
+  if (req.user.role === 'admin') return next();
   if (!req.user.school_id || u.school_id !== req.user.school_id || !['student', 'instructor'].includes(u.role)) {
     return res.status(403).json({ error: 'forbidden' });
   }

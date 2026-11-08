@@ -1019,24 +1019,30 @@ export async function usersView(root) {
 
     const render = async () => {
       const sch = schools();
+      const amSuper = store.isSuperAdmin();
+      // الأدمين العادي لا يرى الأدمين الأكبر (الخادم يستبعده أيضاً، هذا للأمان المضاعف)
+      const visible = amSuper ? list : list.filter((u) => !u.is_super_admin);
       shell(root, '/admin/users', html`
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-          <h2 style="margin:0">${t('admin.users')}</h2>
+        <div class="page-head">
+          <div><h1>${t('admin.users')}</h1></div>
           <button class="btn btn-primary btn-sm" id="btn-add-user">＋ ${t('admin.addUser')}</button>
         </div>
         <div class="card table-wrap"><table class="table list-table"><thead><tr>
           <th>${t('admin.name')}</th><th>${t('admin.email')}</th><th>${t('admin.role')}</th><th>${t('admin.status')}</th><th>${t('admin.school')}</th><th>${t('common.actions')}</th>
         </tr></thead><tbody>
-          ${list.map((u) => html`<tr style="${u.active ? '' : 'opacity:.6'}">
-            <td><a data-view="${u.id}">${u.name}</a></td>
-            <td style="font-size:.85rem">${u.email}</td>
-            <td><span class="pill">${t('role.' + u.role)}</span></td>
-            <td>${statusPill(!!u.active, 'نشيط', 'موقوف')}</td>
-            <td style="font-size:.8rem">${u.school_id ? (sch.find((x) => x.id === u.school_id)?.name || u.school_id) : '—'}</td>
-            <td>${rowActions({ id: u.id, hidden: !u.active, hideLabel: 'إيقاف الحساب', showLabel: 'تفعيل الحساب',
-              extra: html`<button class="act-btn" type="button" data-act="edit" data-id="${u.id}" title="${t('common.edit')}"><span aria-hidden="true">✏️</span><span class="act-lbl">${t('common.edit')}</span></button>
-                          <button class="act-btn" type="button" data-act="reset" data-id="${u.id}" ${resetBlocked(u) ? raw('disabled') : ''} title="${resetBlocked(u) ? 'متاح بعد ' + resetWait(u) : 'توليد كلمة سر جديدة'}"><span aria-hidden="true">🔑</span><span class="act-lbl">كلمة سر</span></button>` })}</td>
-          </tr>`)}
+          ${visible.map((u) => {
+            const isProtected = u.is_super_admin && !amSuper;
+            return html`<tr style="${u.active ? '' : 'opacity:.6'}">
+              <td><a data-view="${u.id}">${u.name}${u.is_super_admin ? html` <span class="pill pill-warning" style="font-size:.7rem">سوبر</span>` : ''}</a></td>
+              <td style="font-size:.85rem">${u.email}</td>
+              <td><span class="pill">${t('role.' + u.role)}</span></td>
+              <td>${statusPill(!!u.active, 'نشيط', 'موقوف')}</td>
+              <td style="font-size:.8rem">${u.school_id ? (sch.find((x) => x.id === u.school_id)?.name || u.school_id) : '—'}</td>
+              <td>${isProtected ? html`<span class="pill pill-warning">محمي</span>` : rowActions({ id: u.id, hidden: !u.active, hideLabel: 'إيقاف الحساب', showLabel: 'تفعيل الحساب',
+                extra: html`<button class="act-btn" type="button" data-act="edit" data-id="${u.id}" title="${t('common.edit')}"><span aria-hidden="true">✏️</span><span class="act-lbl">${t('common.edit')}</span></button>
+                            <button class="act-btn" type="button" data-act="reset" data-id="${u.id}" ${resetBlocked(u) ? raw('disabled') : ''} title="${resetBlocked(u) ? 'متاح بعد ' + resetWait(u) : 'توليد كلمة سر جديدة'}"><span aria-hidden="true">🔑</span><span class="act-lbl">كلمة سر</span></button>` })}</td>
+            </tr>`;
+          })}
         </tbody></table></div>`);
 
       // ربط نقر الاسم بنافذة العرض

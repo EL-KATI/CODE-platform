@@ -3,16 +3,10 @@ import { t, setLocale } from '../i18n.js';
 import { api } from '../api.js';
 import { store } from '../store.js';
 import { navigate } from '../router.js';
-import { showCredentials, resetBlocked, resetWait, fmtWait } from './admin.js';
 
 export function profileView(root) {
-  const u = store.user;
-  // pw_reset_at من store (يُحدَّث بعد إعادة التوليد)
-  const getUser = () => store.user;
-
   const render = () => {
-    const cu = getUser();
-    const blocked = resetBlocked(cu);
+    const cu = store.user;
     root.innerHTML = html`
       <div class="page-head"><div><h1>${t('profile.title')}</h1><p>${cu.email} · <span class="pill">${t('role.' + cu.role)}</span></p></div>
         <a class="btn btn-secondary" href="/history">${t('history.title')}</a></div>
@@ -27,8 +21,6 @@ export function profileView(root) {
         </form>
         <section class="card" id="pw-section">
           <h2>${t('profile.password')}</h2>
-
-          <!-- §أ تغيير كلمة السر يدوياً -->
           <form id="pw-form" novalidate>
             <div class="field">
               <label for="cur-pw">${t('profile.currentPassword')}</label>
@@ -42,19 +34,10 @@ export function profileView(root) {
             <div class="field">
               <label for="confirm-pw">${t('profile.confirmPassword')}</label>
               <input id="confirm-pw" name="confirm" type="password" autocomplete="new-password" required minlength="8" dir="ltr" placeholder="••••••••">
-              <span class="hint" id="pw-match-hint" style="color:var(--danger,#dc2626);display:none">${t('profile.passwordMismatch')}</span>
+              <span class="hint pw-mismatch" style="color:var(--danger,#dc2626);display:none">${t('profile.passwordMismatch')}</span>
             </div>
             <button class="btn btn-primary" type="submit" id="btn-change-pw">${t('profile.changePassword')}</button>
           </form>
-
-          <hr style="border:0;border-top:1px solid var(--border);margin:18px 0">
-
-          <!-- §ب توليد كلمة سر جديدة تلقائياً -->
-          <p class="muted small" style="margin-bottom:10px">${t('profile.passwordResetHint')}</p>
-          <button class="btn btn-secondary" id="btn-reset-pw" type="button" ${blocked ? raw('disabled') : ''}>
-            🔑 ${t('profile.resetPassword')}
-          </button>
-          ${blocked ? html`<p class="hint" style="margin-top:8px">⏳ ${t('profile.resetWait')}: ${fmtWait(cu.pw_reset_at)}</p>` : ''}
         </section>
         <section class="card">
           <h2>${t('profile.data')}</h2>
@@ -80,7 +63,7 @@ export function profileView(root) {
     const pwForm = root.querySelector('#pw-form');
     const newPwInput   = root.querySelector('#new-pw');
     const confirmInput = root.querySelector('#confirm-pw');
-    const matchHint    = root.querySelector('#pw-match-hint');
+    const matchHint    = root.querySelector('.pw-mismatch');
 
     // منع اللصق في حقلَي كلمة السر الجديدة والتأكيد
     [newPwInput, confirmInput].forEach((inp) => {
@@ -112,24 +95,7 @@ export function profileView(root) {
       finally { btn.disabled = false; }
     };
 
-    const resetBtn = root.querySelector('#btn-reset-pw');
-    if (resetBtn) resetBtn.onclick = async () => {
-      resetBtn.disabled = true;
-      try {
-        const r = await api.post('/me/reset-password');
-        // تحديث pw_reset_at في store لتجنب التكرار
-        store.user = { ...store.user, pw_reset_at: new Date().toISOString() };
-        render();
-        await showCredentials({ email: r.email, password: r.generatedPassword, name: r.name });
-      } catch (ex) {
-        if (ex.code === 'reset_limit') {
-          toast(`مسموح مرة واحدة كل 24 ساعة. جرّب بعد ${fmtWait(ex.details?.retryAt)}`, 'error');
-          store.user = { ...store.user, pw_reset_at: new Date(Date.now() - 23 * 3600 * 1000).toISOString() };
-        } else toast(errorMessage(ex), 'error');
-        render();
-      }
-    };
-      root.querySelector('#del').onclick = () => {
+    root.querySelector('#del').onclick = () => {
       openDialog({
         title: t('profile.delete'),
         body: html`<p>${t('profile.deleteConfirm')}</p><div class="field"><label for="del-pw">${t('profile.deletePassword')}</label><input id="del-pw" type="password" autocomplete="current-password" dir="ltr"></div>`,
