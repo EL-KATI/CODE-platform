@@ -140,12 +140,12 @@ export async function statsView(root) {
 const actBtn = (act, id, icon, label, cls = '') => html`<button class="act-btn ${cls}" type="button" data-act="${act}" data-id="${id}" title="${label}" aria-label="${label}"><span aria-hidden="true">${icon}</span><span class="act-lbl">${label}</span></button>`;
 const actLink = (href, icon, label) => html`<a class="act-btn" href="${href}" title="${label}" aria-label="${label}"><span aria-hidden="true">${icon}</span><span class="act-lbl">${label}</span></a>`;
 // Même jeu de boutons partout : عرض · معاينة · تعديل · إخفاء/إظهار · حذف
-export function rowActions({ id, viewHref, editHref, preview, hidden, hide = true, del = true, extra = '' }) {
+export function rowActions({ id, viewHref, editHref, preview, hidden, hide = true, del = true, extra = '', hideLabel, showLabel }) {
   return html`<div class="act-row">
     ${viewHref ? actLink(viewHref, '📄', t('admin.view')) : ''}
     ${preview ? actBtn('preview', id, '👁', t('admin.preview')) : ''}
     ${editHref ? actLink(editHref, '✏️', t('common.edit')) : ''}
-    ${hide ? actBtn(hidden ? 'show' : 'hide', id, hidden ? '👁️' : '🚫', hidden ? t('admin.show') : t('admin.hide')) : ''}
+    ${hide ? actBtn(hidden ? 'show' : 'hide', id, hidden ? '👁️' : '🚫', hidden ? (showLabel || t('admin.show')) : (hideLabel || t('admin.hide'))) : ''}
     ${extra}
     ${del ? actBtn('delete', id, '🗑', t('common.delete'), 'act-danger') : ''}
   </div>`;
@@ -156,7 +156,7 @@ function bindActions(root, handlers) {
     if (fn) b.onclick = () => fn(b.dataset.id, b);
   });
 }
-const statusPill = (visible) => html`<span class="pill ${visible ? 'pill-success' : 'pill-warning'}">${visible ? t('admin.visible') : t('admin.hidden')}</span>`;
+const statusPill = (visible, on = t('admin.visible'), off = t('admin.hidden')) => html`<span class="pill ${visible ? 'pill-success' : 'pill-warning'}">${visible ? on : off}</span>`;
 
 // --- Questions -------------------------------------------------------------------
 const STATUSES = ['published', 'draft', 'archived'];
@@ -760,23 +760,10 @@ export async function studentsView(root) {
   await load(root, '/admin/students', async () => {
     const list = await api.get('/admin/students');
     shell(root, '/admin/students', html`
-      <div class="card" style="overflow:auto"><table class="table list-table"><thead><tr><th>${t('admin.name')}</th><th>${t('admin.email')}</th><th>${t('admin.exams')}</th><th>التقدم</th><th>${t('admin.lastActivity')}</th><th>${t('admin.status')}</th><th>${t('common.actions')}</th></tr></thead><tbody>
+      <div class="card" style="overflow:auto"><table class="table list-table"><thead><tr><th>${t('admin.name')}</th><th>${t('admin.email')}</th><th>${t('admin.exams')}</th><th>التقدم</th><th>${t('admin.lastActivity')}</th><th>${t('admin.status')}</th></tr></thead><tbody>
         ${list.length ? list.map((u) => html`<tr style="${u.active ? '' : 'opacity:.6'}"><td><a href="/admin/students/${u.id}">${u.name}</a></td><td class="small">${u.email}</td><td>${u.exams_passed}/${u.exams}</td><td style="min-width:110px"><div style="height:8px;border-radius:99px;background:var(--border,#ddd);overflow:hidden"><div style="height:100%;width:${u.progress || 0}%;background:var(--success,#16a34a)"></div></div><span class="small">${u.progress || 0}%</span></td><td>${u.last_activity ? fmtDate(u.last_activity) : '—'}</td>
-          <td>${statusPill(!!u.active)}</td>
-          <td>${rowActions({ id: u.id, viewHref: `/admin/students/${u.id}`, hidden: !u.active })}</td></tr>`) : html`<tr><td colspan="7" class="muted">${t('common.none')}</td></tr>`}
+          <td>${statusPill(!!u.active, 'نشيط', 'موقوف')}</td></tr>`) : html`<tr><td colspan="6" class="muted">${t('common.none')}</td></tr>`}
       </tbody></table></div>`);
-    const toggle = async (id, active) => {
-      try { await api.patch(`/admin/school/students/${id}`, { active }); toast(t('common.saved')); await studentsView(root); }
-      catch (err) { toast(errorMessage(err), 'error'); }
-    };
-    bindActions(root, {
-      hide: (id) => toggle(id, false),
-      show: (id) => toggle(id, true),
-      delete: async (id) => {
-        if (!(await confirmDialog(t('admin.confirmDelete'), { danger: true }))) return;
-        try { await api.del(`/admin/school/students/${id}`); await studentsView(root); } catch (err) { toast(errorMessage(err), 'error'); }
-      },
-    });
   });
 }
 
@@ -1091,9 +1078,9 @@ export async function usersView(root) {
             <td>${u.name}</td>
             <td style="font-size:.85rem">${u.email}</td>
             <td><span class="pill">${t('role.' + u.role)}</span></td>
-            <td>${statusPill(!!u.active)}</td>
+            <td>${statusPill(!!u.active, 'نشيط', 'موقوف')}</td>
             <td style="font-size:.8rem">${u.school_id ? (schools.find((x) => x.id === u.school_id)?.name || u.school_id) : '—'}</td>
-            <td>${rowActions({ id: u.id, hidden: !u.active, extra: html`<button class="act-btn" type="button" data-act="edit" data-id="${u.id}" title="${t('common.edit')}"><span aria-hidden="true">✏️</span><span class="act-lbl">${t('common.edit')}</span></button><button class="act-btn" type="button" data-act="reset" data-id="${u.id}" ${resetBlocked(u) ? raw('disabled') : ''} title="${resetBlocked(u) ? 'متاح بعد ' + resetWait(u) : 'توليد كلمة سر جديدة'}"><span aria-hidden="true">🔑</span><span class="act-lbl">كلمة سر</span></button>` })}</td>
+            <td>${rowActions({ id: u.id, hidden: !u.active, hideLabel: 'إيقاف الحساب', showLabel: 'تفعيل الحساب', extra: html`<button class="act-btn" type="button" data-act="edit" data-id="${u.id}" title="${t('common.edit')}"><span aria-hidden="true">✏️</span><span class="act-lbl">${t('common.edit')}</span></button><button class="act-btn" type="button" data-act="reset" data-id="${u.id}" ${resetBlocked(u) ? raw('disabled') : ''} title="${resetBlocked(u) ? 'متاح بعد ' + resetWait(u) : 'توليد كلمة سر جديدة'}"><span aria-hidden="true">🔑</span><span class="act-lbl">كلمة سر</span></button>` })}</td>
           </tr>`)}
         </tbody></table></div>`);
 
