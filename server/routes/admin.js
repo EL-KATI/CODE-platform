@@ -463,7 +463,7 @@ router.post('/users', adminOnly, wrap(async (req, res) => {
   const email = str(body.email, { min: 5, max: 160, field: 'email' }).toLowerCase();
   if (!EMAIL_RE.test(email)) throw bad('invalid_email');
   const pw = str(body.password, { min: 8, max: 200, field: 'password' });
-  const role = body.role && ['student', 'instructor', 'admin', 'school'].includes(body.role) ? body.role : 'student';
+  const role = body.role && ['student', 'admin', 'school'].includes(body.role) ? body.role : 'student';
   const locale = ['fr', 'ar', 'ar-dialect'].includes(body.locale) ? body.locale : 'ar';
   const phone   = (body.phone   || '').toString().trim().slice(0, 30) || null;
   const address = (body.address || '').toString().trim().slice(0, 200) || null;
@@ -547,6 +547,8 @@ router.patch('/users/:id', adminOnly, wrap(async (req, res) => {
   if (id === req.user.id && (b.role && b.role !== 'admin' || b.active === false)) throw bad('cannot_demote_self');
   if (b.role !== undefined) {
     if (!['student', 'instructor', 'admin', 'school'].includes(b.role)) throw bad('invalid_field', { field: 'role' });
+    // لا يمكن للأدمين تعيين دور «مدرب» (إلا إبقاء من هو مدرب أصلاً)
+    if (b.role === 'instructor' && u.role !== 'instructor') throw bad('invalid_field', { field: 'role' });
     d.prepare('UPDATE users SET role = ? WHERE id = ?').run(b.role, id);
   }
   if (b.active !== undefined) d.prepare('UPDATE users SET active = ? WHERE id = ?').run(b.active ? 1 : 0, id);

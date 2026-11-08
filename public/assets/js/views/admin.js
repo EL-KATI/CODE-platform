@@ -1009,7 +1009,7 @@ export async function usersView(root) {
           ${list.map((u) => html`<tr>
             <td>${u.name}</td>
             <td style="font-size:.85rem">${u.email}</td>
-            <td><select class="input" data-role="${u.id}">${['student', 'instructor', 'school', 'admin'].map((r) => html`<option value="${r}" ${r === u.role ? raw('selected') : ''}>${t('role.' + r)}</option>`)}</select></td>
+            <td><select class="input" data-role="${u.id}">${['student', ...(u.role === 'instructor' ? ['instructor'] : []), 'school', 'admin'].map((r) => html`<option value="${r}" ${r === u.role ? raw('selected') : ''}>${t('role.' + r)}</option>`)}</select></td>
             <td><input type="checkbox" data-active="${u.id}" ${u.active ? raw('checked') : ''} aria-label="${t('admin.active')}"></td>
             <td style="font-size:.8rem">${u.school_id ? (schools.find((s) => s.id === u.school_id)?.name || u.school_id) : (u.role === 'school' ? '—' : '—')}</td>
             <td><button class="btn btn-danger btn-sm" data-del="${u.id}" title="${t('admin.deleteUser')}">🗑</button></td>
