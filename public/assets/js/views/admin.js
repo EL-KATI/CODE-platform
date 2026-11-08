@@ -85,7 +85,7 @@ const ADMIN_TABS_CONTENT = [
 const ADMIN_TABS_MANAGE = [['/admin/users', 'admin.users'], ['/admin/settings', 'admin.settings'], ['/admin/audit', 'admin.audit']];
 // المؤسسة: بيانات المؤسسة + طلابها + حجوزاتهم
 function schoolTabs() {
-  return [['/admin/students', 'admin.students'], ['/admin/school/students', 'school.manageStudents'], ['/admin/school/instructors', 'school.manageInstructors'], ['/admin/bookings', 'nav.bookings'], ['/admin/exams', 'nav.exams']];
+  return [['/admin', 'admin.stats'], ['/admin/school/students', 'school.manageStudents'], ['/admin/school/instructors', 'school.manageInstructors'], ['/admin/bookings', 'nav.bookings'], ['/admin/exams', 'nav.exams']];
 }
 // المدرب: طلابه + حجوزاتهم
 const INSTRUCTOR_TABS = [['/admin/students', 'admin.students'], ['/admin/bookings', 'nav.bookings']];
@@ -112,7 +112,7 @@ const val = (form, name) => form.elements[name]?.value ?? '';
 // --- Statistiques ----------------------------------------------------------------
 export async function statsView(root) {
   // المؤسسة والمدرب يُوجَّهان مباشرة لقائمة طلابهم
-  if (store.isSchool()) { import('./school.js').then((m) => m.schoolStudentsView(root)); return; }
+  if (store.isSchool()) { import('./school.js').then((m) => m.schoolStatsView(root)); return; }
   if (store.isInstructor()) { studentsView(root); return; }
   await load(root, '/admin', async () => {
     const s = await api.get('/admin/stats');
@@ -757,6 +757,7 @@ export async function lessonEditView(root, { params }) {
 
 // --- Élèves ----------------------------------------------------------------------
 export async function studentsView(root) {
+  if (store.isSchool()) return navigate('/admin/school/students', { replace: true });
   await load(root, '/admin/students', async () => {
     const list = await api.get('/admin/students');
     shell(root, '/admin/students', html`

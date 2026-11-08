@@ -163,3 +163,36 @@ async function managedView(root, role) {
   }
   render();
 }
+
+/* ═══ لوحة إحصائيات المؤسسة — الواجهة الأولى ═══ */
+export async function schoolStatsView(root) {
+  root.innerHTML = loading().s;
+  try {
+    const s = await api.get('/admin/school/stats');
+    if (!s) { shell(root, '/admin', html`<div class="empty"><p>${t('common.none')}</p></div>`); return; }
+    const rate = s.exams.total ? Math.round((100 * s.exams.passed) / s.exams.total) : 0;
+    const bk = Object.fromEntries(s.bookings.map((b) => [b.status, b.n]));
+    const card = (label, value, sub = '') => html`<div class="card"><div class="muted small">${label}</div><h2 style="margin:6px 0">${value}</h2>${sub ? html`<div class="small muted">${sub}</div>` : ''}</div>`;
+    const bar = (v) => html`<div style="height:8px;border-radius:99px;background:var(--border,#ddd);overflow:hidden;min-width:90px"><div style="height:100%;width:${v}%;background:var(--success,#16a34a)"></div></div>`;
+    const list = (rows) => rows.length
+      ? html`<table class="table"><tbody>${rows.map((r) => html`<tr><td><a href="/admin/students/${r.id}">${r.name}</a></td><td style="width:40%">${bar(r.progress)}</td><td class="small" style="width:48px">${r.progress}%</td></tr>`)}</tbody></table>`
+      : html`<p class="muted small" style="margin:0">${t('common.none')}</p>`;
+    shell(root, '/admin', html`
+      <div class="grid grid-4">
+        ${card('المتعلمون', s.students.total, `${s.students.active} نشيط · ${s.students.suspended} موقوف · ${s.students.archived} مؤرشف`)}
+        ${card('المدربون', s.instructors.total, `${s.instructors.active} نشيط`)}
+        ${card('جدد آخر 30 يوماً', s.new30)}
+        ${card('نشطون هذا الأسبوع', s.active7)}
+      </div>
+      <div class="grid grid-4" style="margin-top:16px">
+        ${card('متوسط التقدم', `${s.avgProgress}%`, `${s.ready} متعلم جاهز للامتحان (70%+)`)}
+        ${card('نسبة النجاح في الامتحانات', `${rate}%`, `${s.exams.passed}/${s.exams.total}`)}
+        ${card('حصص قادمة مقبولة', s.upcoming)}
+        ${card('طلبات حجز معلقة', bk.pending || 0, `${bk.approved || 0} مقبول · ${bk.cancelled || 0} ملغى`)}
+      </div>
+      <div class="grid grid-2" style="margin-top:24px">
+        <div class="card"><h2 style="margin:0 0 10px;font-size:1rem">🏆 الأعلى تقدماً</h2>${list(s.top)}</div>
+        <div class="card"><h2 style="margin:0 0 10px;font-size:1rem">⚠️ يحتاجون متابعة</h2>${list(s.lagging)}</div>
+      </div>`);
+  } catch (err) { root.innerHTML = html`<div class="empty"><p>${errorMessage(err)}</p></div>`.s; }
+}

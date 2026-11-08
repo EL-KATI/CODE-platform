@@ -53,6 +53,42 @@ router.get('/stats', adminOnly, (req, res) => {
   });
 });
 
+// إحصائيات المؤسسة (متعلموها ومدربوها وحجوزاتها فقط)
+router.get('/school/stats', auth.requireRole('school'), (req, res) => {
+  const sid = req.user.school_id;
+  const d = db.get();
+  if (!sid) return res.json(null);
+  const one = (sql, ...p) => d.prepare(sql).get(...p);
+  const students = one(`SELECT COUNT(*) AS total,
+      COALESCE(SUM(CASE WHEN archived = 0 AND active = 1 THEN 1 ELSE 0 END),0) AS active,
+      COALESCE(SUM(CASE WHEN archived = 0 AND active = 0 THEN 1 ELSE 0 END),0) AS suspended,
+      COALESCE(SUM(CASE WHEN archived = 1 THEN 1 ELSE 0 END),0) AS archived
+    FROM users WHERE role = 'student' AND school_id = ?`, sid);
+  const instructors = one(`SELECT COUNT(*) AS total,
+      COALESCE(SUM(CASE WHEN archived = 0 AND active = 1 THEN 1 ELSE 0 END),0) AS active
+    FROM users WHERE role = 'instructor' AND school_id = ?`, sid);
+  const new30 = one("SELECT COUNT(*) AS n FROM users WHERE role = 'student' AND school_id = ? AND created_at >= datetime('now','-30 days')", sid).n;
+  const active7 = one(`SELECT COUNT(DISTINCT a.user_id) AS n FROM attempts a JOIN users u ON u.id = a.user_id
+    WHERE u.school_id = ? AND u.role = 'student' AND a.started_at >= strftime('%Y-%m-%dT%H:%M:%fZ','now','-7 days')`, sid).n;
+  const exams = one(`SELECT COUNT(*) AS total, COALESCE(SUM(a.passed),0) AS passed, AVG(a.score * 1.0 / a.total) AS avg
+    FROM attempts a JOIN users u ON u.id = a.user_id
+    WHERE u.school_id = ? AND u.role = 'student' AND a.mode = 'exam' AND a.finished_at IS NOT NULL`, sid);
+  const bookings = d.prepare(`SELECT b.status, COUNT(*) AS n FROM training_bookings b JOIN users u ON u.id = b.student_id
+    WHERE u.school_id = ? GROUP BY b.status`).all(sid);
+  const today = new Date().toISOString().slice(0, 10);
+  const upcoming = one(`SELECT COUNT(*) AS n FROM training_bookings b JOIN training_slots s ON s.id = b.slot_id JOIN users u ON u.id = b.student_id
+    WHERE u.school_id = ? AND b.status IN ('approved','rescheduled') AND s.slot_date >= ?`, sid, today).n;
+  const rows = d.prepare("SELECT id, name FROM users WHERE role = 'student' AND school_id = ? AND archived = 0 AND active = 1").all(sid);
+  const prog = rows.map((r) => { let sc = 0; try { sc = progress.dashboard(r.id).readiness.score || 0; } catch { /* ignore */ } return { id: r.id, name: r.name, progress: sc }; });
+  const avgProgress = prog.length ? Math.round(prog.reduce((a, r) => a + r.progress, 0) / prog.length) : 0;
+  const ready = prog.filter((r) => r.progress >= 70).length;
+  res.json({
+    students, instructors, new30, active7, exams, bookings, upcoming, avgProgress, ready,
+    top: [...prog].sort((a, b) => b.progress - a.progress).slice(0, 5),
+    lagging: [...prog].sort((a, b) => a.progress - b.progress).slice(0, 5),
+  });
+});
+
 // --- Élèves -------------------------------------------------------------------
 router.get('/students', (req, res) => {
   const q = `%${(req.query.q || '').toString().slice(0, 80)}%`;
