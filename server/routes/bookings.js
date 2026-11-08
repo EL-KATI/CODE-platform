@@ -18,7 +18,8 @@ const auth = require('../auth');
 const { wrap, int, bad, notFound } = require('../http');
 
 const router = express.Router();
-router.use(auth.requireRole('student', 'instructor', 'admin'));
+// الأدمين لا يدير حجوزات التدريب
+router.use(auth.requireRole('student', 'instructor'));
 
 const ALLOWED_HOURS = [9, 11, 15, 17];
 const STATUSES = ['pending', 'approved', 'rejected', 'cancelled', 'rescheduled'];

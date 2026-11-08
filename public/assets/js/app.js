@@ -166,7 +166,9 @@ route('/admin/students/:id', view(admin.studentView), staff);
 route('/admin/users', view(admin.usersView), adminOnly);
 route('/admin/settings', view(admin.settingsView), adminOnly);
 route('/admin/audit', view(admin.auditView), adminOnly);
-route('/admin/bookings', view(adminBookingsView), staff);
+const adminBookings = view(adminBookingsView);
+// الأدمين لا يدير حجوزات التدريب (للمؤسسة والمدرب فقط)
+route('/admin/bookings', (ctx) => (store.user?.role === 'admin' ? navigate('/admin', { replace: true }) : adminBookings(ctx)), staff);
 route('/admin/school/students', view(schoolStudentsView), { auth: true, roles: ['admin', 'school'] });
 route('/admin/exams', view(schoolExamsView), { auth: true, roles: ['admin', 'school'] });
 route('/my-exams', view(studentExamView), { auth: true, roles: ['student'] });

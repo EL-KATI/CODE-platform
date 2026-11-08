@@ -80,7 +80,7 @@ function highlightField(form, err) {
 // تبويبات حسب الدور
 const ADMIN_TABS_CONTENT = [
   ['/admin', 'admin.stats'], ['/admin/questions', 'admin.questions'], ['/admin/series', 'admin.series'],
-  ['/admin/lessons', 'admin.lessons'], ['/admin/students', 'admin.students'], ['/admin/bookings', 'nav.bookings'],
+  ['/admin/lessons', 'admin.lessons'], ['/admin/students', 'admin.students'],
 ];
 const ADMIN_TABS_MANAGE = [['/admin/users', 'admin.users'], ['/admin/settings', 'admin.settings'], ['/admin/audit', 'admin.audit']];
 // المؤسسة: بيانات المؤسسة + طلابها + حجوزاتهم
