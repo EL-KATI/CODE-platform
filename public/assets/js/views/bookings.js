@@ -78,16 +78,16 @@ function renderStudentBookings(root, slots, myBookings, from, to) {
     <div id="notif-banner"></div>
 
     <!-- حجوزاتي الحالية -->
-    ${myBookings.filter((b) => ['pending','approved'].includes(b.status)).length > 0 ? html`
+    ${myBookings.filter((b) => ['pending','approved','rescheduled'].includes(b.status)).length > 0 ? html`
     <div class="card stack" style="margin-bottom:20px">
       <h2 style="margin:0 0 12px">${t('booking.myBookings')}</h2>
       <div class="stack" style="gap:10px">
-        ${myBookings.filter((b) => ['pending','approved'].includes(b.status)).map((b) => html`
+        ${myBookings.filter((b) => ['pending','approved','rescheduled'].includes(b.status)).map((b) => html`
         <div class="card" style="padding:14px 16px;border-inline-start:4px solid var(--${b.status==='approved'?'success':'warning'})">
           <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
             <div>
               <strong>${b.slot_date} — ${hourLabel(b.slot_hour)}</strong>
-              <div class="small muted">${statusPill(b.status)} ${b.note ? html` — ${b.note}` : ''}</div>
+              <div class="small muted">${statusPill(b.status)} ${b.instructor_name ? html` — 🧑‍🏫 ${b.instructor_name}` : ''} ${b.note ? html` — ${b.note}` : ''}</div>
             </div>
             <button class="btn btn-secondary btn-sm booking-cancel-btn" data-id="${b.id}">${t('booking.cancel')}</button>
           </div>
@@ -235,7 +235,7 @@ export async function adminBookingsView(root) {
     const toDate = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
     const [slots, bookingsRes] = await Promise.all([
       api.get(`/bookings/slots?from=${today}&to=${toDate}`),
-      api.get('/bookings?status=pending'),
+      api.get('/bookings'),
     ]);
     const bookings = bookingsRes.bookings ?? bookingsRes;
     const canManage = bookingsRes.canManage !== false;
@@ -245,7 +245,11 @@ export async function adminBookingsView(root) {
   }
 }
 
-function renderAdminBookings(root, slots, pendingBookings, today, toDate, canManage = true) {
+let bkFilter = 'active';
+
+function renderAdminBookings(root, slots, bookingsAll, today, toDate, canManage = true) {
+  const shownBookings = bookingsAll.filter((b) => bkFilter === 'all' || (bkFilter === 'pending' ? b.status === 'pending' : ['pending', 'approved', 'rescheduled'].includes(b.status)));
+  const knownInstructors = [...new Set(bookingsAll.map((b) => b.instructor_name).filter(Boolean))];
   root.innerHTML = html`
   <div class="page-head">
     <div><h1>📅 ${t('booking.adminTitle')}</h1></div>
@@ -254,30 +258,42 @@ function renderAdminBookings(root, slots, pendingBookings, today, toDate, canMan
     </div>` : ''}
   </div>
 
-  <!-- طلبات انتظار الموافقة -->
-  ${pendingBookings.length > 0 ? html`
-  <div class="card" style="margin-bottom:20px;border-color:var(--warning)">
-    <h2 style="margin:0 0 14px;font-size:1rem;color:var(--warning)">⏳ ${t('booking.pendingRequests')} (${pendingBookings.length})</h2>
-    <div class="table-wrap">
-    <table>
-      <thead><tr><th>${t('booking.student')}</th><th>${t('booking.slot')}</th><th>${t('booking.action')}</th></tr></thead>
+  <!-- طلبات الحجز -->
+  <div class="card" style="margin-bottom:20px">
+    <div class="row" style="margin-bottom:12px;gap:8px;flex-wrap:wrap">
+      <h2 style="margin:0;font-size:1rem">${t('booking.requests')} (${bookingsAll.length})</h2>
+      <span class="spacer"></span>
+      <select id="bk-filter" class="input" style="width:auto" aria-label="${t('admin.status')}">
+        <option value="active" ${bkFilter === 'active' ? raw('selected') : ''}>${t('booking.filterActive')}</option>
+        <option value="pending" ${bkFilter === 'pending' ? raw('selected') : ''}>${t('booking.pending')}</option>
+        <option value="all" ${bkFilter === 'all' ? raw('selected') : ''}>${t('booking.filterAll')}</option>
+      </select>
+    </div>
+    <div class="table-wrap" style="overflow:auto">
+    <table class="table list-table">
+      <thead><tr><th>${t('booking.student')}</th><th>${t('booking.slot')}</th><th>${t('booking.instructor')}</th><th>${t('admin.status')}</th><th>${t('booking.action')}</th></tr></thead>
       <tbody>
-        ${pendingBookings.map((b) => html`
-        <tr>
+        ${shownBookings.length === 0 ? html`<tr><td colspan="5" class="muted">${t('booking.noPending')}</td></tr>` : shownBookings.map((b) => {
+          const live = ['pending', 'approved', 'rescheduled'].includes(b.status);
+          const btn = (act, icon, label, cls = '') => html`<button class="act-btn ${cls} review-btn" type="button" data-id="${b.id}" data-action="${act}" data-instr="${b.instructor_name || ''}" title="${label}"><span aria-hidden="true">${icon}</span><span class="act-lbl">${label}</span></button>`;
+          return html`
+        <tr style="${live ? '' : 'opacity:.6'}">
           <td><strong>${b.student_name}</strong><br><span class="small muted">${b.student_email}</span></td>
           <td>${b.slot_date} — ${hourLabel(b.slot_hour)}</td>
-          <td>
-            ${canManage ? html`<div class="row" style="gap:6px;flex-wrap:wrap">
-              <button class="btn btn-primary btn-sm review-btn" data-id="${b.id}" data-action="approved">${t('booking.approve')}</button>
-              <button class="btn btn-secondary btn-sm review-btn" data-id="${b.id}" data-action="rescheduled">${t('booking.reschedule')}</button>
-              <button class="btn btn-danger btn-sm review-btn" data-id="${b.id}" data-action="rejected">${t('booking.reject')}</button>
-            </div>` : html`<span class="pill pill-warning">${t('booking.pending')}</span>`}
-          </td>
-        </tr>`)}
+          <td>${b.instructor_name || html`<span class="muted">—</span>`}</td>
+          <td>${statusPill(b.status)}</td>
+          <td>${canManage && live ? html`<div class="act-row">
+            ${b.status === 'pending' ? btn('approved', '✅', t('booking.approve')) : ''}
+            ${btn('rescheduled', '📅', t('booking.reschedule'))}
+            ${btn('instructor', '🧑‍🏫', t('booking.assignInstructor'))}
+            ${b.status === 'pending' ? btn('rejected', '❌', t('booking.reject')) : ''}
+            ${btn('cancelled', '🚫', t('booking.cancelBooking'), 'act-danger')}
+          </div>` : ''}</td>
+        </tr>`; })}
       </tbody>
     </table>
     </div>
-  </div>` : html`<div class="card" style="margin-bottom:20px;padding:14px 18px;color:var(--success)">✅ ${t('booking.noPending')}</div>`}
+  </div>
 
   <!-- جدول الحصص -->
   <div class="card">
@@ -323,8 +339,10 @@ function renderAdminBookings(root, slots, pendingBookings, today, toDate, canMan
 
   // أزرار الموافقة/الرفض/إعادة الجدولة
   root.querySelectorAll('.review-btn').forEach((btn) => {
-    btn.onclick = () => showReviewModal(root.querySelector('#review-modal'), btn.dataset.id, btn.dataset.action, root);
+    btn.onclick = () => showReviewModal(root.querySelector('#review-modal'), btn.dataset.id, btn.dataset.action, root, btn.dataset.instr || '', knownInstructors);
   });
+  const flt = root.querySelector('#bk-filter');
+  if (flt) flt.onchange = () => { bkFilter = flt.value; renderAdminBookings(root, slots, bookingsAll, today, toDate, canManage); };
 
   // زر إدارة حصة معينة
   root.querySelectorAll('.all-bookings-btn').forEach((btn) => {
@@ -332,9 +350,11 @@ function renderAdminBookings(root, slots, pendingBookings, today, toDate, canMan
   });
 }
 
-function showReviewModal(container, bookingId, action, root) {
-  const actionLabel = { approved: t('booking.approve'), rejected: t('booking.reject'), rescheduled: t('booking.reschedule') }[action];
+function showReviewModal(container, bookingId, action, root, currentInstructor = '', knownInstructors = []) {
+  const actionLabel = { approved: t('booking.approve'), rejected: t('booking.reject'), rescheduled: t('booking.reschedule'), cancelled: t('booking.cancelBooking'), instructor: t('booking.assignInstructor') }[action];
   const needsSlot = action === 'rescheduled';
+  const needsInstr = ['approved', 'rescheduled', 'instructor'].includes(action);
+  const needsNote = action !== 'instructor';
 
   container.innerHTML = html`
   <div class="booking-modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px">
@@ -347,13 +367,20 @@ function showReviewModal(container, bookingId, action, root) {
           <option value="">${t('booking.selectSlot')}</option>
         </select>
       </div>` : ''}
+      ${needsInstr ? html`
+      <div class="field">
+        <label>${t('booking.instructor')} <span class="muted small">(${t('common.optional')})</span></label>
+        <input class="input" id="instr-input" list="instr-list" maxlength="80" value="${currentInstructor}" placeholder="${t('booking.instructorName')}" style="width:100%">
+        <datalist id="instr-list">${knownInstructors.map((n) => html`<option value="${n}"></option>`)}</datalist>
+      </div>` : ''}
+      ${needsNote ? html`
       <div class="field">
         <label>${t('booking.note')} <span class="muted small">(${t('common.optional')})</span></label>
         <textarea id="review-note" rows="3" style="width:100%;border-radius:8px;border:1.5px solid var(--border);padding:10px;font:inherit"></textarea>
-      </div>
+      </div>` : ''}
       <div class="row" style="justify-content:flex-end;gap:8px;margin-top:16px">
         <button class="btn btn-secondary" id="modal-cancel">${t('common.cancel')}</button>
-        <button class="btn btn-primary" id="modal-confirm">${actionLabel}</button>
+        <button class="btn ${action === 'cancelled' || action === 'rejected' ? 'btn-danger' : 'btn-primary'}" id="modal-confirm">${actionLabel}</button>
       </div>
     </div>
   </div>`.s;
@@ -373,11 +400,16 @@ function showReviewModal(container, bookingId, action, root) {
 
   container.querySelector('#modal-cancel').onclick = () => { container.innerHTML = ''; };
   container.querySelector('#modal-confirm').onclick = async () => {
-    const note = container.querySelector('#review-note').value.trim();
+    const note = needsNote ? container.querySelector('#review-note').value.trim() : '';
     const newSlotId = needsSlot ? container.querySelector('#new-slot-sel').value : undefined;
     if (needsSlot && !newSlotId) { toast(t('booking.selectSlot'), 'error'); return; }
+    const body = {};
+    if (action !== 'instructor') body.status = action;
+    if (note) body.note = note;
+    if (newSlotId) body.newSlotId = Number(newSlotId);
+    if (needsInstr) body.instructorName = container.querySelector('#instr-input').value.trim();
     try {
-      await api.patch(`/bookings/${bookingId}`, { status: action, note: note || undefined, newSlotId: newSlotId ? Number(newSlotId) : undefined });
+      await api.patch(`/bookings/${bookingId}`, body);
       toast(t('common.saved'));
       container.innerHTML = '';
       await adminBookingsView(root);
