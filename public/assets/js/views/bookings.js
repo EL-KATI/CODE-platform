@@ -102,11 +102,7 @@ function renderStudentBookings(root, slots, myBookings, from, to) {
         <div class="card">
           <h3 style="margin:0 0 14px;font-size:1rem">${formatDate(date)}</h3>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px">
-            ${SLOT_HOURS.map((h) => {
-              const slot = byDate[date]?.find((s) => s.slot_hour === h);
-              const myB = slot ? myMap.get(slot.id) : null;
-              return renderSlotCard(slot, h, date, myB);
-            })}
+            ${byDate[date].map((slot) => renderSlotCard(slot, slot.slot_hour, date, myMap.get(slot.id)))}
           </div>
         </div>`
       )}
@@ -160,7 +156,7 @@ function renderSlotCard(slot, hour, date, myBooking) {
 
   const full = slot.available <= 0;
   const hasMyPending = myBooking && myBooking.status === 'pending';
-  const hasMyApproved = myBooking && myBooking.status === 'approved';
+  const hasMyApproved = myBooking && ['approved', 'rescheduled'].includes(myBooking.status);
 
   let cardBorder = 'var(--border)';
   let statusBadge = '';
@@ -186,6 +182,7 @@ function renderSlotCard(slot, hour, date, myBooking) {
       <strong style="font-size:.95rem">${label}</strong>
       ${statusBadge}
     </div>
+    ${slot.instructor_name ? html`<div class="small" style="margin-bottom:2px">🧑‍🏫 ${slot.instructor_name}</div>` : ''}
     <div class="small muted">${t('booking.seats')}: ${slot.available}/${slot.capacity}</div>
     <div style="height:5px;background:var(--surface-2);border-radius:999px;margin:8px 0;overflow:hidden">
       <div style="height:100%;background:${raw(full?'var(--danger)':'var(--primary)')};width:${raw(Math.round((1-(slot.available/slot.capacity))*100))}%;border-radius:999px;transition:width .4s"></div>
@@ -285,7 +282,6 @@ function renderAdminBookings(root, slots, bookingsAll, today, toDate, canManage 
           <td>${canManage && live ? html`<div class="act-row">
             ${b.status === 'pending' ? btn('approved', '✅', t('booking.approve')) : ''}
             ${btn('rescheduled', '📅', t('booking.reschedule'))}
-            ${btn('instructor', '🧑‍🏫', t('booking.assignInstructor'))}
             ${b.status === 'pending' ? btn('rejected', '❌', t('booking.reject')) : ''}
             ${btn('cancelled', '🚫', t('booking.cancelBooking'), 'act-danger')}
           </div>` : ''}</td>
@@ -300,13 +296,14 @@ function renderAdminBookings(root, slots, bookingsAll, today, toDate, canManage 
     <h2 style="margin:0 0 14px;font-size:1rem">${t('booking.upcomingSlots')}</h2>
     <div class="table-wrap">
     <table>
-      <thead><tr><th>${t('booking.date')}</th><th>${t('booking.hour')}</th><th>${t('booking.booked')}</th><th>${t('booking.attendees')}</th><th></th></tr></thead>
+      <thead><tr><th>${t('booking.date')}</th><th>${t('booking.hour')}</th><th>${t('booking.instructor')}</th><th>${t('booking.booked')}</th><th>${t('booking.attendees')}</th><th>${canManage ? t('common.actions') : ''}</th></tr></thead>
       <tbody>
-        ${slots.length === 0 ? html`<tr><td colspan="5" class="text-center muted">${t('booking.noSlots')}</td></tr>` :
+        ${slots.length === 0 ? html`<tr><td colspan="6" class="text-center muted">${t('booking.noSlots')}</td></tr>` :
           slots.map((s) => html`
           <tr>
             <td>${formatDate(s.slot_date)}</td>
             <td><strong>${hourLabel(s.slot_hour)}</strong></td>
+            <td>${s.instructor_name || html`<span class="muted">—</span>`}</td>
             <td>
               <div style="display:flex;align-items:center;gap:8px">
                 <div style="width:60px;height:6px;background:var(--surface-2);border-radius:999px;overflow:hidden">
@@ -321,9 +318,10 @@ function renderAdminBookings(root, slots, bookingsAll, today, toDate, canManage 
                 : html`<div class="stack" style="gap:3px">${(s.attendees||[]).map((a) => html`
                   <span class="small">${a.name} ${statusPill(a.status)}</span>`)}</div>`}
             </td>
-            <td>
-              <button class="btn btn-secondary btn-sm all-bookings-btn" data-slot="${s.id}">${canManage ? t('booking.manage') : t('common.view')}</button>
-            </td>
+            <td>${canManage ? html`<div class="act-row">
+              <button class="act-btn slot-edit-btn" type="button" data-slot="${s.id}" data-cap="${s.capacity}" data-booked="${s.booked}" title="${t('booking.editSeats')}"><span aria-hidden="true">✏️</span><span class="act-lbl">${t('booking.editSeats')}</span></button>
+              <button class="act-btn act-danger slot-del-btn" type="button" data-slot="${s.id}" title="${t('common.delete')}"><span aria-hidden="true">🗑</span><span class="act-lbl">${t('common.delete')}</span></button>
+            </div>` : ''}</td>
           </tr>`)}
       </tbody>
     </table>
@@ -335,26 +333,32 @@ function renderAdminBookings(root, slots, bookingsAll, today, toDate, canManage 
   <div id="slot-modal"></div>`.s;
 
   // زر إضافة حصة (مؤسسة/أدمين فقط)
-  if (canManage) root.querySelector('#add-slot-btn')?.addEventListener('click', () => showAddSlotModal(root.querySelector('#slot-modal'), root));
+  if (canManage) root.querySelector('#add-slot-btn')?.addEventListener('click', () => showSlotModal(root.querySelector('#slot-modal'), root));
 
   // أزرار الموافقة/الرفض/إعادة الجدولة
   root.querySelectorAll('.review-btn').forEach((btn) => {
-    btn.onclick = () => showReviewModal(root.querySelector('#review-modal'), btn.dataset.id, btn.dataset.action, root, btn.dataset.instr || '', knownInstructors);
+    btn.onclick = () => showReviewModal(root.querySelector('#review-modal'), btn.dataset.id, btn.dataset.action, root, btn.dataset.instr || '', []);
   });
   const flt = root.querySelector('#bk-filter');
   if (flt) flt.onchange = () => { bkFilter = flt.value; renderAdminBookings(root, slots, bookingsAll, today, toDate, canManage); };
 
-  // زر إدارة حصة معينة
-  root.querySelectorAll('.all-bookings-btn').forEach((btn) => {
-    btn.onclick = () => navigate(`/admin/bookings/slot/${btn.dataset.slot}`);
+  // تعديل عدد المقاعد / حذف الحصة
+  root.querySelectorAll('.slot-edit-btn').forEach((btn) => {
+    btn.onclick = () => showSlotModal(root.querySelector('#slot-modal'), root, { id: btn.dataset.slot, capacity: Number(btn.dataset.cap) });
+  });
+  root.querySelectorAll('.slot-del-btn').forEach((btn) => {
+    btn.onclick = async () => {
+      if (!(await confirmDialog(t('admin.confirmDelete'), { danger: true }))) return;
+      try { await api.del(`/bookings/slots/${btn.dataset.slot}`); toast(t('common.saved')); await adminBookingsView(root); }
+      catch (err) { toast(errorMessage(err), 'error'); }
+    };
   });
 }
 
 function showReviewModal(container, bookingId, action, root, currentInstructor = '', knownInstructors = []) {
   const actionLabel = { approved: t('booking.approve'), rejected: t('booking.reject'), rescheduled: t('booking.reschedule'), cancelled: t('booking.cancelBooking'), instructor: t('booking.assignInstructor') }[action];
   const needsSlot = action === 'rescheduled';
-  const needsInstr = ['approved', 'rescheduled', 'instructor'].includes(action);
-  const needsNote = action !== 'instructor';
+  const needsNote = true;
 
   container.innerHTML = html`
   <div class="booking-modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px">
@@ -366,12 +370,6 @@ function showReviewModal(container, bookingId, action, root, currentInstructor =
         <select id="new-slot-sel" style="width:100%">
           <option value="">${t('booking.selectSlot')}</option>
         </select>
-      </div>` : ''}
-      ${needsInstr ? html`
-      <div class="field">
-        <label>${t('booking.instructor')} <span class="muted small">(${t('common.optional')})</span></label>
-        <input class="input" id="instr-input" list="instr-list" maxlength="80" value="${currentInstructor}" placeholder="${t('booking.instructorName')}" style="width:100%">
-        <datalist id="instr-list">${knownInstructors.map((n) => html`<option value="${n}"></option>`)}</datalist>
       </div>` : ''}
       ${needsNote ? html`
       <div class="field">
@@ -392,7 +390,7 @@ function showReviewModal(container, bookingId, action, root, currentInstructor =
       for (const s of slots.filter((s) => s.available > 0)) {
         const opt = document.createElement('option');
         opt.value = s.id;
-        opt.textContent = `${formatDate(s.slot_date)} — ${hourLabel(s.slot_hour)} (${s.available} ${t('booking.available')})`;
+        opt.textContent = `${formatDate(s.slot_date)} — ${hourLabel(s.slot_hour)}${s.instructor_name ? ' — ' + s.instructor_name : ''} (${s.available} ${t('booking.available')})`;
         sel.appendChild(opt);
       }
     }).catch(() => {});
@@ -404,10 +402,9 @@ function showReviewModal(container, bookingId, action, root, currentInstructor =
     const newSlotId = needsSlot ? container.querySelector('#new-slot-sel').value : undefined;
     if (needsSlot && !newSlotId) { toast(t('booking.selectSlot'), 'error'); return; }
     const body = {};
-    if (action !== 'instructor') body.status = action;
+    body.status = action;
     if (note) body.note = note;
     if (newSlotId) body.newSlotId = Number(newSlotId);
-    if (needsInstr) body.instructorName = container.querySelector('#instr-input').value.trim();
     try {
       await api.patch(`/bookings/${bookingId}`, body);
       toast(t('common.saved'));
@@ -417,12 +414,23 @@ function showReviewModal(container, bookingId, action, root, currentInstructor =
   };
 }
 
-function showAddSlotModal(container, root) {
+async function showSlotModal(container, root, edit = null) {
   const today = new Date().toISOString().slice(0, 10);
+  let instructors = [];
+  if (!edit) {
+    try { instructors = (await api.get('/admin/school/instructors')).filter((i) => i.active && !i.archived); }
+    catch (err) { toast(errorMessage(err), 'error'); return; }
+    if (!instructors.length) { toast(t('booking.noInstructors'), 'error'); return; }
+  }
   container.innerHTML = html`
   <div class="booking-modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px">
     <div style="background:var(--surface);border-radius:16px;max-width:400px;width:100%;padding:24px">
-      <h2 style="margin:0 0 16px">+ ${t('booking.addSlot')}</h2>
+      <h2 style="margin:0 0 16px">${edit ? t('booking.editSeats') : '+ ' + t('booking.addSlot')}</h2>
+      ${edit ? '' : html`
+      <div class="field">
+        <label>${t('booking.instructor')}</label>
+        <select id="slot-instr" style="width:100%">${instructors.map((i) => html`<option value="${i.id}">${i.name}</option>`)}</select>
+      </div>
       <div class="field">
         <label>${t('booking.date')}</label>
         <input type="date" id="slot-date" min="${today}" value="${today}" style="width:100%">
@@ -432,20 +440,32 @@ function showAddSlotModal(container, root) {
         <select id="slot-hour" style="width:100%">
           ${SLOT_HOURS.map((h) => html`<option value="${h}">${hourLabel(h)}</option>`)}
         </select>
+      </div>`}
+      <div class="field">
+        <label>${t('booking.seatsPerInstructor')} (1–12)</label>
+        <input type="number" id="slot-cap" min="1" max="12" value="${edit ? edit.capacity : 3}" style="width:100%">
+        <p class="small muted" style="margin:4px 0 0">${t('booking.dayLimitHint')}</p>
       </div>
       <div class="row" style="justify-content:flex-end;gap:8px;margin-top:16px">
         <button class="btn btn-secondary" id="slot-cancel">${t('common.cancel')}</button>
-        <button class="btn btn-primary" id="slot-confirm">+ ${t('booking.addSlot')}</button>
+        <button class="btn btn-primary" id="slot-confirm">${edit ? t('common.save') : '+ ' + t('booking.addSlot')}</button>
       </div>
     </div>
   </div>`.s;
 
   container.querySelector('#slot-cancel').onclick = () => { container.innerHTML = ''; };
   container.querySelector('#slot-confirm').onclick = async () => {
-    const date = container.querySelector('#slot-date').value;
-    const hour = Number(container.querySelector('#slot-hour').value);
+    const capacity = Number(container.querySelector('#slot-cap').value);
     try {
-      await api.post('/bookings/slots', { date, hour });
+      if (edit) await api.patch(`/bookings/slots/${edit.id}`, { capacity });
+      else {
+        await api.post('/bookings/slots', {
+          date: container.querySelector('#slot-date').value,
+          hour: Number(container.querySelector('#slot-hour').value),
+          instructorId: Number(container.querySelector('#slot-instr').value),
+          capacity,
+        });
+      }
       toast(t('common.saved'));
       container.innerHTML = '';
       await adminBookingsView(root);

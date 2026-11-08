@@ -237,12 +237,14 @@ CREATE TABLE IF NOT EXISTS exam_journey (
 
 /* ── حجوزات حصص التدريب التطبيقي ─────────────────────────────────────── */
 CREATE TABLE IF NOT EXISTS training_slots (
-  id          INTEGER PRIMARY KEY,
-  slot_date   TEXT    NOT NULL,          -- YYYY-MM-DD
-  slot_hour   INTEGER NOT NULL,          -- 9 | 11 | 15 | 17
-  capacity    INTEGER NOT NULL DEFAULT 3,
-  created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
-  UNIQUE (slot_date, slot_hour)
+  id            INTEGER PRIMARY KEY,
+  school_id     INTEGER,                   -- المؤسسة صاحبة الحصة
+  instructor_id INTEGER REFERENCES users(id) ON DELETE CASCADE,  -- المدرب المكلّف
+  slot_date     TEXT    NOT NULL,          -- YYYY-MM-DD
+  slot_hour     INTEGER NOT NULL,          -- 9 | 11 | 15 | 17
+  capacity      INTEGER NOT NULL DEFAULT 3, -- عدد المقاعد لهذا المدرب في هذه الحصة
+  created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (school_id, instructor_id, slot_date, slot_hour)
 );
 
 CREATE TABLE IF NOT EXISTS training_bookings (
@@ -346,6 +348,25 @@ function open(file = config.dbFile) {
   if (!userCols.includes('cap_num'))                db.exec("ALTER TABLE users ADD COLUMN cap_num TEXT DEFAULT ''");
   if (!userCols.includes('instructor_categories'))  db.exec("ALTER TABLE users ADD COLUMN instructor_categories TEXT DEFAULT ''");
   if (!userCols.includes('archived')) db.exec('ALTER TABLE users ADD COLUMN archived INTEGER NOT NULL DEFAULT 0');
+  // Migration: الحصص صارت لكل مؤسسة ولكل مدرب (إعادة بناء الجدول مع الحفاظ على المعرفات)
+  const slotCols = db.prepare('PRAGMA table_info(training_slots)').all().map((c) => c.name);
+  if (!slotCols.includes('school_id')) {
+    db.pragma('foreign_keys = OFF');
+    try {
+      db.transaction(() => {
+        db.exec(`CREATE TABLE training_slots_new (
+          id INTEGER PRIMARY KEY, school_id INTEGER,
+          instructor_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+          slot_date TEXT NOT NULL, slot_hour INTEGER NOT NULL, capacity INTEGER NOT NULL DEFAULT 3,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          UNIQUE (school_id, instructor_id, slot_date, slot_hour));
+          INSERT INTO training_slots_new (id, slot_date, slot_hour, capacity, created_at)
+            SELECT id, slot_date, slot_hour, capacity, created_at FROM training_slots;
+          DROP TABLE training_slots;
+          ALTER TABLE training_slots_new RENAME TO training_slots;`);
+      })();
+    } finally { db.pragma('foreign_keys = ON'); }
+  }
   const bkCols = db.prepare('PRAGMA table_info(training_bookings)').all().map((c) => c.name);
   if (!bkCols.includes('instructor_name')) db.exec('ALTER TABLE training_bookings ADD COLUMN instructor_name TEXT');
   if (!userCols.includes('pw_reset_at'))     db.exec('ALTER TABLE users ADD COLUMN pw_reset_at TEXT');

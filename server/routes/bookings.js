@@ -52,10 +52,12 @@ function slotLabel(slot) {
 
 function bookingWithSlot(id) {
   return db.get().prepare(`
-    SELECT b.*, s.slot_date, s.slot_hour, s.capacity,
+    SELECT b.*, s.slot_date, s.slot_hour, s.capacity, s.school_id AS slot_school_id, s.instructor_id,
+           COALESCE(i.name, b.instructor_name) AS instructor_name,
            u.name AS student_name, u.email AS student_email, u.school_id AS student_school_id
     FROM training_bookings b
     JOIN training_slots s ON s.id = b.slot_id
+    LEFT JOIN users i ON i.id = s.instructor_id
     JOIN users u ON u.id = b.student_id
     WHERE b.id = ?
   `).get(id);
@@ -70,17 +72,22 @@ router.get('/slots', wrap(async (req, res) => {
   const to = req.query.to || new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) throw bad('invalid_field');
 
+  // كل مؤسسة ترى حصصها فقط (والمتعلم يرى حصص مؤسسته)
+  const schoolId = req.user.school_id;
+  if (!schoolId) return res.json([]);
   const slots = d.prepare(`
-    SELECT s.*,
+    SELECT s.*, i.name AS instructor_name,
            COUNT(b.id) AS booked,
            (s.capacity - COUNT(b.id)) AS available
     FROM training_slots s
+    LEFT JOIN users i ON i.id = s.instructor_id
     LEFT JOIN training_bookings b ON b.slot_id = s.id
       AND b.status NOT IN ('rejected','cancelled')
-    WHERE s.slot_date BETWEEN ? AND ?
+    WHERE s.slot_date BETWEEN ? AND ? AND s.school_id = ?
+      ${req.user.role === 'instructor' ? 'AND s.instructor_id = ?' : ''}
     GROUP BY s.id
-    ORDER BY s.slot_date, s.slot_hour
-  `).all(from, to);
+    ORDER BY s.slot_date, s.slot_hour, i.name
+  `).all(from, to, schoolId, ...(req.user.role === 'instructor' ? [req.user.id] : []));
 
   // للمتعلم: نُضيف حالة حجزه إن وُجد
   if (req.user.role === 'student') {
@@ -107,18 +114,65 @@ router.get('/slots', wrap(async (req, res) => {
   res.json(slots.map((s) => ({ ...s, attendees: bySlot[s.id] || [] })));
 }));
 
-/* ── إنشاء حصة (مدرب/أدمن) ──────────────────────────────────────────── */
+/* ── إدارة الحصص (المؤسسة): لكل مدرب وساعة عدد مقاعد تحدده المؤسسة ───────── */
+const DAY_LIMIT = 12; // أقصى عدد متعلمين لكل مدرب في اليوم
+const schoolOnly = (req, res) => {
+  if (req.user.role !== 'school' || !req.user.school_id) { res.status(403).json({ error: 'forbidden', details: { reason: 'school_only' } }); return false; }
+  return true;
+};
+function parseCapacity(v) {
+  const n = v === undefined || v === null || v === '' ? 3 : Number(v);
+  if (!Number.isInteger(n) || n < 1 || n > DAY_LIMIT) throw bad('invalid_field', { field: 'capacity' });
+  return n;
+}
+/** مجموع مقاعد المدرب في يوم معيّن (دون الحصة المستثناة) */
+function dayCapacity(instructorId, date, exceptId = 0) {
+  return db.get().prepare('SELECT COALESCE(SUM(capacity),0) AS n FROM training_slots WHERE instructor_id = ? AND slot_date = ? AND id != ?').get(instructorId, date, exceptId).n;
+}
+
 router.post('/slots', wrap(async (req, res) => {
-  // إنشاء حصة: أدمين أو مؤسسة فقط — المدرب لا يملك هذه الصلاحية
-  if (!['admin', 'school'].includes(req.user.role)) return res.status(403).json({ error: 'forbidden', details: { reason: 'school_or_admin_only' } });
-  const { date, hour } = req.body || {};
+  if (!schoolOnly(req, res)) return;
+  const { date, hour, instructorId } = req.body || {};
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw bad('invalid_field', { field: 'date' });
   if (!ALLOWED_HOURS.includes(Number(hour))) throw bad('invalid_field', { field: 'hour' });
+  const capacity = parseCapacity(req.body?.capacity);
   const d = db.get();
-  const existing = d.prepare('SELECT id FROM training_slots WHERE slot_date = ? AND slot_hour = ?').get(date, Number(hour));
+  const instr = d.prepare("SELECT id FROM users WHERE id = ? AND role = 'instructor' AND school_id = ? AND active = 1 AND archived = 0")
+    .get(int(instructorId, { min: 1 }), req.user.school_id);
+  if (!instr) throw bad('invalid_field', { field: 'instructorId' });
+  const existing = d.prepare('SELECT id FROM training_slots WHERE school_id = ? AND instructor_id = ? AND slot_date = ? AND slot_hour = ?')
+    .get(req.user.school_id, instr.id, date, Number(hour));
   if (existing) return res.json({ id: existing.id, already_exists: true });
-  const info = d.prepare('INSERT INTO training_slots (slot_date, slot_hour) VALUES (?,?)').run(date, Number(hour));
+  if (dayCapacity(instr.id, date) + capacity > DAY_LIMIT) throw bad('instructor_day_limit', { limit: DAY_LIMIT });
+  const info = d.prepare('INSERT INTO training_slots (school_id, instructor_id, slot_date, slot_hour, capacity) VALUES (?,?,?,?,?)')
+    .run(req.user.school_id, instr.id, date, Number(hour), capacity);
   res.status(201).json({ id: info.lastInsertRowid });
+}));
+
+router.patch('/slots/:id', wrap(async (req, res) => {
+  if (!schoolOnly(req, res)) return;
+  const id = int(req.params.id, { min: 1 });
+  const d = db.get();
+  const slot = d.prepare('SELECT * FROM training_slots WHERE id = ? AND school_id = ?').get(id, req.user.school_id);
+  if (!slot) throw notFound();
+  const capacity = parseCapacity(req.body?.capacity);
+  const booked = d.prepare(`SELECT COUNT(*) AS n FROM training_bookings WHERE slot_id = ? AND status NOT IN ('rejected','cancelled')`).get(id).n;
+  if (capacity < booked) throw bad('capacity_below_booked', { booked });
+  if (dayCapacity(slot.instructor_id, slot.slot_date, id) + capacity > DAY_LIMIT) throw bad('instructor_day_limit', { limit: DAY_LIMIT });
+  d.prepare('UPDATE training_slots SET capacity = ? WHERE id = ?').run(capacity, id);
+  res.json({ ok: true });
+}));
+
+router.delete('/slots/:id', wrap(async (req, res) => {
+  if (!schoolOnly(req, res)) return;
+  const id = int(req.params.id, { min: 1 });
+  const d = db.get();
+  const slot = d.prepare('SELECT id FROM training_slots WHERE id = ? AND school_id = ?').get(id, req.user.school_id);
+  if (!slot) throw notFound();
+  const live = d.prepare(`SELECT COUNT(*) AS n FROM training_bookings WHERE slot_id = ? AND status IN ('pending','approved','rescheduled')`).get(id).n;
+  if (live) throw bad('slot_has_bookings', { booked: live });
+  d.prepare('DELETE FROM training_slots WHERE id = ?').run(id);
+  res.json({ ok: true });
 }));
 
 /* ── حجز حصة (متعلم) ────────────────────────────────────────────────── */
@@ -130,7 +184,12 @@ router.post('/', wrap(async (req, res) => {
   const d = db.get();
 
   const slot = d.prepare('SELECT * FROM training_slots WHERE id = ?').get(slotId);
-  if (!slot) throw notFound();
+  if (!slot || slot.school_id !== req.user.school_id) throw notFound();
+  // لا يجوز حجز حصتين في نفس الوقت (حتى مع مدربَين مختلفين)
+  const clash = d.prepare(`SELECT 1 FROM training_bookings b JOIN training_slots s ON s.id = b.slot_id
+    WHERE b.student_id = ? AND s.slot_date = ? AND s.slot_hour = ? AND b.slot_id != ? AND b.status IN ('pending','approved','rescheduled')`)
+    .get(req.user.id, slot.slot_date, slot.slot_hour, slotId);
+  if (clash) throw bad('already_booked');
 
   // تحقق من تاريخ الحصة (لا يمكن الحجز في الماضي)
   const slotDate = new Date(`${slot.slot_date}T${String(slot.slot_hour).padStart(2, '0')}:00:00`);
@@ -165,9 +224,11 @@ router.get('/my', wrap(async (req, res) => {
   if (req.user.role !== 'student') return res.status(403).json({ error: 'forbidden' });
   const list = db.get().prepare(`
     SELECT b.*, s.slot_date, s.slot_hour, s.capacity,
+           COALESCE(i.name, b.instructor_name) AS instructor_name,
            r.name AS reviewer_name
     FROM training_bookings b
     JOIN training_slots s ON s.id = b.slot_id
+    LEFT JOIN users i ON i.id = s.instructor_id
     LEFT JOIN users r ON r.id = b.reviewed_by
     WHERE b.student_id = ?
     ORDER BY s.slot_date DESC, s.slot_hour DESC
@@ -180,11 +241,13 @@ router.get('/', wrap(async (req, res) => {
   if (req.user.role === 'student') return res.status(403).json({ error: 'forbidden' });
   const { status, date } = req.query;
   let query = `
-    SELECT b.*, s.slot_date, s.slot_hour,
+    SELECT b.*, s.slot_date, s.slot_hour, s.instructor_id,
+           COALESCE(i.name, b.instructor_name) AS instructor_name,
            u.name AS student_name, u.email AS student_email, u.school_id AS student_school_id,
            r.name AS reviewer_name
     FROM training_bookings b
     JOIN training_slots s ON s.id = b.slot_id
+    LEFT JOIN users i ON i.id = s.instructor_id
     JOIN users u ON u.id = b.student_id
     LEFT JOIN users r ON r.id = b.reviewed_by
     WHERE 1=1
@@ -195,6 +258,8 @@ router.get('/', wrap(async (req, res) => {
     query += ' AND u.school_id = ?';
     params.push(req.user.school_id);
   }
+  // المدرب يرى حجوزات حصصه فقط
+  if (req.user.role === 'instructor') { query += ' AND s.instructor_id = ?'; params.push(req.user.id); }
   if (status && STATUSES.includes(status)) { query += ' AND b.status = ?'; params.push(status); }
   if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) { query += ' AND s.slot_date = ?'; params.push(date); }
   query += ' ORDER BY s.slot_date DESC, s.slot_hour DESC, b.created_at';
@@ -221,7 +286,7 @@ router.patch('/:id', wrap(async (req, res) => {
   if (status === 'rescheduled' || newSlotId) {
     if (!newSlotId) throw bad('invalid_field', { field: 'newSlotId' });
     const newSlot = d.prepare('SELECT * FROM training_slots WHERE id = ?').get(int(newSlotId, { min: 1 }));
-    if (!newSlot) throw bad('invalid_field', { field: 'newSlotId' });
+    if (!newSlot || newSlot.school_id !== req.user.school_id) throw bad('invalid_field', { field: 'newSlotId' });
     const taken = d.prepare('SELECT 1 FROM training_bookings WHERE slot_id = ? AND student_id = ? AND id != ?').get(newSlot.id, booking.student_id, id);
     if (taken) throw bad('already_booked');
     const booked = d.prepare(`SELECT COUNT(*) AS n FROM training_bookings WHERE slot_id = ? AND id != ? AND status NOT IN ('rejected','cancelled')`).get(newSlot.id, id).n;
@@ -229,15 +294,8 @@ router.patch('/:id', wrap(async (req, res) => {
     finalSlotId = newSlot.id;
   }
 
-  // المدرب المكلّف بالحصة (اسم حر، اختياري)
-  let instructor = booking.instructor_name || null;
-  if (req.body && 'instructorName' in req.body) {
-    const nm = String(req.body.instructorName || '').trim().slice(0, 80);
-    instructor = nm || null;
-  }
-
-  d.prepare(`UPDATE training_bookings SET status=?, note=?, slot_id=?, instructor_name=?, reviewed_by=?, reviewed_at=datetime('now'),
-    updated_at=datetime('now') WHERE id=?`).run(status, note || null, finalSlotId, instructor, req.user.id, id);
+  d.prepare(`UPDATE training_bookings SET status=?, note=?, slot_id=?, reviewed_by=?, reviewed_at=datetime('now'),
+    updated_at=datetime('now') WHERE id=?`).run(status, note || null, finalSlotId, req.user.id, id);
 
   const updated = bookingWithSlot(id);
   const label = slotLabel(updated);
@@ -250,7 +308,7 @@ router.patch('/:id', wrap(async (req, res) => {
     rescheduled:  `📅 تم تغيير موعد حجزك — ${label}${withInstr}`,
     pending:      `⏳ تمت إعادة حجزك إلى قيد الانتظار`,
   };
-  const changed = status !== booking.status || finalSlotId !== booking.slot_id || instructor !== (booking.instructor_name || null);
+  const changed = status !== booking.status || finalSlotId !== booking.slot_id;
   if (changed) notifyStudent(updated, `booking_${status}`, msgMap[status] || `تم تحديث حجزك`);
   res.json({ ok: true, booking: updated });
 }));
