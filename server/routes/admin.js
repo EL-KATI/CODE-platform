@@ -453,7 +453,7 @@ router.put('/categories/:id', adminOnly, wrap(async (req, res) => {
 // --- Utilisateurs : admin uniquement -------------------------------------------
 router.get('/users', adminOnly, (req, res) => {
   const q = `%${(req.query.q || '').toString().slice(0, 80)}%`;
-  res.json(db.get().prepare(`SELECT id, name, email, role, active, locale, school_id, phone, city, created_at, last_login_at FROM users
+  res.json(db.get().prepare(`SELECT id, name, email, role, active, locale, school_id, phone, city, pw_reset_at, created_at, last_login_at FROM users
     WHERE name LIKE ? OR email LIKE ? ORDER BY id DESC LIMIT 500`).all(q, q));
 });
 
@@ -588,6 +588,32 @@ router.patch('/users/:id', adminOnly, wrap(async (req, res) => {
   }
   db.audit(req.user.id, 'update', 'user', id, { active: b.active, school_id: b.school_id, edited: Object.keys(sets) });
   res.json({ ok: true });
+}));
+
+const RESET_COOLDOWN_MS = 24 * 3600 * 1000;
+/** توليد كلمة سر جديدة لمستخدم — مرة واحدة كل 24 ساعة لكل حساب */
+router.post('/users/:id/reset-password', adminOnly, wrap(async (req, res) => {
+  const id = int(req.params.id, { min: 1 });
+  const d = db.get();
+  const u = d.prepare('SELECT id, name, email, pw_reset_at FROM users WHERE id = ?').get(id);
+  if (!u) throw notFound();
+  const tooSoon = (last) => last && Date.now() - Date.parse(last) < RESET_COOLDOWN_MS;
+  const limit = (last) => new HttpError(429, 'reset_limit', { retryAt: new Date(Date.parse(last) + RESET_COOLDOWN_MS).toISOString() });
+  if (tooSoon(u.pw_reset_at)) throw limit(u.pw_reset_at);
+
+  const password = generatePassword();
+  const hash = await auth.hashPassword(password);
+  const now = new Date();
+  const cutoff = new Date(now.getTime() - RESET_COOLDOWN_MS).toISOString();
+  // تحديث شرطي ذري: يمنع طلبين متزامنين من تجاوز الحد
+  const r = d.prepare('UPDATE users SET password_hash = ?, pw_reset_at = ? WHERE id = ? AND (pw_reset_at IS NULL OR pw_reset_at <= ?)')
+    .run(hash, now.toISOString(), id, cutoff);
+  if (!r.changes) {
+    const again = d.prepare('SELECT pw_reset_at FROM users WHERE id = ?').get(id);
+    throw limit(again.pw_reset_at || now.toISOString());
+  }
+  db.audit(req.user.id, 'reset_password', 'user', id);
+  res.json({ id, name: u.name, email: u.email, generatedPassword: password, nextResetAt: new Date(now.getTime() + RESET_COOLDOWN_MS).toISOString() });
 }));
 
 router.delete('/users/:id', adminOnly, wrap(async (req, res) => {

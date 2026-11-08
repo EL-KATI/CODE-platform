@@ -345,6 +345,7 @@ function open(file = config.dbFile) {
   if (!userCols.includes('pc_num'))                 db.exec("ALTER TABLE users ADD COLUMN pc_num TEXT DEFAULT ''");
   if (!userCols.includes('cap_num'))                db.exec("ALTER TABLE users ADD COLUMN cap_num TEXT DEFAULT ''");
   if (!userCols.includes('instructor_categories'))  db.exec("ALTER TABLE users ADD COLUMN instructor_categories TEXT DEFAULT ''");
+  if (!userCols.includes('pw_reset_at'))     db.exec('ALTER TABLE users ADD COLUMN pw_reset_at TEXT');
   // حقول مؤسسة تعليم السياقة
   if (!userCols.includes('school_name'))     db.exec("ALTER TABLE users ADD COLUMN school_name TEXT DEFAULT ''");
   if (!userCols.includes('manager_name'))    db.exec("ALTER TABLE users ADD COLUMN manager_name TEXT DEFAULT ''");

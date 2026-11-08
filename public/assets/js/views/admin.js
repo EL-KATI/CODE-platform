@@ -913,6 +913,16 @@ function roleExtraFields(role, schools) {
   return '';
 }
 
+// توليد كلمة سر جديدة: مسموح مرة واحدة كل 24 ساعة لكل حساب
+const RESET_MS = 24 * 3600 * 1000;
+function fmtWait(iso) {
+  const ms = Math.max(0, Date.parse(iso) - Date.now());
+  const h = Math.floor(ms / 3600000), m = Math.ceil((ms % 3600000) / 60000);
+  return h ? `${h} س و${m} د` : `${m} د`;
+}
+const resetBlocked = (u) => !!u.pw_reset_at && Date.now() - Date.parse(u.pw_reset_at) < RESET_MS;
+const resetWait = (u) => fmtWait(new Date(Date.parse(u.pw_reset_at) + RESET_MS).toISOString());
+
 const ALL_CATS = ['A', 'A1', 'B', 'C', 'D', 'EB', 'EC', 'ED'];
 
 /** يملأ نموذج التعديل ببيانات المستخدم الحالية */
@@ -1058,6 +1068,7 @@ export async function usersView(root) {
             <td style="font-size:.8rem">${u.school_id ? (schools.find((x) => x.id === u.school_id)?.name || u.school_id) : '—'}</td>
             <td style="white-space:nowrap">
               <button class="btn btn-secondary btn-sm" data-edit="${u.id}" title="تعديل">✏️</button>
+              <button class="btn btn-secondary btn-sm" data-reset="${u.id}" ${resetBlocked(u) ? raw('disabled') : ''} title="${resetBlocked(u) ? 'متاح بعد ' + resetWait(u) : 'توليد كلمة سر جديدة'}">🔑</button>
               <button class="btn btn-danger btn-sm" data-del="${u.id}" title="${t('admin.deleteUser')}">🗑</button>
             </td>
           </tr>`)}
@@ -1072,6 +1083,20 @@ export async function usersView(root) {
       root.querySelectorAll('[data-active]').forEach((c) => c.onchange = async () => {
         try { await api.patch(`/admin/users/${c.dataset.active}`, { active: c.checked }); toast(t('common.saved')); await refresh(); render(); }
         catch (err) { toast(errorMessage(err), 'error'); await refresh(); render(); }
+      });
+      root.querySelectorAll('[data-reset]').forEach((b) => b.onclick = async () => {
+        const u = list.find((x) => String(x.id) === b.dataset.reset);
+        if (!confirm(`توليد كلمة سر جديدة لـ ${u?.name}؟\nستُلغى كلمة السر الحالية، ويمكن تكرار ذلك مرة واحدة فقط كل 24 ساعة.`)) return;
+        b.disabled = true;
+        try {
+          const r = await api.post(`/admin/users/${b.dataset.reset}/reset-password`);
+          await refresh(); render();
+          await showCredentials({ email: r.email, password: r.generatedPassword, name: r.name });
+        } catch (err) {
+          if (err.code === 'reset_limit') toast(`مسموح مرة واحدة كل 24 ساعة. جرّب بعد ${fmtWait(err.details?.retryAt)}`, 'error');
+          else toast(errorMessage(err), 'error');
+          await refresh(); render();
+        }
       });
       root.querySelectorAll('[data-edit]').forEach((b) => b.onclick = async () => {
         try {
