@@ -137,7 +137,7 @@ const learner  = { auth: true, roles: ['student'] };
 route('/', view(homeView));
 route('/login', view(loginView), { guest: true });
 route('/register', view(registerView), { guest: true });
-route('/dashboard', view(dashboardView), { auth: true });
+route('/dashboard', view(dashboardView), learner);
 route('/lessons', view(lessonsView));
 route('/lessons/:slug', view(lessonView));
 route('/practice', view(practiceView), learner);
