@@ -85,7 +85,7 @@ const ADMIN_TABS_CONTENT = [
 const ADMIN_TABS_MANAGE = [['/admin/users', 'admin.users'], ['/admin/settings', 'admin.settings'], ['/admin/audit', 'admin.audit']];
 // المؤسسة: بيانات المؤسسة + طلابها + حجوزاتهم
 function schoolTabs() {
-  return [['/admin/students', 'admin.students'], ['/admin/school/students', 'school.manageStudents'], ['/admin/bookings', 'nav.bookings'], ['/admin/exams', 'nav.exams']];
+  return [['/admin/students', 'admin.students'], ['/admin/school/students', 'school.manageStudents'], ['/admin/school/instructors', 'school.manageInstructors'], ['/admin/bookings', 'nav.bookings'], ['/admin/exams', 'nav.exams']];
 }
 // المدرب: طلابه + حجوزاتهم
 const INSTRUCTOR_TABS = [['/admin/students', 'admin.students'], ['/admin/bookings', 'nav.bookings']];
@@ -150,13 +150,13 @@ export function rowActions({ id, viewHref, editHref, preview, hidden, hide = tru
     ${del ? actBtn('delete', id, '🗑', t('common.delete'), 'act-danger') : ''}
   </div>`;
 }
-function bindActions(root, handlers) {
+export function bindActions(root, handlers) {
   root.querySelectorAll('button[data-act]').forEach((b) => {
     const fn = handlers[b.dataset.act];
     if (fn) b.onclick = () => fn(b.dataset.id, b);
   });
 }
-const statusPill = (visible, on = t('admin.visible'), off = t('admin.hidden')) => html`<span class="pill ${visible ? 'pill-success' : 'pill-warning'}">${visible ? on : off}</span>`;
+export const statusPill = (visible, on = t('admin.visible'), off = t('admin.hidden')) => html`<span class="pill ${visible ? 'pill-success' : 'pill-warning'}">${visible ? on : off}</span>`;
 
 // --- Questions -------------------------------------------------------------------
 const STATUSES = ['published', 'draft', 'archived'];
@@ -929,18 +929,18 @@ export function roleExtraFields(role, schools) {
 
 // توليد كلمة سر جديدة: مسموح مرة واحدة كل 24 ساعة لكل حساب
 const RESET_MS = 24 * 3600 * 1000;
-function fmtWait(iso) {
+export function fmtWait(iso) {
   const ms = Math.max(0, Date.parse(iso) - Date.now());
   const h = Math.floor(ms / 3600000), m = Math.ceil((ms % 3600000) / 60000);
   return h ? `${h} س و${m} د` : `${m} د`;
 }
-const resetBlocked = (u) => !!u.pw_reset_at && Date.now() - Date.parse(u.pw_reset_at) < RESET_MS;
-const resetWait = (u) => fmtWait(new Date(Date.parse(u.pw_reset_at) + RESET_MS).toISOString());
+export const resetBlocked = (u) => !!u.pw_reset_at && Date.now() - Date.parse(u.pw_reset_at) < RESET_MS;
+export const resetWait = (u) => fmtWait(new Date(Date.parse(u.pw_reset_at) + RESET_MS).toISOString());
 
 export const ALL_CATS = ['A', 'A1', 'B', 'C', 'D', 'EB', 'EC', 'ED'];
 
 /** يملأ نموذج التعديل ببيانات المستخدم الحالية */
-function fillUserForm(form, u) {
+export function fillUserForm(form, u) {
   for (const el of form.elements) {
     if (!el.name || el.name === 'role') continue;
     if (el.name.startsWith('valid_cat_')) continue;
@@ -949,6 +949,9 @@ function fillUserForm(form, u) {
   let valid = [];
   try { valid = JSON.parse(u.valid_categories || '[]'); } catch { valid = []; }
   ALL_CATS.forEach((c) => { const cb = form.elements['valid_cat_' + c]; if (cb) cb.checked = valid.includes(c); });
+  let ic = [];
+  try { ic = JSON.parse(u.instructor_categories || '[]'); } catch { ic = []; }
+  ALL_CATS.forEach((c) => { const cb = form.elements['instructor_cat_' + c]; if (cb) cb.checked = ic.includes(c); });
 }
 
 /** يعرض بيانات الدخول (كلمة السر العشوائية) مرة واحدة بعد الحفظ */

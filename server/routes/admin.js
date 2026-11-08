@@ -62,7 +62,7 @@ router.get('/students', (req, res) => {
     : (req.user.role === 'admin' ? null : req.user.school_id);
   let rows;
   if (viewerSchoolId) {
-    rows = d.prepare(`SELECT u.id, u.name, u.email, u.created_at, u.last_login_at, u.exam_date, u.active, u.school_id,
+    rows = d.prepare(`SELECT u.id, u.name, u.email, u.created_at, u.last_login_at, u.exam_date, u.active, u.archived, u.school_id,
         (SELECT COUNT(*) FROM attempts a WHERE a.user_id = u.id AND a.finished_at IS NOT NULL) AS attempts,
         (SELECT COUNT(*) FROM attempts a WHERE a.user_id = u.id AND a.mode='exam' AND a.passed = 1) AS exams_passed,
         (SELECT COUNT(*) FROM attempts a WHERE a.user_id = u.id AND a.mode='exam' AND a.finished_at IS NOT NULL) AS exams,
@@ -71,7 +71,7 @@ router.get('/students', (req, res) => {
         AND (u.name LIKE ? OR u.email LIKE ?)
       ORDER BY last_activity DESC NULLS LAST, u.id DESC LIMIT 500`).all(viewerSchoolId, q, q);
   } else {
-    rows = d.prepare(`SELECT u.id, u.name, u.email, u.created_at, u.last_login_at, u.exam_date, u.active, u.school_id,
+    rows = d.prepare(`SELECT u.id, u.name, u.email, u.created_at, u.last_login_at, u.exam_date, u.active, u.archived, u.school_id,
         (SELECT COUNT(*) FROM attempts a WHERE a.user_id = u.id AND a.finished_at IS NOT NULL) AS attempts,
         (SELECT COUNT(*) FROM attempts a WHERE a.user_id = u.id AND a.mode='exam' AND a.passed = 1) AS exams_passed,
         (SELECT COUNT(*) FROM attempts a WHERE a.user_id = u.id AND a.mode='exam' AND a.finished_at IS NOT NULL) AS exams,
@@ -84,6 +84,14 @@ router.get('/students', (req, res) => {
     try { score = progress.dashboard(r.id).readiness.score || 0; } catch { /* ignore */ }
     return { ...r, progress: score };
   }));
+});
+
+// مدربو المؤسسة (المؤسسة فقط ترى مدربيها)
+router.get('/school/instructors', schoolOrAdmin, (req, res) => {
+  const sid = req.user.role === 'school' ? req.user.school_id : (req.query.school_id || null);
+  if (!sid) return res.json([]);
+  res.json(db.get().prepare(`SELECT id, name, email, phone, city, active, archived, cin, instructor_categories, created_at, pw_reset_at
+    FROM users WHERE role = 'instructor' AND school_id = ? ORDER BY archived, id DESC LIMIT 500`).all(sid));
 });
 
 router.get('/students/:id', wrap(async (req, res) => {
@@ -470,11 +478,16 @@ const USER_FIELDS = {
     birth_date: 10, birth_place_fr: 100, birth_place_ar: 100, address_fr: 200, address_ar: 200,
     license_cat: 20, registration_center: 100, license_num: 30, valid_categories: 100,
   },
+  instructor: {
+    gender: 1, cin: 20, first_name_fr: 80, last_name_fr: 80, first_name_ar: 80, last_name_ar: 80,
+    pc_num: 40, cap_num: 40, instructor_categories: 100,
+  },
   school: { manager_name: 80, school_name: 120, tax_id: 40, pro_license_num: 40, narsa_num: 40 },
   admin: {},
 };
 const REQUIRED = {
   student: ['first_name_fr', 'last_name_fr', 'cin'],
+  instructor: ['first_name_fr', 'last_name_fr', 'cin'],
   school: ['manager_name', 'school_name', 'phone', 'city', 'tax_id', 'pro_license_num', 'narsa_num'],
   admin: ['name', 'phone'],
 };
@@ -489,12 +502,23 @@ const clean = (v, max) => (v === undefined || v === null ? null : (String(v).tri
 
 /** الاسم المعروض: متعلم = الاسم الشخصي + العائلي، مؤسسة = اسم المؤسسة، أدمين = الاسم */
 function displayName(role, f, fallback) {
-  if (role === 'student') return `${f.first_name_fr || ''} ${f.last_name_fr || ''}`.trim() || fallback;
+  if (role === 'student' || role === 'instructor') return `${f.first_name_fr || ''} ${f.last_name_fr || ''}`.trim() || fallback;
   if (role === 'school') return f.school_name || fallback;
   return fallback;
 }
 
-router.get('/users/:id', adminOnly, wrap(async (req, res) => {
+/** المؤسسة تدير متعلميها ومدربيها فقط؛ الأدمن يدير الجميع */
+const userScope = wrap(async (req, res, next) => {
+  if (req.user.role === 'admin') return next();
+  const u = db.get().prepare('SELECT id, role, school_id FROM users WHERE id = ?').get(int(req.params.id, { min: 1 }));
+  if (!u) throw notFound();
+  if (!req.user.school_id || u.school_id !== req.user.school_id || !['student', 'instructor'].includes(u.role)) {
+    return res.status(403).json({ error: 'forbidden' });
+  }
+  next();
+});
+
+router.get('/users/:id', schoolOrAdmin, userScope, wrap(async (req, res) => {
   const u = db.get().prepare('SELECT * FROM users WHERE id = ?').get(int(req.params.id, { min: 1 }));
   if (!u) throw notFound();
   delete u.password_hash;
@@ -505,7 +529,7 @@ router.post('/users', schoolOrAdmin, wrap(async (req, res) => {
   const body = req.body || {};
   // المؤسسة تضيف متعلمين فقط، ويُربطون بها تلقائياً
   const isSchool = req.user.role === 'school';
-  const role = isSchool ? 'student' : (['student', 'admin', 'school'].includes(body.role) ? body.role : null);
+  const role = isSchool ? (['student', 'instructor'].includes(body.role) ? body.role : 'student') : (['student', 'admin', 'school'].includes(body.role) ? body.role : null);
   if (!role) throw bad('invalid_field', { field: 'role' });
   const email = str(body.email, { min: 5, max: 160, field: 'email' }).toLowerCase();
   if (!EMAIL_RE.test(email)) throw bad('invalid_email');
@@ -513,8 +537,8 @@ router.post('/users', schoolOrAdmin, wrap(async (req, res) => {
   const fields = { ...USER_FIELDS.common, ...USER_FIELDS[role] };
   const vals = {};
   for (const [k, max] of Object.entries(fields)) vals[k] = clean(body[k], max);
+  if (role === 'student' || role === 'instructor') vals.gender = ['M', 'F'].includes(body.gender) ? body.gender : null;
   if (role === 'student') {
-    vals.gender = ['M', 'F'].includes(body.gender) ? body.gender : null;
     vals.id_type = ['CIN', 'CD', 'CS'].includes(body.id_type) ? body.id_type : 'CIN';
   }
   const rawName = clean(body.name, 80);
@@ -546,7 +570,7 @@ router.post('/users', schoolOrAdmin, wrap(async (req, res) => {
   res.status(201).json({ id: info.lastInsertRowid, name, email, role, active: 1, generatedPassword: password });
 }));
 
-router.patch('/users/:id', adminOnly, wrap(async (req, res) => {
+router.patch('/users/:id', schoolOrAdmin, userScope, wrap(async (req, res) => {
   const id = int(req.params.id, { min: 1 });
   const d = db.get();
   const u = d.prepare('SELECT * FROM users WHERE id = ?').get(id);
@@ -556,7 +580,12 @@ router.patch('/users/:id', adminOnly, wrap(async (req, res) => {
   if (b.role !== undefined && b.role !== u.role) throw bad('role_locked');
   if (id === req.user.id && b.active === false) throw bad('cannot_demote_self');
   if (b.active !== undefined) d.prepare('UPDATE users SET active = ? WHERE id = ?').run(b.active ? 1 : 0, id);
-  if ('school_id' in b) {
+  if (b.archived !== undefined) {
+    if (!['student', 'instructor'].includes(u.role)) throw bad('invalid_field', { field: 'archived' });
+    if (b.archived) d.prepare('UPDATE users SET archived = 1, active = 0 WHERE id = ?').run(id);
+    else d.prepare('UPDATE users SET archived = 0 WHERE id = ?').run(id);
+  }
+  if ('school_id' in b && req.user.role === 'admin') {
     const sid = b.school_id ? int(b.school_id, { min: 1 }) : null;
     d.prepare('UPDATE users SET school_id = ? WHERE id = ?').run(sid, id);
   }
@@ -571,9 +600,9 @@ router.patch('/users/:id', adminOnly, wrap(async (req, res) => {
   }
   const fields = { ...USER_FIELDS.common, ...(USER_FIELDS[u.role] || {}) };
   for (const [k, max] of Object.entries(fields)) if (b[k] !== undefined) sets[k] = clean(b[k], max);
-  if (u.role === 'student') {
+  if (u.role === 'student' || u.role === 'instructor') {
     if (b.gender !== undefined) sets.gender = ['M', 'F'].includes(b.gender) ? b.gender : null;
-    if (b.id_type !== undefined) sets.id_type = ['CIN', 'CD', 'CS'].includes(b.id_type) ? b.id_type : 'CIN';
+    if (u.role === 'student' && b.id_type !== undefined) sets.id_type = ['CIN', 'CD', 'CS'].includes(b.id_type) ? b.id_type : 'CIN';
   }
   if (b.locale !== undefined && ['fr', 'ar', 'ar-dialect'].includes(b.locale)) sets.locale = b.locale;
   if (Object.keys(sets).length || b.name !== undefined) {
@@ -599,7 +628,7 @@ router.patch('/users/:id', adminOnly, wrap(async (req, res) => {
 
 const RESET_COOLDOWN_MS = 24 * 3600 * 1000;
 /** توليد كلمة سر جديدة لمستخدم — مرة واحدة كل 24 ساعة لكل حساب */
-router.post('/users/:id/reset-password', adminOnly, wrap(async (req, res) => {
+router.post('/users/:id/reset-password', schoolOrAdmin, userScope, wrap(async (req, res) => {
   const id = int(req.params.id, { min: 1 });
   const d = db.get();
   const u = d.prepare('SELECT id, name, email, pw_reset_at FROM users WHERE id = ?').get(id);
@@ -623,7 +652,7 @@ router.post('/users/:id/reset-password', adminOnly, wrap(async (req, res) => {
   res.json({ id, name: u.name, email: u.email, generatedPassword: password, nextResetAt: new Date(now.getTime() + RESET_COOLDOWN_MS).toISOString() });
 }));
 
-router.delete('/users/:id', adminOnly, wrap(async (req, res) => {
+router.delete('/users/:id', schoolOrAdmin, userScope, wrap(async (req, res) => {
   const id = int(req.params.id, { min: 1 });
   if (id === req.user.id) throw bad('cannot_delete_self');
   db.get().prepare('DELETE FROM users WHERE id = ?').run(id);

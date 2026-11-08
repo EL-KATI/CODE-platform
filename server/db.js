@@ -345,6 +345,7 @@ function open(file = config.dbFile) {
   if (!userCols.includes('pc_num'))                 db.exec("ALTER TABLE users ADD COLUMN pc_num TEXT DEFAULT ''");
   if (!userCols.includes('cap_num'))                db.exec("ALTER TABLE users ADD COLUMN cap_num TEXT DEFAULT ''");
   if (!userCols.includes('instructor_categories'))  db.exec("ALTER TABLE users ADD COLUMN instructor_categories TEXT DEFAULT ''");
+  if (!userCols.includes('archived')) db.exec('ALTER TABLE users ADD COLUMN archived INTEGER NOT NULL DEFAULT 0');
   const bkCols = db.prepare('PRAGMA table_info(training_bookings)').all().map((c) => c.name);
   if (!bkCols.includes('instructor_name')) db.exec('ALTER TABLE training_bookings ADD COLUMN instructor_name TEXT');
   if (!userCols.includes('pw_reset_at'))     db.exec('ALTER TABLE users ADD COLUMN pw_reset_at TEXT');
