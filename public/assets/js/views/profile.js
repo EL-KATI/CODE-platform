@@ -27,7 +27,30 @@ export function profileView(root) {
         </form>
         <section class="card" id="pw-section">
           <h2>${t('profile.password')}</h2>
-          <p class="muted small" style="margin-bottom:16px">${t('profile.passwordResetHint')}</p>
+
+          <!-- §أ تغيير كلمة السر يدوياً -->
+          <form id="pw-form" novalidate>
+            <div class="field">
+              <label for="cur-pw">${t('profile.currentPassword')}</label>
+              <input id="cur-pw" name="cur" type="password" autocomplete="current-password" required dir="ltr" placeholder="••••••••">
+            </div>
+            <div class="field">
+              <label for="new-pw">${t('profile.newPassword')}</label>
+              <input id="new-pw" name="np" type="password" autocomplete="new-password" required minlength="8" dir="ltr" placeholder="••••••••">
+              <span class="hint">${t('auth.passwordHint')}</span>
+            </div>
+            <div class="field">
+              <label for="confirm-pw">${t('profile.confirmPassword')}</label>
+              <input id="confirm-pw" name="confirm" type="password" autocomplete="new-password" required minlength="8" dir="ltr" placeholder="••••••••">
+              <span class="hint" id="pw-match-hint" style="color:var(--danger,#dc2626);display:none">${t('profile.passwordMismatch')}</span>
+            </div>
+            <button class="btn btn-primary" type="submit" id="btn-change-pw">${t('profile.changePassword')}</button>
+          </form>
+
+          <hr style="border:0;border-top:1px solid var(--border);margin:18px 0">
+
+          <!-- §ب توليد كلمة سر جديدة تلقائياً -->
+          <p class="muted small" style="margin-bottom:10px">${t('profile.passwordResetHint')}</p>
           <button class="btn btn-secondary" id="btn-reset-pw" type="button" ${blocked ? raw('disabled') : ''}>
             🔑 ${t('profile.resetPassword')}
           </button>
@@ -51,6 +74,42 @@ export function profileView(root) {
         toast(t('common.saved'));
         navigate('/profile', { replace: true });
       } catch (ex) { toast(errorMessage(ex), 'error'); }
+    };
+
+    // §أ نموذج تغيير كلمة السر يدوياً
+    const pwForm = root.querySelector('#pw-form');
+    const newPwInput   = root.querySelector('#new-pw');
+    const confirmInput = root.querySelector('#confirm-pw');
+    const matchHint    = root.querySelector('#pw-match-hint');
+
+    // منع اللصق في حقلَي كلمة السر الجديدة والتأكيد
+    [newPwInput, confirmInput].forEach((inp) => {
+      inp.addEventListener('paste', (e) => { e.preventDefault(); });
+    });
+
+    // إخفاء/إظهار تلميح عدم التطابق أثناء الكتابة
+    const checkMatch = () => {
+      if (!confirmInput.value) { matchHint.style.display = 'none'; return; }
+      matchHint.style.display = (newPwInput.value === confirmInput.value) ? 'none' : '';
+    };
+    newPwInput.addEventListener('input', checkMatch);
+    confirmInput.addEventListener('input', checkMatch);
+
+    pwForm.onsubmit = async (e) => {
+      e.preventDefault();
+      const curPw  = root.querySelector('#cur-pw').value;
+      const newPw  = newPwInput.value;
+      const confirm = confirmInput.value;
+      if (newPw !== confirm) { matchHint.style.display = ''; confirmInput.focus(); return; }
+      const btn = root.querySelector('#btn-change-pw');
+      btn.disabled = true;
+      try {
+        await api.post('/me/password', { currentPassword: curPw, newPassword: newPw });
+        toast(t('profile.passwordChanged'));
+        pwForm.reset();
+        matchHint.style.display = 'none';
+      } catch (ex) { toast(errorMessage(ex), 'error'); }
+      finally { btn.disabled = false; }
     };
 
     const resetBtn = root.querySelector('#btn-reset-pw');

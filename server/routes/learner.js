@@ -91,6 +91,20 @@ router.post('/me/reset-password', wrap(async (req, res) => {
   res.json({ name: u.name, email: u.email, generatedPassword: pw, nextResetAt: new Date(now.getTime() + RESET_COOLDOWN_MS).toISOString() });
 }));
 
+// --- Changement de mot de passe manuel (ancien + nouveau + confirmation) ----
+router.post('/me/password', wrap(async (req, res) => {
+  const { currentPassword, newPassword } = req.body || {};
+  if (!currentPassword || typeof currentPassword !== 'string') throw bad('invalid_field');
+  if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 8) throw bad('weak_password');
+  const d = db.get();
+  const u = d.prepare('SELECT id, password_hash FROM users WHERE id = ?').get(req.user.id);
+  const ok = await auth.checkPassword(currentPassword, u.password_hash);
+  if (!ok) throw new HttpError(401, 'invalid_credentials');
+  const hash = await auth.hashPassword(newPassword);
+  d.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, req.user.id);
+  res.json({ ok: true });
+}));
+
 // Portabilité des données (loi 09-08 / RGPD).
 router.get('/me/export', (req, res) => {
   const d = db.get();
