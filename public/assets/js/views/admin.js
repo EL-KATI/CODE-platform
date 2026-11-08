@@ -681,7 +681,7 @@ export async function lessonsAdminView(root) {
           <td><a href="/admin/lessons/${l.id}">${l.title}</a></td>
           <td class="small muted">${l.slug}</td>
           <td>${statusPill(!!l.published)}</td>
-          <td>${rowActions({ id: l.id, viewHref: `/lessons/${l.slug}`, editHref: `/admin/lessons/${l.id}`, preview: true, hidden: !l.published })}</td>
+          <td>${rowActions({ id: l.id, editHref: `/admin/lessons/${l.id}`, preview: true, hidden: !l.published })}</td>
         </tr>`) : html`<tr><td colspan="5" class="muted">${t('common.none')}</td></tr>`}
       </tbody></table></div>`);
     const find = (id) => list.find((x) => String(x.id) === String(id));
@@ -760,10 +760,10 @@ export async function studentsView(root) {
   await load(root, '/admin/students', async () => {
     const list = await api.get('/admin/students');
     shell(root, '/admin/students', html`
-      <div class="card" style="overflow:auto"><table class="table list-table"><thead><tr><th>${t('admin.name')}</th><th>${t('admin.email')}</th><th>${t('admin.exams')}</th><th>${t('admin.lastActivity')}</th><th>${t('admin.status')}</th><th>${t('common.actions')}</th></tr></thead><tbody>
-        ${list.length ? list.map((u) => html`<tr style="${u.active ? '' : 'opacity:.6'}"><td><a href="/admin/students/${u.id}">${u.name}</a></td><td class="small">${u.email}</td><td>${u.exams_passed}/${u.exams}</td><td>${u.last_activity ? fmtDate(u.last_activity) : '—'}</td>
+      <div class="card" style="overflow:auto"><table class="table list-table"><thead><tr><th>${t('admin.name')}</th><th>${t('admin.email')}</th><th>${t('admin.exams')}</th><th>التقدم</th><th>${t('admin.lastActivity')}</th><th>${t('admin.status')}</th><th>${t('common.actions')}</th></tr></thead><tbody>
+        ${list.length ? list.map((u) => html`<tr style="${u.active ? '' : 'opacity:.6'}"><td><a href="/admin/students/${u.id}">${u.name}</a></td><td class="small">${u.email}</td><td>${u.exams_passed}/${u.exams}</td><td style="min-width:110px"><div style="height:8px;border-radius:99px;background:var(--border,#ddd);overflow:hidden"><div style="height:100%;width:${u.progress || 0}%;background:var(--success,#16a34a)"></div></div><span class="small">${u.progress || 0}%</span></td><td>${u.last_activity ? fmtDate(u.last_activity) : '—'}</td>
           <td>${statusPill(!!u.active)}</td>
-          <td>${rowActions({ id: u.id, viewHref: `/admin/students/${u.id}`, hidden: !u.active })}</td></tr>`) : html`<tr><td colspan="6" class="muted">${t('common.none')}</td></tr>`}
+          <td>${rowActions({ id: u.id, viewHref: `/admin/students/${u.id}`, hidden: !u.active })}</td></tr>`) : html`<tr><td colspan="7" class="muted">${t('common.none')}</td></tr>`}
       </tbody></table></div>`);
     const toggle = async (id, active) => {
       try { await api.patch(`/admin/school/students/${id}`, { active }); toast(t('common.saved')); await studentsView(root); }

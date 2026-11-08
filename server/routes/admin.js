@@ -79,7 +79,11 @@ router.get('/students', (req, res) => {
       FROM users u WHERE u.role = 'student' AND (u.name LIKE ? OR u.email LIKE ?)
       ORDER BY last_activity DESC NULLS LAST, u.id DESC LIMIT 500`).all(q, q);
   }
-  res.json(rows);
+  res.json(rows.map((r) => {
+    let score = 0;
+    try { score = progress.dashboard(r.id).readiness.score || 0; } catch { /* ignore */ }
+    return { ...r, progress: score };
+  }));
 });
 
 router.get('/students/:id', wrap(async (req, res) => {

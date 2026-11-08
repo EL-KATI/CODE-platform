@@ -2107,7 +2107,8 @@ dialog::backdrop { background: rgb(12 10 9 / .7); backdrop-filter: blur(4px); }
 
 /* Actions unifiées des listes d'administration */
 .list-table td { vertical-align: middle; }
-.act-row { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.act-row { display: flex; flex-wrap: nowrap; gap: 6px; justify-content: flex-end; }
+.list-table td:last-child { white-space: nowrap; }
 .act-btn {
   display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; min-height: 32px;
   border: 1px solid var(--border, #ddd); border-radius: 8px; background: var(--surface, #fff);
