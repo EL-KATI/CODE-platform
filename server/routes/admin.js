@@ -453,89 +453,90 @@ router.put('/categories/:id', adminOnly, wrap(async (req, res) => {
 // --- Utilisateurs : admin uniquement -------------------------------------------
 router.get('/users', adminOnly, (req, res) => {
   const q = `%${(req.query.q || '').toString().slice(0, 80)}%`;
-  res.json(db.get().prepare(`SELECT id, name, email, role, active, locale, school_id, created_at, last_login_at FROM users
+  res.json(db.get().prepare(`SELECT id, name, email, role, active, locale, school_id, phone, city, created_at, last_login_at FROM users
     WHERE name LIKE ? OR email LIKE ? ORDER BY id DESC LIMIT 500`).all(q, q));
 });
 
+// حقول المستخدم القابلة للتعديل حسب الدور (قائمة بيضاء → أسماء الأعمدة)
+const USER_FIELDS = {
+  common: { phone: 30, city: 80 },
+  student: {
+    gender: 1, nationality: 50, id_type: 4, cin: 20,
+    first_name_fr: 80, last_name_fr: 80, first_name_ar: 80, last_name_ar: 80,
+    birth_date: 10, birth_place_fr: 100, birth_place_ar: 100, address_fr: 200, address_ar: 200,
+    license_cat: 20, registration_center: 100, license_num: 30, valid_categories: 100,
+  },
+  school: { manager_name: 80, school_name: 120, tax_id: 40, pro_license_num: 40, narsa_num: 40 },
+  admin: {},
+};
+const REQUIRED = {
+  student: ['first_name_fr', 'last_name_fr', 'cin'],
+  school: ['manager_name', 'school_name', 'phone', 'city', 'tax_id', 'pro_license_num', 'narsa_num'],
+  admin: ['name', 'phone'],
+};
+const PW_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+/** كلمة سر عشوائية قوية (12 حرفاً) — لا تتكرر عملياً */
+function generatePassword(len = 12) {
+  let out = '';
+  for (let i = 0; i < len; i++) out += PW_ALPHABET[crypto.randomInt(PW_ALPHABET.length)];
+  return out;
+}
+const clean = (v, max) => (v === undefined || v === null ? null : (String(v).trim().slice(0, max) || null));
+
+/** الاسم المعروض: متعلم = الاسم الشخصي + العائلي، مؤسسة = اسم المؤسسة، أدمين = الاسم */
+function displayName(role, f, fallback) {
+  if (role === 'student') return `${f.first_name_fr || ''} ${f.last_name_fr || ''}`.trim() || fallback;
+  if (role === 'school') return f.school_name || fallback;
+  return fallback;
+}
+
+router.get('/users/:id', adminOnly, wrap(async (req, res) => {
+  const u = db.get().prepare('SELECT * FROM users WHERE id = ?').get(int(req.params.id, { min: 1 }));
+  if (!u) throw notFound();
+  delete u.password_hash;
+  res.json(u);
+}));
+
 router.post('/users', adminOnly, wrap(async (req, res) => {
   const body = req.body || {};
-  const name = str(body.name, { min: 2, max: 80, field: 'name' });
+  const role = ['student', 'admin', 'school'].includes(body.role) ? body.role : null;
+  if (!role) throw bad('invalid_field', { field: 'role' });
   const email = str(body.email, { min: 5, max: 160, field: 'email' }).toLowerCase();
   if (!EMAIL_RE.test(email)) throw bad('invalid_email');
-  const pw = str(body.password, { min: 8, max: 200, field: 'password' });
-  const role = body.role && ['student', 'admin', 'school'].includes(body.role) ? body.role : 'student';
+
+  const fields = { ...USER_FIELDS.common, ...USER_FIELDS[role] };
+  const vals = {};
+  for (const [k, max] of Object.entries(fields)) vals[k] = clean(body[k], max);
+  if (role === 'student') {
+    vals.gender = ['M', 'F'].includes(body.gender) ? body.gender : null;
+    vals.id_type = ['CIN', 'CD', 'CS'].includes(body.id_type) ? body.id_type : 'CIN';
+  }
+  const rawName = clean(body.name, 80);
+  for (const k of REQUIRED[role]) {
+    if (!(k === 'name' ? rawName : vals[k])) throw bad('invalid_field', { field: k });
+  }
+  const name = displayName(role, vals, rawName);
+  if (!name || name.length < 2) throw bad('invalid_field', { field: 'name' });
   const locale = ['fr', 'ar', 'ar-dialect'].includes(body.locale) ? body.locale : 'ar';
-  const phone   = (body.phone   || '').toString().trim().slice(0, 30) || null;
-  const address = (body.address || '').toString().trim().slice(0, 200) || null;
-  const school_id = body.school_id ? parseInt(body.school_id, 10) || null : null;
-
-  // NARSA fields — stored for all roles but mainly used by students
-  const trim = (v, max = 100) => (v || '').toString().trim().slice(0, max) || null;
-  const gender          = ['M', 'F'].includes(body.gender) ? body.gender : null;
-  const nationality     = trim(body.nationality, 50);
-  const id_type         = ['CIN', 'CD', 'CS'].includes(body.id_type) ? body.id_type : null;
-  const cin             = trim(body.cin, 20);
-  const first_name_fr   = trim(body.first_name_fr, 80);
-  const last_name_fr    = trim(body.last_name_fr, 80);
-  const first_name_ar   = trim(body.first_name_ar, 80);
-  const last_name_ar    = trim(body.last_name_ar, 80);
-  const birth_date      = trim(body.birth_date, 10);
-  const birth_place_fr  = trim(body.birth_place_fr, 100);
-  const birth_place_ar  = trim(body.birth_place_ar, 100);
-  const address_fr      = trim(body.address_fr, 200);
-  const address_ar      = trim(body.address_ar, 200);
-  const city            = trim(body.city, 80);
-  const license_cat     = trim(body.license_cat, 20);
-  const registration_center = trim(body.registration_center, 100);
-  const license_num         = trim(body.license_num, 30);
-  const valid_categories    = trim(body.valid_categories, 100);
-
-  // instructor-specific fields
-  const pc_num  = trim(body.pc_num,  30);
-  const cap_num = trim(body.cap_num, 30);
-  const instructor_categories = trim(body.instructor_categories, 100);
 
   const d = db.get();
   if (d.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) throw new HttpError(409, 'email_taken');
 
-  const hash = await auth.hashPassword(pw);
+  // كلمة سر عشوائية تُولَّد عند الحفظ وتُعرض مرة واحدة فقط
+  const password = generatePassword();
+  const hash = await auth.hashPassword(password);
+  const cols = ['email', 'name', 'password_hash', 'role', 'locale', ...Object.keys(vals)];
+  const params = [email, name, hash, role, locale, ...Object.values(vals)];
   let info;
   try {
-    info = d.prepare(`INSERT INTO users (
-        email, name, password_hash, role, locale, phone, address, school_id,
-        gender, nationality, id_type, cin,
-        first_name_fr, last_name_fr, first_name_ar, last_name_ar,
-        birth_date, birth_place_fr, birth_place_ar,
-        address_fr, address_ar, city, license_cat, registration_center,
-        license_num, valid_categories,
-        pc_num, cap_num, instructor_categories
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-      .run(email, name, hash, role, locale, phone, address, school_id,
-        gender, nationality, id_type, cin,
-        first_name_fr, last_name_fr, first_name_ar, last_name_ar,
-        birth_date, birth_place_fr, birth_place_ar,
-        address_fr, address_ar, city, license_cat, registration_center,
-        license_num, valid_categories,
-        pc_num, cap_num, instructor_categories);
+    info = d.prepare(`INSERT INTO users (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`).run(...params);
   } catch (e) {
+    if (e.message && e.message.includes('UNIQUE')) throw new HttpError(409, 'email_taken');
     console.error('[POST /users] INSERT error:', e.message);
-    if (e.message && (e.message.includes('no column named') || e.message.includes('table users has no column'))) {
-      // Fallback: insert with minimal columns for old DBs
-      try {
-        info = d.prepare('INSERT INTO users (email, name, password_hash, role, locale, phone, school_id) VALUES (?,?,?,?,?,?,?)')
-          .run(email, name, hash, role, locale, phone, school_id);
-      } catch (e2) {
-        if (e2.message && e2.message.includes('UNIQUE')) throw new HttpError(409, 'email_taken');
-        throw new HttpError(500, 'server_error');
-      }
-    } else if (e.message && e.message.includes('UNIQUE')) {
-      throw new HttpError(409, 'email_taken');
-    } else {
-      throw new HttpError(500, 'server_error');
-    }
+    throw new HttpError(500, 'server_error');
   }
   db.audit(req.user.id, 'create', 'user', info.lastInsertRowid, { name, email, role });
-  res.status(201).json({ id: info.lastInsertRowid, name, email, role, active: 1 });
+  res.status(201).json({ id: info.lastInsertRowid, name, email, role, active: 1, generatedPassword: password });
 }));
 
 router.patch('/users/:id', adminOnly, wrap(async (req, res) => {
@@ -544,19 +545,48 @@ router.patch('/users/:id', adminOnly, wrap(async (req, res) => {
   const u = d.prepare('SELECT * FROM users WHERE id = ?').get(id);
   if (!u) throw notFound();
   const b = req.body || {};
-  if (id === req.user.id && (b.role && b.role !== 'admin' || b.active === false)) throw bad('cannot_demote_self');
-  if (b.role !== undefined) {
-    if (!['student', 'instructor', 'admin', 'school'].includes(b.role)) throw bad('invalid_field', { field: 'role' });
-    // لا يمكن للأدمين تعيين دور «مدرب» (إلا إبقاء من هو مدرب أصلاً)
-    if (b.role === 'instructor' && u.role !== 'instructor') throw bad('invalid_field', { field: 'role' });
-    d.prepare('UPDATE users SET role = ? WHERE id = ?').run(b.role, id);
-  }
+  // الدور لا يتغير بعد الإنشاء
+  if (b.role !== undefined && b.role !== u.role) throw bad('role_locked');
+  if (id === req.user.id && b.active === false) throw bad('cannot_demote_self');
   if (b.active !== undefined) d.prepare('UPDATE users SET active = ? WHERE id = ?').run(b.active ? 1 : 0, id);
   if ('school_id' in b) {
     const sid = b.school_id ? int(b.school_id, { min: 1 }) : null;
     d.prepare('UPDATE users SET school_id = ? WHERE id = ?').run(sid, id);
   }
-  db.audit(req.user.id, 'update', 'user', id, { role: b.role, active: b.active, school_id: b.school_id });
+
+  // تعديل المعلومات
+  const sets = {};
+  if (b.email !== undefined) {
+    const email = str(b.email, { min: 5, max: 160, field: 'email' }).toLowerCase();
+    if (!EMAIL_RE.test(email)) throw bad('invalid_email');
+    if (d.prepare('SELECT 1 FROM users WHERE email = ? AND id <> ?').get(email, id)) throw new HttpError(409, 'email_taken');
+    sets.email = email;
+  }
+  const fields = { ...USER_FIELDS.common, ...(USER_FIELDS[u.role] || {}) };
+  for (const [k, max] of Object.entries(fields)) if (b[k] !== undefined) sets[k] = clean(b[k], max);
+  if (u.role === 'student') {
+    if (b.gender !== undefined) sets.gender = ['M', 'F'].includes(b.gender) ? b.gender : null;
+    if (b.id_type !== undefined) sets.id_type = ['CIN', 'CD', 'CS'].includes(b.id_type) ? b.id_type : 'CIN';
+  }
+  if (b.locale !== undefined && ['fr', 'ar', 'ar-dialect'].includes(b.locale)) sets.locale = b.locale;
+  if (Object.keys(sets).length || b.name !== undefined) {
+    const merged = { ...u, ...sets };
+    for (const k of REQUIRED[u.role] || []) {
+      if (k !== 'name' && !merged[k]) throw bad('invalid_field', { field: k });
+    }
+    const fallback = b.name !== undefined ? clean(b.name, 80) : u.name;
+    const name = displayName(u.role, merged, fallback);
+    if (!name || name.length < 2) throw bad('invalid_field', { field: 'name' });
+    sets.name = name;
+    const cols = Object.keys(sets);
+    try {
+      d.prepare(`UPDATE users SET ${cols.map((c) => `${c} = ?`).join(', ')} WHERE id = ?`).run(...Object.values(sets), id);
+    } catch (e) {
+      if (e.message && e.message.includes('UNIQUE')) throw new HttpError(409, 'email_taken');
+      throw e;
+    }
+  }
+  db.audit(req.user.id, 'update', 'user', id, { active: b.active, school_id: b.school_id, edited: Object.keys(sets) });
   res.json({ ok: true });
 }));
 

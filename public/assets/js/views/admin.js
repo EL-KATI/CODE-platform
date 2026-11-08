@@ -771,6 +771,7 @@ function roleExtraFields(role, schools) {
     <fieldset style="border:1px solid var(--border);border-radius:8px;padding:12px;margin:4px 0">
       <legend style="font-weight:600;padding:0 6px">الهوية</legend>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <label style="grid-column:1/-1">البريد الإلكتروني<input class="input" name="email" type="email" required placeholder="exemple@gmail.com"></label>
         <label>الجنس
           <select class="input" name="gender">
             <option value="M">ذكر</option>
@@ -881,114 +882,157 @@ function roleExtraFields(role, schools) {
     </fieldset>`;
 
   if (role === 'school') return `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <label>الهاتف<input class="input" name="phone" type="tel" placeholder="06xxxxxxxx"></label>
-      <label>المدينة<input class="input" name="city" placeholder="Tanger"></label>
-      <label style="grid-column:1/-1">العنوان<input class="input" name="address" placeholder="عنوان المؤسسة"></label>
-    </div>`;
+    <fieldset style="border:1px solid var(--border);border-radius:8px;padding:12px;margin:4px 0">
+      <legend style="font-weight:600;padding:0 6px">بيانات المؤسسة</legend>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <label style="grid-column:1/-1">اسم المؤسسة<input class="input" name="school_name" required maxlength="120" placeholder="Auto-école ..."></label>
+        <label>رقم التعريف الضريبي<input class="input" name="tax_id" required maxlength="40"></label>
+        <label>رقم الرخصة المهنية<input class="input" name="pro_license_num" required maxlength="40"></label>
+        <label style="grid-column:1/-1">الرقم المخصص في نظام NARSA<input class="input" name="narsa_num" required maxlength="40"></label>
+      </div>
+    </fieldset>
+    <fieldset style="border:1px solid var(--border);border-radius:8px;padding:12px;margin:4px 0">
+      <legend style="font-weight:600;padding:0 6px">المدير والتواصل</legend>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <label style="grid-column:1/-1">الاسم الشخصي للمدير<input class="input" name="manager_name" required maxlength="80"></label>
+        <label style="grid-column:1/-1">البريد الإلكتروني للمؤسسة<input class="input" name="email" type="email" required placeholder="exemple@gmail.com"></label>
+        <label>رقم الهاتف<input class="input" name="phone" type="tel" required placeholder="06xxxxxxxx"></label>
+        <label>المدينة<input class="input" name="city" required placeholder="Tanger"></label>
+      </div>
+    </fieldset>`;
 
-  if (role === 'admin') return `<label>الهاتف<input class="input" name="phone" type="tel" placeholder="06xxxxxxxx"></label>`;
+  if (role === 'admin') return `
+    <fieldset style="border:1px solid var(--border);border-radius:8px;padding:12px;margin:4px 0">
+      <legend style="font-weight:600;padding:0 6px">بيانات الأدمين</legend>
+      <div style="display:grid;grid-template-columns:1fr;gap:8px">
+        <label>الاسم<input class="input" name="name" required minlength="2" maxlength="80"></label>
+        <label>البريد الإلكتروني<input class="input" name="email" type="email" required placeholder="exemple@gmail.com"></label>
+        <label>رقم الهاتف<input class="input" name="phone" type="tel" required placeholder="06xxxxxxxx"></label>
+      </div>
+    </fieldset>`;
   return '';
+}
+
+const ALL_CATS = ['A', 'A1', 'B', 'C', 'D', 'EB', 'EC', 'ED'];
+
+/** يملأ نموذج التعديل ببيانات المستخدم الحالية */
+function fillUserForm(form, u) {
+  for (const el of form.elements) {
+    if (!el.name || el.name === 'role') continue;
+    if (el.name.startsWith('valid_cat_')) continue;
+    if (u[el.name] !== undefined && u[el.name] !== null) el.value = u[el.name];
+  }
+  let valid = [];
+  try { valid = JSON.parse(u.valid_categories || '[]'); } catch { valid = []; }
+  ALL_CATS.forEach((c) => { const cb = form.elements['valid_cat_' + c]; if (cb) cb.checked = valid.includes(c); });
+}
+
+/** يعرض بيانات الدخول (كلمة السر العشوائية) مرة واحدة بعد الحفظ */
+function showCredentials({ email, password, name }) {
+  return new Promise((resolve) => {
+    const ov = document.createElement('div');
+    ov.className = 'rv-overlay';
+    ov.setAttribute('role', 'dialog');
+    ov.setAttribute('aria-modal', 'true');
+    const esc = (v) => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    ov.innerHTML = `<div class="rv-modal" style="width:min(460px,100%)">
+      <div class="rv-body" style="padding:22px">
+        <h3 style="margin:0 0 6px">✅ تم إنشاء الحساب</h3>
+        <p class="muted small" style="margin:0 0 14px">${esc(name)}</p>
+        <label style="display:block;margin-bottom:10px">البريد الإلكتروني
+          <input class="input" readonly dir="ltr" value="${esc(email)}" style="text-align:left"></label>
+        <label style="display:block">كلمة السر (تظهر الآن مرة واحدة فقط)
+          <div style="display:flex;gap:8px"><input class="input" readonly dir="ltr" id="cred-pw" value="${esc(password)}" style="text-align:left;font-weight:800;letter-spacing:.05em;flex:1">
+          <button type="button" class="btn btn-secondary" id="cred-copy">نسخ</button></div></label>
+        <p class="small" style="margin:12px 0 0;color:var(--danger)">انسخها وسلّمها لصاحب الحساب الآن؛ لن تتمكن من رؤيتها لاحقاً.</p>
+      </div>
+      <div class="rv-foot"><span></span><button type="button" class="btn btn-primary" id="cred-ok">تم</button></div>
+    </div>`;
+    document.body.appendChild(ov);
+    const close = () => { ov.remove(); resolve(); };
+    ov.querySelector('#cred-ok').onclick = close;
+    ov.querySelector('#cred-copy').onclick = async (e) => {
+      const pw = ov.querySelector('#cred-pw');
+      try { await navigator.clipboard.writeText(pw.value); } catch { pw.select(); document.execCommand('copy'); }
+      e.currentTarget.textContent = 'تم النسخ ✓';
+    };
+    ov.querySelector('#cred-pw').select();
+  });
 }
 
 export async function usersView(root) {
   await load(root, '/admin/users', async () => {
     const list = await api.get('/admin/users');
     const schools = list.filter((x) => x.role === 'school');
-    let showAddForm = false;
+    let formMode = null;      // null | 'add' | 'edit'
+    let editUser = null;
     let addRole = 'student';
 
-    function renderAddForm() {
+    const refresh = async () => {
+      const updated = await api.get('/admin/users');
+      list.splice(0, list.length, ...updated);
+      schools.splice(0, schools.length, ...updated.filter((x) => x.role === 'school'));
+    };
+
+    function renderForm() {
       const wrap = root.querySelector('#add-form-wrap');
       if (!wrap) return;
       wrap.innerHTML = '';
+      if (!formMode) return;
+      const editing = formMode === 'edit';
+      const role = editing ? editUser.role : addRole;
       const div = document.createElement('div');
       div.className = 'card';
       div.style.marginBottom = '16px';
-      div.innerHTML = `<h3 style="margin-top:0">${t('admin.addUser')}</h3>
-        <form id="add-user-form" class="stack" style="max-width:680px">
-          <label>${t('admin.role')}
-            <select class="input" name="role" id="role-select">
-              ${['student', 'school', 'admin'].map((r) => `<option value="${r}" ${r === addRole ? 'selected' : ''}>${t('role.' + r)}</option>`).join('')}
-            </select>
-          </label>
-          <label>${t('admin.name')}<input class="input" name="name" required minlength="2" maxlength="80" placeholder="${t('admin.namePlaceholder') || 'الاسم الكامل'}"></label>
-          <label>${t('admin.email')}<input class="input" name="email" type="email" required placeholder="exemple@gmail.com"></label>
-          <label>${t('admin.password')}<input class="input" name="password" type="password" required minlength="8" placeholder="${t('admin.passwordHint') || 'كلمة السر (8 أحرف على الأقل)'}"></label>
-          <div id="role-extra-fields">${roleExtraFields(addRole, schools)}</div>
+      div.innerHTML = `<h3 style="margin-top:0">${editing ? '✏️ تعديل بيانات: ' + String(editUser.name).replace(/</g, '&lt;') : t('admin.addUser')}</h3>
+        <form id="user-form" class="stack" style="max-width:680px">
+          ${editing
+            ? `<input type="hidden" name="role" value="${role}"><p class="muted small" style="margin:0">${t('admin.role')}: <b>${t('role.' + role)}</b> — لا يمكن تغيير الدور بعد الإنشاء</p>`
+            : `<label>${t('admin.role')}
+                <select class="input" name="role" id="role-select">
+                  ${['student', 'school', 'admin'].map((r) => `<option value="${r}" ${r === role ? 'selected' : ''}>${t('role.' + r)}</option>`).join('')}
+                </select></label>`}
+          <div id="role-extra-fields">${roleExtraFields(role, schools)}</div>
+          ${editing ? '' : '<p class="muted small" style="margin:0">🔑 تُولَّد كلمة سر عشوائية خاصة عند الحفظ وتظهر مرة واحدة.</p>'}
           <div style="display:flex;gap:8px">
             <button class="btn btn-primary" type="submit">${t('common.save')}</button>
             <button class="btn btn-secondary" type="button" id="btn-cancel-user">${t('common.cancel')}</button>
           </div>
         </form>`;
       wrap.appendChild(div);
+      const form = div.querySelector('#user-form');
+      if (editing) fillUserForm(form, editUser);
 
-      // تغيير الدور → تحديث الحقول الإضافية
       const roleSelect = div.querySelector('#role-select');
-      roleSelect.onchange = () => {
-        addRole = roleSelect.value;
-        const extra = div.querySelector('#role-extra-fields');
-        // نعيد رسم الحقول الإضافية فقط
-        const tmp = document.createElement('div');
-        tmp.innerHTML = roleExtraFields(addRole, schools);
-        extra.innerHTML = '';
-        [...tmp.childNodes].forEach((n) => extra.appendChild(n));
-      };
+      if (roleSelect) roleSelect.onchange = () => { addRole = roleSelect.value; renderForm(); };
+      div.querySelector('#btn-cancel-user').onclick = () => { formMode = null; editUser = null; renderForm(); };
+      div.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-      div.querySelector('#btn-cancel-user').onclick = () => { showAddForm = false; render(); };
-
-      div.querySelector('#add-user-form').onsubmit = async (e) => {
+      form.onsubmit = async (e) => {
         e.preventDefault();
         const submitBtn = div.querySelector('button[type="submit"]');
         if (submitBtn.disabled) return;
         submitBtn.disabled = true;
-        const fd = new FormData(div.querySelector('#add-user-form'));
-        const emailVal = (fd.get('email') || '').trim();
-        const g = (key) => fd.get(key) || undefined;
-        const body = {
-          name: fd.get('name'), email: emailVal, password: fd.get('password'),
-          role: fd.get('role'), phone: g('phone'),
-          address: g('address'),
-          locale: g('locale'),
-          school_id: fd.get('school_id') ? parseInt(fd.get('school_id'), 10) : undefined,
-          // NARSA student fields
-          gender: g('gender'),
-          nationality: g('nationality'),
-          id_type: g('id_type'),
-          cin: g('cin'),
-          first_name_fr: g('first_name_fr'),
-          last_name_fr: g('last_name_fr'),
-          first_name_ar: g('first_name_ar'),
-          last_name_ar: g('last_name_ar'),
-          birth_date: g('birth_date'),
-          birth_place_fr: g('birth_place_fr'),
-          birth_place_ar: g('birth_place_ar'),
-          address_fr: g('address_fr'),
-          address_ar: g('address_ar'),
-          city: g('city'),
-          license_cat: g('license_cat'),
-          registration_center: g('registration_center'),
-          license_num: g('license_num'),
-          valid_categories: JSON.stringify(
-            ['A','A1','B','C','D','EB','EC','ED'].filter(c => fd.get('valid_cat_' + c))
-          ) || undefined,
-          // instructor-specific NARSA fields
-          pc_num: g('pc_num'),
-          cap_num: g('cap_num'),
-          instructor_categories: JSON.stringify(
-            ['A','A1','B','C','D','EB','EC','ED'].filter(c => fd.get('instructor_cat_' + c))
-          ) || undefined,
-          acceptTerms: true,
-        };
+        const fd = new FormData(form);
+        const body = {};
+        for (const [k, v] of fd.entries()) {
+          if (k.startsWith('valid_cat_')) continue;
+          const val = typeof v === 'string' ? v.trim() : v;
+          if (editing) body[k] = val; else if (val !== '') body[k] = val;
+        }
+        if (role === 'student') body.valid_categories = JSON.stringify(ALL_CATS.filter((c) => fd.get('valid_cat_' + c)));
         try {
-          await api.post('/admin/users', body);
-          toast(t('common.saved'));
-          showAddForm = false;
-          addRole = 'student';
-          const updated = await api.get('/admin/users');
-          list.splice(0, list.length, ...updated);
-          schools.splice(0, schools.length, ...updated.filter((x) => x.role === 'school'));
-          render();
+          if (editing) {
+            await api.patch(`/admin/users/${editUser.id}`, body);
+            toast(t('common.saved'));
+            formMode = null; editUser = null;
+            await refresh(); render();
+          } else {
+            const created = await api.post('/admin/users', body);
+            formMode = null; addRole = 'student';
+            await refresh(); render();
+            await showCredentials({ email: created.email, password: created.generatedPassword, name: created.name });
+          }
         } catch (err) {
           submitBtn.disabled = false;
           toast(errorMessage(err), 'error');
@@ -1006,34 +1050,40 @@ export async function usersView(root) {
         <div class="card table-wrap"><table class="table"><thead><tr>
           <th>${t('admin.name')}</th><th>${t('admin.email')}</th><th>${t('admin.role')}</th><th>${t('admin.active')}</th><th>${t('admin.school')}</th><th></th>
         </tr></thead><tbody>
-          ${list.map((u) => html`<tr>
+          ${list.map((u) => html`<tr class="${u.active ? '' : 'muted'}">
             <td>${u.name}</td>
             <td style="font-size:.85rem">${u.email}</td>
-            <td><select class="input" data-role="${u.id}">${['student', ...(u.role === 'instructor' ? ['instructor'] : []), 'school', 'admin'].map((r) => html`<option value="${r}" ${r === u.role ? raw('selected') : ''}>${t('role.' + r)}</option>`)}</select></td>
-            <td><input type="checkbox" data-active="${u.id}" ${u.active ? raw('checked') : ''} aria-label="${t('admin.active')}"></td>
-            <td style="font-size:.8rem">${u.school_id ? (schools.find((s) => s.id === u.school_id)?.name || u.school_id) : (u.role === 'school' ? '—' : '—')}</td>
-            <td><button class="btn btn-danger btn-sm" data-del="${u.id}" title="${t('admin.deleteUser')}">🗑</button></td>
+            <td><span class="pill">${t('role.' + u.role)}</span></td>
+            <td><input type="checkbox" data-active="${u.id}" ${u.active ? raw('checked') : ''} aria-label="${t('admin.active')}" title="${u.active ? 'إيقاف الحساب' : 'تفعيل الحساب'}"></td>
+            <td style="font-size:.8rem">${u.school_id ? (schools.find((x) => x.id === u.school_id)?.name || u.school_id) : '—'}</td>
+            <td style="white-space:nowrap">
+              <button class="btn btn-secondary btn-sm" data-edit="${u.id}" title="تعديل">✏️</button>
+              <button class="btn btn-danger btn-sm" data-del="${u.id}" title="${t('admin.deleteUser')}">🗑</button>
+            </td>
           </tr>`)}
         </tbody></table></div>`);
 
-      root.querySelector('#btn-add-user').onclick = () => { showAddForm = !showAddForm; if (showAddForm) renderAddForm(); else { root.querySelector('#add-form-wrap').innerHTML = ''; } };
-      if (showAddForm) renderAddForm();
-
-      const patch = async (id, body) => {
-        try { await api.patch(`/admin/users/${id}`, body); toast(t('common.saved')); }
-        catch (err) { toast(errorMessage(err), 'error'); const updated = await api.get('/admin/users'); list.splice(0, list.length, ...updated); render(); }
+      root.querySelector('#btn-add-user').onclick = () => {
+        if (formMode === 'add') formMode = null; else { formMode = 'add'; editUser = null; }
+        renderForm();
       };
-      root.querySelectorAll('[data-role]').forEach((s) => s.onchange = () => patch(s.dataset.role, { role: s.value }));
-      root.querySelectorAll('[data-active]').forEach((c) => c.onchange = () => patch(c.dataset.active, { active: c.checked }));
+      renderForm();
+
+      root.querySelectorAll('[data-active]').forEach((c) => c.onchange = async () => {
+        try { await api.patch(`/admin/users/${c.dataset.active}`, { active: c.checked }); toast(t('common.saved')); await refresh(); render(); }
+        catch (err) { toast(errorMessage(err), 'error'); await refresh(); render(); }
+      });
+      root.querySelectorAll('[data-edit]').forEach((b) => b.onclick = async () => {
+        try {
+          editUser = await api.get(`/admin/users/${b.dataset.edit}`);
+          formMode = 'edit';
+          renderForm();
+        } catch (err) { toast(errorMessage(err), 'error'); }
+      });
       root.querySelectorAll('[data-del]').forEach((b) => b.onclick = async () => {
         if (!confirm(t('admin.confirmDelete'))) return;
-        try {
-          await api.del(`/admin/users/${b.dataset.del}`);
-          const updated = await api.get('/admin/users');
-          list.splice(0, list.length, ...updated);
-          schools.splice(0, schools.length, ...updated.filter((x) => x.role === 'school'));
-          render();
-        } catch (err) { toast(errorMessage(err), 'error'); }
+        try { await api.del(`/admin/users/${b.dataset.del}`); await refresh(); render(); }
+        catch (err) { toast(errorMessage(err), 'error'); }
       });
     }
     render();

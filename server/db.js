@@ -345,6 +345,12 @@ function open(file = config.dbFile) {
   if (!userCols.includes('pc_num'))                 db.exec("ALTER TABLE users ADD COLUMN pc_num TEXT DEFAULT ''");
   if (!userCols.includes('cap_num'))                db.exec("ALTER TABLE users ADD COLUMN cap_num TEXT DEFAULT ''");
   if (!userCols.includes('instructor_categories'))  db.exec("ALTER TABLE users ADD COLUMN instructor_categories TEXT DEFAULT ''");
+  // حقول مؤسسة تعليم السياقة
+  if (!userCols.includes('school_name'))     db.exec("ALTER TABLE users ADD COLUMN school_name TEXT DEFAULT ''");
+  if (!userCols.includes('manager_name'))    db.exec("ALTER TABLE users ADD COLUMN manager_name TEXT DEFAULT ''");
+  if (!userCols.includes('tax_id'))          db.exec("ALTER TABLE users ADD COLUMN tax_id TEXT DEFAULT ''");
+  if (!userCols.includes('pro_license_num')) db.exec("ALTER TABLE users ADD COLUMN pro_license_num TEXT DEFAULT ''");
+  if (!userCols.includes('narsa_num'))       db.exec("ALTER TABLE users ADD COLUMN narsa_num TEXT DEFAULT ''");
   // Migration: نظّف كل الجداول المؤقتة تُركت من migrations فاشلة سابقة
   try {
     const tmpTables = db.prepare(

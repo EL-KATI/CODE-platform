@@ -10,7 +10,7 @@ const ar = {
   'role.student': 'متعلم', 'role.instructor': 'مدرّب', 'role.admin': 'أدمين', 'role.school': 'مؤسسة',
   'err.server_error': 'حدث خطأ في الخادم، حاول مجددا.', 'err.network_error': 'تعذر الاتصال بالخادم.', 'err.page_not_found': 'الصفحة غير موجودة.', 'err.no_questions': 'لا توجد أسئلة متاحة.',
   'err.invalid_credentials': 'البريد الإلكتروني أو كلمة المرور غير صحيحة.', 'err.email_taken': 'هذا البريد الإلكتروني مستعمل بالفعل. اختر بريداً آخر.', 'err.already_answered': 'سبقت الإجابة عن هذا السؤال.', 'err.already_enrolled': 'هذا المتعلم منتسب لمؤسسة أخرى.',
-  'err.attempt_finished': 'انتهت هذه المحاولة.', 'err.unauthorized': 'يجب تسجيل الدخول.', 'err.forbidden': 'غير مسموح.', 'err.not_found': 'غير موجود.',
+  'err.attempt_finished': 'انتهت هذه المحاولة.', 'err.unauthorized': 'يجب تسجيل الدخول.', 'err.forbidden': 'غير مسموح.', 'err.role_locked': 'لا يمكن تغيير الدور بعد الإنشاء.', 'err.not_found': 'غير موجود.',
   'err.invalid_field': 'قيمة غير صالحة.', 'err.rate_limited': 'محاولات كثيرة، انتظر قليلا.', 'err.options_count': 'يجب أن يحتوي السؤال على 2 إلى 4 اختيارات.', 'err.correct_required': 'حدد جوابا صحيحا واحدا على الأقل.',
   'err.weak_password': 'كلمة المرور ضعيفة (8 أحرف على الأقل).', 'err.invalid_email': 'بريد إلكتروني غير صالح.', 'err.terms_required': 'يجب قبول سياسة الخصوصية.', 'err.invalid_length': 'طول القيمة غير مقبول.',
   'err.slug_taken': 'هذا المعرّف مستعمل.', 'err.last_admin': 'لا يمكن حذف آخر مدير.', 'err.cannot_delete_self': 'لا يمكنك حذف حسابك هنا.', 'err.cannot_demote_self': 'لا يمكنك تغيير دورك.',
