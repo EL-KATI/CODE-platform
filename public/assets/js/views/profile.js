@@ -15,7 +15,7 @@ export function profileView(root) {
         <div class="field"><label for="name">${t('auth.name')}</label><input id="name" name="name" value="${u.name}" required></div>
         <div class="field"><label for="locale">${t('profile.language')}</label>
           <select id="locale" name="locale"><option value="ar" ${u.locale === 'ar' ? 'selected' : ''}>العربية</option><option value="fr" ${u.locale === 'fr' ? 'selected' : ''}>Français</option></select></div>
-        <div class="field"><label for="examDate">${t('profile.examDate')}</label><input id="examDate" name="examDate" type="date" value="${u.examDate || ''}"><span class="hint">${t('profile.examDateHint')}</span></div>
+        ${u.schoolId ? '' : html`<div class="field"><label for="examDate">${t('profile.examDate')}</label><input id="examDate" name="examDate" type="date" value="${u.examDate || ''}"><span class="hint">${t('profile.examDateHint')}</span></div>`}
         <button class="btn btn-primary" type="submit">${t('common.save')}</button>
       </form>
       <form class="card" id="pw">
@@ -36,7 +36,7 @@ export function profileView(root) {
     e.preventDefault();
     const f = e.currentTarget;
     try {
-      const { user } = await api.patch('/me', { name: f.name.value, locale: f.locale.value, examDate: f.examDate.value || null });
+      const { user } = await api.patch('/me', { name: f.name.value, locale: f.locale.value, examDate: f.examDate ? (f.examDate.value || null) : undefined });
       store.user = user;
       setLocale(user.locale);
       toast(t('common.saved'));

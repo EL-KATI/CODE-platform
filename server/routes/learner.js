@@ -59,7 +59,8 @@ router.patch('/me', wrap(async (req, res) => {
   const b = req.body || {};
   if (b.name !== undefined) d.prepare('UPDATE users SET name = ? WHERE id = ?').run(str(b.name, { min: 2, max: 80, field: 'name' }), req.user.id);
   if (b.locale !== undefined) d.prepare('UPDATE users SET locale = ? WHERE id = ?').run(b.locale === 'fr' ? 'fr' : 'ar', req.user.id);
-  if (b.examDate !== undefined) {
+  // المتعلم المرتبط بمؤسسة لتعليم السياقة: موعد الامتحان تحدده المؤسسة لا المتعلم
+  if (b.examDate !== undefined && !req.user.school_id) {
     const v = b.examDate ? str(b.examDate, { max: 10, field: 'examDate' }) : null;
     if (v && !/^\d{4}-\d{2}-\d{2}$/.test(v)) throw bad('invalid_field', { field: 'examDate' });
     d.prepare('UPDATE users SET exam_date = ? WHERE id = ?').run(v, req.user.id);
