@@ -778,7 +778,7 @@ export async function studentView(root, { params }) {
 
 // --- Utilisateurs (admin) --------------------------------------------------------
 // الحقول الإضافية حسب الدور — تُرجع HTML string
-function roleExtraFields(role, schools) {
+export function roleExtraFields(role, schools) {
   const esc = (s) => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
   if (role === 'student') return `
@@ -937,7 +937,7 @@ function fmtWait(iso) {
 const resetBlocked = (u) => !!u.pw_reset_at && Date.now() - Date.parse(u.pw_reset_at) < RESET_MS;
 const resetWait = (u) => fmtWait(new Date(Date.parse(u.pw_reset_at) + RESET_MS).toISOString());
 
-const ALL_CATS = ['A', 'A1', 'B', 'C', 'D', 'EB', 'EC', 'ED'];
+export const ALL_CATS = ['A', 'A1', 'B', 'C', 'D', 'EB', 'EC', 'ED'];
 
 /** يملأ نموذج التعديل ببيانات المستخدم الحالية */
 function fillUserForm(form, u) {
@@ -952,7 +952,7 @@ function fillUserForm(form, u) {
 }
 
 /** يعرض بيانات الدخول (كلمة السر العشوائية) مرة واحدة بعد الحفظ */
-function showCredentials({ email, password, name }) {
+export function showCredentials({ email, password, name }) {
   return new Promise((resolve) => {
     const ov = document.createElement('div');
     ov.className = 'rv-overlay';

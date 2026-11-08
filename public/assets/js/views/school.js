@@ -6,6 +6,7 @@ import { html, raw, loading, toast, errorMessage, confirmDialog } from '../ui.js
 import { t } from '../i18n.js';
 import { api } from '../api.js';
 import { store } from '../store.js';
+import { roleExtraFields, ALL_CATS, showCredentials } from './admin.js';
 
 /* ═══════════════════════════════════════════════════════════
    واجهة إدارة الطلاب — مؤسسة تعليم السياقة
@@ -31,25 +32,11 @@ function renderStudents(root, students, showAdd = false) {
   </div>
 
   ${showAdd ? html`
-  <div class="card" style="margin-bottom:20px;max-width:500px">
+  <div class="card" style="margin-bottom:20px;max-width:680px">
     <h2 style="margin:0 0 16px;font-size:1rem">${t('school.addStudent')}</h2>
     <form id="add-form" class="stack" style="gap:12px">
-      <div class="field">
-        <label>${t('admin.name')}</label>
-        <input class="input" name="name" required minlength="2" maxlength="80" placeholder="${t('admin.namePlaceholder')}">
-      </div>
-      <div class="field">
-        <label>${t('admin.email')}</label>
-        <input class="input" name="email" type="email" required placeholder="exemple@gmail.com">
-      </div>
-      <div class="field">
-        <label>${t('admin.password')}</label>
-        <input class="input" name="password" type="password" required minlength="8" placeholder="${t('admin.passwordHint')}">
-      </div>
-      <div class="field">
-        <label>${t('profile.examDate')} <span class="muted small">(${t('common.optional')})</span></label>
-        <input class="input" name="exam_date" type="date">
-      </div>
+      <div id="add-fields"></div>
+      <p class="muted small" style="margin:0">🔑 تُولَّد كلمة سر عشوائية خاصة عند الحفظ وتظهر مرة واحدة.</p>
       <div class="row" style="gap:8px">
         <button class="btn btn-primary" type="submit">${t('common.save')}</button>
         <button class="btn btn-secondary" type="button" id="cancel-add">${t('common.cancel')}</button>
@@ -110,23 +97,29 @@ function renderStudents(root, students, showAdd = false) {
   const cancelBtn = root.querySelector('#cancel-add');
   if (cancelBtn) cancelBtn.onclick = () => renderStudents(root, students, false);
 
-  // نموذج الإضافة
+  // نموذج الإضافة — نفس حقول إضافة متعلم في لوحة الإدارة
   const form = root.querySelector('#add-form');
   if (form) {
+    form.querySelector('#add-fields').innerHTML = roleExtraFields('student', []);
     form.onsubmit = async (e) => {
       e.preventDefault();
+      const btn = form.querySelector('button[type="submit"]');
+      if (btn.disabled) return;
+      btn.disabled = true;
       const fd = new FormData(form);
+      const body = { role: 'student' };
+      for (const [k, v] of fd.entries()) {
+        if (k.startsWith('valid_cat_')) continue;
+        const val = typeof v === 'string' ? v.trim() : v;
+        if (val !== '') body[k] = val;
+      }
+      body.valid_categories = JSON.stringify(ALL_CATS.filter((c) => fd.get('valid_cat_' + c)));
       try {
-        await api.post('/admin/school/students', {
-          name: fd.get('name'),
-          email: fd.get('email'),
-          password: fd.get('password'),
-          exam_date: fd.get('exam_date') || undefined,
-        });
-        toast(t('common.saved'));
+        const created = await api.post('/admin/users', body);
         const updated = await api.get('/admin/students');
         renderStudents(root, updated, false);
-      } catch (err) { toast(errorMessage(err), 'error'); }
+        await showCredentials({ email: created.email, password: created.generatedPassword, name: created.name });
+      } catch (err) { btn.disabled = false; toast(errorMessage(err), 'error'); }
     };
   }
 

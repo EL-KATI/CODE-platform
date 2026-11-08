@@ -501,9 +501,11 @@ router.get('/users/:id', adminOnly, wrap(async (req, res) => {
   res.json(u);
 }));
 
-router.post('/users', adminOnly, wrap(async (req, res) => {
+router.post('/users', schoolOrAdmin, wrap(async (req, res) => {
   const body = req.body || {};
-  const role = ['student', 'admin', 'school'].includes(body.role) ? body.role : null;
+  // المؤسسة تضيف متعلمين فقط، ويُربطون بها تلقائياً
+  const isSchool = req.user.role === 'school';
+  const role = isSchool ? 'student' : (['student', 'admin', 'school'].includes(body.role) ? body.role : null);
   if (!role) throw bad('invalid_field', { field: 'role' });
   const email = str(body.email, { min: 5, max: 160, field: 'email' }).toLowerCase();
   if (!EMAIL_RE.test(email)) throw bad('invalid_email');
@@ -531,6 +533,7 @@ router.post('/users', adminOnly, wrap(async (req, res) => {
   const hash = await auth.hashPassword(password);
   const cols = ['email', 'name', 'password_hash', 'role', 'locale', ...Object.keys(vals)];
   const params = [email, name, hash, role, locale, ...Object.values(vals)];
+  if (isSchool) { cols.push('school_id'); params.push(req.user.school_id); }
   let info;
   try {
     info = d.prepare(`INSERT INTO users (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`).run(...params);
