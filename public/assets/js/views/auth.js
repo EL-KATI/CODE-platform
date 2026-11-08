@@ -98,9 +98,9 @@ export function registerView(root, { query }) {
             <input id="email" name="email" type="email" autocomplete="email" required dir="ltr" placeholder="example@gmail.com">
           </div>
           <div class="field">
-            <label for="password">${t('auth.password')}</label>
-            <input id="password" name="password" type="password" autocomplete="new-password" required minlength="8" dir="ltr" aria-describedby="pw-hint" placeholder="••••••••">
-            <span class="hint" id="pw-hint">${t('auth.passwordHint')}</span>
+            <p class="hint" style="margin:0;padding:10px 12px;background:var(--surface-alt,#f8fafc);border-radius:8px;border:1px solid var(--border,#e5e7eb)">
+              🔑 ${t('auth.autoPassword')}
+            </p>
           </div>
           <label class="check field" style="margin-bottom:20px">
             <input type="checkbox" name="terms" required>
@@ -123,13 +123,15 @@ export function registerView(root, { query }) {
     btn.disabled = true;
     btn.textContent = '…';
     try {
-      const { user } = await api.post('/auth/register', {
-        name: f.name.value, email: f.email.value, password: f.password.value,
+      const { user, generatedPassword } = await api.post('/auth/register', {
+        name: f.name.value, email: f.email.value,
         acceptTerms: f.terms.checked, locale: getLocale(),
       });
       store.user = user;
-      toast(t('auth.welcome', { name: user.name }));
       navigate(safeNext(query), { replace: true });
+      // عرض بيانات الدخول مرة واحدة — يجب حفظها
+      const { showCredentials } = await import('./admin.js');
+      await showCredentials({ email: user.email, password: generatedPassword, name: user.name });
     } catch (ex) {
       err.textContent = errorMessage(ex);
       err.hidden = false;

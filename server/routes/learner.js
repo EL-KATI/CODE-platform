@@ -6,7 +6,8 @@ const auth = require('../auth');
 const attempts = require('../services/attempts');
 const progress = require('../services/progress');
 const { wrap, str, int, bad, notFound, HttpError } = require('../http');
-const { password } = require('./auth');
+const { password, generatePassword } = require('./auth');
+const RESET_COOLDOWN_MS = 24 * 3600 * 1000;
 
 const router = express.Router();
 router.use(auth.requireAuth);
@@ -68,12 +69,26 @@ router.patch('/me', wrap(async (req, res) => {
   res.json({ user: auth.publicUser(d.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id)) });
 }));
 
-router.post('/me/password', wrap(async (req, res) => {
-  const cur = str((req.body || {}).currentPassword, { max: 128, field: 'currentPassword' });
-  if (!(await auth.checkPassword(cur, req.user.password_hash))) throw new HttpError(401, 'invalid_credentials');
-  const next = password(req.body.newPassword);
-  db.get().prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(await auth.hashPassword(next), req.user.id);
-  res.json({ ok: true });
+/** إعادة توليد كلمة السر الخاصة بالمستخدم — مرة واحدة كل 24 ساعة */
+router.post('/me/reset-password', wrap(async (req, res) => {
+  const d = db.get();
+  const u = d.prepare('SELECT id, name, email, pw_reset_at FROM users WHERE id = ?').get(req.user.id);
+  const tooSoon = (last) => last && Date.now() - Date.parse(last) < RESET_COOLDOWN_MS;
+  if (tooSoon(u.pw_reset_at)) {
+    const retryAt = new Date(Date.parse(u.pw_reset_at) + RESET_COOLDOWN_MS).toISOString();
+    throw new HttpError(429, 'reset_limit', { retryAt });
+  }
+  const pw = generatePassword();
+  const hash = await auth.hashPassword(pw);
+  const now = new Date();
+  const cutoff = new Date(now.getTime() - RESET_COOLDOWN_MS).toISOString();
+  const r = d.prepare('UPDATE users SET password_hash = ?, pw_reset_at = ? WHERE id = ? AND (pw_reset_at IS NULL OR pw_reset_at <= ?)')
+    .run(hash, now.toISOString(), req.user.id, cutoff);
+  if (!r.changes) {
+    const again = d.prepare('SELECT pw_reset_at FROM users WHERE id = ?').get(req.user.id);
+    throw new HttpError(429, 'reset_limit', { retryAt: new Date(Date.parse(again.pw_reset_at) + RESET_COOLDOWN_MS).toISOString() });
+  }
+  res.json({ name: u.name, email: u.email, generatedPassword: pw, nextResetAt: new Date(now.getTime() + RESET_COOLDOWN_MS).toISOString() });
 }));
 
 // Portabilité des données (loi 09-08 / RGPD).

@@ -14,20 +14,30 @@ function password(v) {
   return p;
 }
 
+const crypto = require('crypto');
+const PW_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+function generatePassword(len = 12) {
+  let out = '';
+  for (let i = 0; i < len; i++) out += PW_ALPHABET[crypto.randomInt(PW_ALPHABET.length)];
+  return out;
+}
+module.exports.generatePassword = generatePassword;
+
 router.post('/register', limiter, wrap(async (req, res) => {
   const name = str(req.body.name, { min: 2, max: 80, field: 'name' });
   const email = str(req.body.email, { min: 5, max: 160, field: 'email' }).toLowerCase();
   if (!EMAIL_RE.test(email)) throw bad('invalid_email');
-  const pw = password(req.body.password);
   if (!req.body.acceptTerms) throw bad('terms_required');
   const locale = req.body.locale === 'fr' ? 'fr' : 'ar';
+  // كلمة السر تُولَّد تلقائياً — لا يُقبل إرسالها من العميل
+  const pw = generatePassword();
   const d = db.get();
   if (d.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) throw new HttpError(409, 'email_taken');
   const info = d.prepare('INSERT INTO users (email, name, password_hash, locale) VALUES (?,?,?,?)')
     .run(email, name, await auth.hashPassword(pw), locale);
   const user = d.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
   auth.issueSession(res, user);
-  res.status(201).json({ user: auth.publicUser(user) });
+  res.status(201).json({ user: auth.publicUser(user), generatedPassword: pw });
 }));
 
 router.post('/login', limiter, wrap(async (req, res) => {
