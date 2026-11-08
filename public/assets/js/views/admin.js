@@ -136,6 +136,28 @@ export async function statsView(root) {
   });
 }
 
+// --- Actions unifiées pour toutes les listes d'administration ------------------------
+const actBtn = (act, id, icon, label, cls = '') => html`<button class="act-btn ${cls}" type="button" data-act="${act}" data-id="${id}" title="${label}" aria-label="${label}"><span aria-hidden="true">${icon}</span><span class="act-lbl">${label}</span></button>`;
+const actLink = (href, icon, label) => html`<a class="act-btn" href="${href}" title="${label}" aria-label="${label}"><span aria-hidden="true">${icon}</span><span class="act-lbl">${label}</span></a>`;
+// Même jeu de boutons partout : عرض · معاينة · تعديل · إخفاء/إظهار · حذف
+export function rowActions({ id, viewHref, editHref, preview, hidden, hide = true, del = true, extra = '' }) {
+  return html`<div class="act-row">
+    ${viewHref ? actLink(viewHref, '📄', t('admin.view')) : ''}
+    ${preview ? actBtn('preview', id, '👁', t('admin.preview')) : ''}
+    ${editHref ? actLink(editHref, '✏️', t('common.edit')) : ''}
+    ${hide ? actBtn(hidden ? 'show' : 'hide', id, hidden ? '👁️' : '🚫', hidden ? t('admin.show') : t('admin.hide')) : ''}
+    ${extra}
+    ${del ? actBtn('delete', id, '🗑', t('common.delete'), 'act-danger') : ''}
+  </div>`;
+}
+function bindActions(root, handlers) {
+  root.querySelectorAll('button[data-act]').forEach((b) => {
+    const fn = handlers[b.dataset.act];
+    if (fn) b.onclick = () => fn(b.dataset.id, b);
+  });
+}
+const statusPill = (visible) => html`<span class="pill ${visible ? 'pill-success' : 'pill-warning'}">${visible ? t('admin.visible') : t('admin.hidden')}</span>`;
+
 // --- Questions -------------------------------------------------------------------
 const STATUSES = ['published', 'draft', 'archived'];
 
@@ -173,27 +195,19 @@ export async function questionsView(root, { query }) {
         <a class="btn btn-primary" href="/admin/questions/new">+ ${t('common.new')}</a>
       </form>
       <p class="muted small">${t('admin.results', { n: data.total })}</p>
-      <div class="card" style="overflow:auto"><table class="table"><thead><tr><th>#</th><th>${t('admin.text')}</th><th>${t('admin.category')}</th><th>${t('admin.status')}</th><th>${t('admin.success')}</th><th></th></tr></thead><tbody>
-        ${data.items.map((r) => {
+      <div class="card" style="overflow:auto"><table class="table list-table"><thead><tr><th>#</th><th>${t('admin.text')}</th><th>${t('admin.category')}</th><th>${t('admin.status')}</th><th>${t('admin.success')}</th><th>${t('common.actions')}</th></tr></thead><tbody>
+        ${data.items.length ? data.items.map((r) => {
           const c = catById.get(r.category_id);
-          const isArchived = r.status === 'archived';
-          const isHidden = r.status === 'draft';
-          return html`<tr style="${isArchived ? 'opacity:.5' : ''}">
-            <td><a href="/admin/questions/${r.id}">${r.id}</a></td>
+          const hidden = r.status !== 'published';
+          return html`<tr style="${hidden ? 'opacity:.6' : ''}">
+            <td>${r.id}</td>
             <td><a href="/admin/questions/${r.id}">${r.text}</a></td>
             <td class="small">${c ? `${c.icon || ''} ${catName(c)}` : '—'}</td>
-            <td><span class="pill pill-${r.status}">${t('status.' + r.status)}</span></td>
+            <td>${statusPill(!hidden)}</td>
             <td>${r.success ?? '—'}${r.success != null ? '%' : ''}</td>
-            <td class="row" style="gap:4px;justify-content:flex-end">
-              <a class="btn btn-ghost btn-sm" href="/admin/questions/${r.id}" title="${t('common.edit')}">✏️</a>
-              <button class="btn btn-ghost btn-sm q-preview-btn" data-id="${r.id}" title="${t('admin.preview')}">👁</button>
-              ${!isHidden && !isArchived ? html`<button class="btn btn-ghost btn-sm q-status-btn" data-id="${r.id}" data-status="draft" title="${t('admin.hide')}">🙈</button>` : ''}
-              ${isHidden ? html`<button class="btn btn-ghost btn-sm q-status-btn" data-id="${r.id}" data-status="published" title="${t('admin.publish')}">👁️</button>` : ''}
-              ${!isArchived ? html`<button class="btn btn-ghost btn-sm q-status-btn" data-id="${r.id}" data-status="archived" title="${t('admin.archive')}">📦</button>` : ''}
-              ${isArchived ? html`<button class="btn btn-ghost btn-sm q-status-btn" data-id="${r.id}" data-status="published" title="${t('admin.publish')}">♻️</button>` : ''}
-            </td>
+            <td>${rowActions({ id: r.id, editHref: `/admin/questions/${r.id}`, preview: true, hidden })}</td>
           </tr>`;
-        })}
+        }) : html`<tr><td colspan="6" class="muted">${t('common.none')}</td></tr>`}
       </tbody></table></div>
       ${pages > 1 ? html`<div class="row" style="justify-content:center;margin-top:12px;gap:8px">
         ${page > 1 ? html`<a class="btn btn-secondary btn-sm" href="${link(page - 1)}">‹</a>` : ''}
@@ -209,26 +223,19 @@ export async function questionsView(root, { query }) {
     form.onsubmit = (e) => { e.preventDefault(); submit(); };
     form.elements.category.onchange = submit;
     form.elements.status.onchange = submit;
-    // أزرار تغيير الحالة من القائمة مباشرة
-    root.querySelectorAll('.q-status-btn').forEach((btn) => {
-      btn.onclick = async () => {
-        const qid = btn.dataset.id;
-        const newStatus = btn.dataset.status;
-        try {
-          const existing = await api.get(`/admin/questions/${qid}`);
-          await api.put(`/admin/questions/${qid}`, { ...existing, categoryId: existing.category_id, imageAlt: existing.image_alt, audioText: existing.audio_text, status: newStatus });
-          navigate(`/admin/questions?${new URLSearchParams({ q, page: String(page), ...(category ? { category } : {}), ...(status ? { status } : {}) })}`);
-        } catch (err) { toast(errorMessage(err), 'error'); }
-      };
-    });
-    // أزرار معاينة السؤال
-    root.querySelectorAll('.q-preview-btn').forEach((btn) => {
-      btn.onclick = async () => {
-        try {
-          const qd = await api.get(`/admin/questions/${btn.dataset.id}`);
-          showQuestionPreview(qd);
-        } catch (err) { toast(errorMessage(err), 'error'); }
-      };
+    const back = () => navigate(`/admin/questions?${new URLSearchParams({ q, page: String(page), ...(category ? { category } : {}), ...(status ? { status } : {}) })}`);
+    const setStatus = async (qid, newStatus) => {
+      const existing = await api.get(`/admin/questions/${qid}`);
+      await api.put(`/admin/questions/${qid}`, { ...existing, categoryId: existing.category_id, imageAlt: existing.image_alt, audioText: existing.audio_text, status: newStatus });
+    };
+    bindActions(root, {
+      preview: async (id) => { try { showQuestionPreview(await api.get(`/admin/questions/${id}`)); } catch (err) { toast(errorMessage(err), 'error'); } },
+      hide: async (id) => { try { await setStatus(id, 'draft'); toast(t('common.saved')); back(); } catch (err) { toast(errorMessage(err), 'error'); } },
+      show: async (id) => { try { await setStatus(id, 'published'); toast(t('common.saved')); back(); } catch (err) { toast(errorMessage(err), 'error'); } },
+      delete: async (id) => {
+        if (!(await confirmDialog(t('admin.confirmDelete'), { danger: true }))) return;
+        try { await api.del(`/admin/questions/${id}`); back(); } catch (err) { toast(errorMessage(err), 'error'); }
+      },
     });
   });
 }
@@ -503,32 +510,31 @@ export async function seriesView(root) {
     const list = await api.get('/admin/series');
     shell(root, '/admin/series', html`
       <div class="row" style="margin-bottom:16px"><span class="spacer"></span><a class="btn btn-primary" href="/admin/series/new">+ ${t('admin.newSeries')}</a></div>
-      <div class="card" style="overflow:auto"><table class="table"><thead><tr><th>${t('admin.order')}</th><th>${t('admin.seriesTitle')}</th><th>${t('admin.questions')}</th><th>${t('admin.status')}</th><th>${t('common.actions')}</th></tr></thead><tbody>
+      <div class="card" style="overflow:auto"><table class="table list-table"><thead><tr><th>${t('admin.order')}</th><th>${t('admin.seriesTitle')}</th><th>${t('admin.questions')}</th><th>${t('admin.status')}</th><th>${t('common.actions')}</th></tr></thead><tbody>
         ${list.length ? list.map((s) => html`<tr style="${s.published ? '' : 'opacity:.6'}"><td>${s.sort}</td><td><a href="/admin/series/${s.id}">${s.title}</a></td><td>${s.questionIds.length}</td>
-          <td><span class="pill ${s.published ? 'pill-success' : 'pill-warning'}">${s.published ? t('admin.visible') : t('admin.hidden')}</span></td>
-          <td class="row" style="gap:6px;flex-wrap:wrap">
-            <a class="btn btn-secondary btn-sm" href="/admin/series/${s.id}">${t('common.edit')}</a>
-            <button class="btn btn-ghost btn-sm series-preview-btn" data-id="${s.id}" data-title="${s.title}" type="button">👁 ${t('admin.preview')}</button>
-            <button class="btn btn-secondary btn-sm" data-toggle="${s.id}" type="button">${s.published ? '🚫 ' + t('admin.hide') : '👁️ ' + t('admin.show')}</button>
-            <button class="btn btn-danger btn-sm" data-del="${s.id}" type="button">${t('common.delete')}</button></td></tr>`)
+          <td>${statusPill(!!s.published)}</td>
+          <td>${rowActions({ id: s.id, editHref: `/admin/series/${s.id}`, preview: true, hidden: !s.published })}</td></tr>`)
           : html`<tr><td colspan="5" class="muted">${t('common.none')}</td></tr>`}
       </tbody></table></div>`);
-    root.querySelectorAll('.series-preview-btn').forEach((b) => b.onclick = async () => {
-      try {
-        const series = list.find((x) => String(x.id) === b.dataset.id);
-        const qs = await Promise.all((series.questionIds || []).slice(0, 10).map((id) => api.get(`/admin/questions/${id}`)));
-        showSeriesPreview(b.dataset.title, qs, series.questionIds.length);
-      } catch (err) { toast(errorMessage(err), 'error'); }
-    });
-    root.querySelectorAll('[data-toggle]').forEach((b) => b.onclick = async () => {
-      const s = list.find((x) => String(x.id) === b.dataset.toggle);
-      b.disabled = true;
-      try { await api.put(`/admin/series/${s.id}`, seriesBody(s, { published: !s.published })); toast(t('common.saved')); await seriesView(root); }
-      catch (err) { b.disabled = false; toast(errorMessage(err), 'error'); }
-    });
-    root.querySelectorAll('[data-del]').forEach((b) => b.onclick = async () => {
-      if (!(await confirmDialog(t('admin.confirmDelete'), { danger: true }))) return;
-      try { await api.del(`/admin/series/${b.dataset.del}`); await seriesView(root); } catch (err) { toast(errorMessage(err), 'error'); }
+    const find = (id) => list.find((x) => String(x.id) === String(id));
+    const toggle = async (id, published) => {
+      try { await api.put(`/admin/series/${id}`, seriesBody(find(id), { published })); toast(t('common.saved')); await seriesView(root); }
+      catch (err) { toast(errorMessage(err), 'error'); }
+    };
+    bindActions(root, {
+      preview: async (id) => {
+        try {
+          const series = find(id);
+          const qs = await Promise.all((series.questionIds || []).slice(0, 10).map((qid) => api.get(`/admin/questions/${qid}`)));
+          showSeriesPreview(series.title, qs, series.questionIds.length);
+        } catch (err) { toast(errorMessage(err), 'error'); }
+      },
+      hide: (id) => toggle(id, false),
+      show: (id) => toggle(id, true),
+      delete: async (id) => {
+        if (!(await confirmDialog(t('admin.confirmDelete'), { danger: true }))) return;
+        try { await api.del(`/admin/series/${id}`); await seriesView(root); } catch (err) { toast(errorMessage(err), 'error'); }
+      },
     });
   });
 }
@@ -669,24 +675,31 @@ export async function lessonsAdminView(root) {
     const list = await api.get('/admin/lessons');
     shell(root, '/admin/lessons', html`
       <div class="row" style="margin-bottom:16px"><span class="spacer"></span><a class="btn btn-primary" href="/admin/lessons/new">+ ${t('common.new')}</a></div>
-      <div class="card" style="overflow:auto"><table class="table"><thead><tr><th>#</th><th>${t('admin.title_fr')}</th><th>slug</th><th>${t('admin.status')}</th><th></th></tr></thead><tbody>
-        ${list.map((l) => html`<tr style="${l.published ? '' : 'opacity:.6'}">
+      <div class="card" style="overflow:auto"><table class="table list-table"><thead><tr><th>#</th><th>${t('admin.title_fr')}</th><th>slug</th><th>${t('admin.status')}</th><th>${t('common.actions')}</th></tr></thead><tbody>
+        ${list.length ? list.map((l) => html`<tr style="${l.published ? '' : 'opacity:.6'}">
           <td>${l.sort}</td>
           <td><a href="/admin/lessons/${l.id}">${l.title}</a></td>
           <td class="small muted">${l.slug}</td>
-          <td>${l.published ? html`<span class="pill pill-success">${t('admin.visible')}</span>` : html`<span class="pill">${t('admin.hidden')}</span>`}</td>
-          <td class="row" style="gap:6px;justify-content:flex-end">
-            <a class="btn btn-secondary btn-sm" href="/admin/lessons/${l.id}">${t('common.edit')}</a>
-            <button class="btn btn-ghost btn-sm lesson-preview-btn" data-id="${l.id}" type="button">👁 ${t('admin.preview')}</button>
-          </td>
-        </tr>`)}
+          <td>${statusPill(!!l.published)}</td>
+          <td>${rowActions({ id: l.id, viewHref: `/lessons/${l.slug}`, editHref: `/admin/lessons/${l.id}`, preview: true, hidden: !l.published })}</td>
+        </tr>`) : html`<tr><td colspan="5" class="muted">${t('common.none')}</td></tr>`}
       </tbody></table></div>`);
-    root.querySelectorAll('.lesson-preview-btn').forEach((b) => b.onclick = async () => {
+    const find = (id) => list.find((x) => String(x.id) === String(id));
+    const toggle = async (id, published) => {
+      const l = find(id);
       try {
-        const lessons = await api.get('/admin/lessons');
-        const l = lessons.find((x) => String(x.id) === b.dataset.id);
-        if (l) showLessonPreview(l);
+        await api.put(`/admin/lessons/${id}`, { title: l.title, slug: l.slug, summary: l.summary || '', body: l.body || '', minutes: l.minutes, sort: l.sort, published, categoryId: l.category_id || null });
+        toast(t('common.saved')); await lessonsAdminView(root);
       } catch (err) { toast(errorMessage(err), 'error'); }
+    };
+    bindActions(root, {
+      preview: (id) => { const l = find(id); if (l) showLessonPreview(l); },
+      hide: (id) => toggle(id, false),
+      show: (id) => toggle(id, true),
+      delete: async (id) => {
+        if (!(await confirmDialog(t('admin.confirmDelete'), { danger: true }))) return;
+        try { await api.del(`/admin/lessons/${id}`); await lessonsAdminView(root); } catch (err) { toast(errorMessage(err), 'error'); }
+      },
     });
   });
 }
@@ -747,9 +760,23 @@ export async function studentsView(root) {
   await load(root, '/admin/students', async () => {
     const list = await api.get('/admin/students');
     shell(root, '/admin/students', html`
-      <div class="card" style="overflow:auto"><table class="table"><thead><tr><th>${t('admin.name')}</th><th>${t('admin.email')}</th><th>${t('admin.exams')}</th><th>${t('admin.lastActivity')}</th></tr></thead><tbody>
-        ${list.length ? list.map((u) => html`<tr><td><a href="/admin/students/${u.id}">${u.name}</a></td><td>${u.email}</td><td>${u.exams_passed}/${u.exams}</td><td>${u.last_activity ? fmtDate(u.last_activity) : '—'}</td></tr>`) : html`<tr><td class="muted">${t('common.none')}</td></tr>`}
+      <div class="card" style="overflow:auto"><table class="table list-table"><thead><tr><th>${t('admin.name')}</th><th>${t('admin.email')}</th><th>${t('admin.exams')}</th><th>${t('admin.lastActivity')}</th><th>${t('admin.status')}</th><th>${t('common.actions')}</th></tr></thead><tbody>
+        ${list.length ? list.map((u) => html`<tr style="${u.active ? '' : 'opacity:.6'}"><td><a href="/admin/students/${u.id}">${u.name}</a></td><td class="small">${u.email}</td><td>${u.exams_passed}/${u.exams}</td><td>${u.last_activity ? fmtDate(u.last_activity) : '—'}</td>
+          <td>${statusPill(!!u.active)}</td>
+          <td>${rowActions({ id: u.id, viewHref: `/admin/students/${u.id}`, hidden: !u.active })}</td></tr>`) : html`<tr><td colspan="6" class="muted">${t('common.none')}</td></tr>`}
       </tbody></table></div>`);
+    const toggle = async (id, active) => {
+      try { await api.patch(`/admin/school/students/${id}`, { active }); toast(t('common.saved')); await studentsView(root); }
+      catch (err) { toast(errorMessage(err), 'error'); }
+    };
+    bindActions(root, {
+      hide: (id) => toggle(id, false),
+      show: (id) => toggle(id, true),
+      delete: async (id) => {
+        if (!(await confirmDialog(t('admin.confirmDelete'), { danger: true }))) return;
+        try { await api.del(`/admin/school/students/${id}`); await studentsView(root); } catch (err) { toast(errorMessage(err), 'error'); }
+      },
+    });
   });
 }
 
@@ -1057,20 +1084,16 @@ export async function usersView(root) {
           <button class="btn btn-primary btn-sm" id="btn-add-user">＋ ${t('admin.addUser')}</button>
         </div>
         <div id="add-form-wrap"></div>
-        <div class="card table-wrap"><table class="table"><thead><tr>
-          <th>${t('admin.name')}</th><th>${t('admin.email')}</th><th>${t('admin.role')}</th><th>${t('admin.active')}</th><th>${t('admin.school')}</th><th></th>
+        <div class="card table-wrap"><table class="table list-table"><thead><tr>
+          <th>${t('admin.name')}</th><th>${t('admin.email')}</th><th>${t('admin.role')}</th><th>${t('admin.status')}</th><th>${t('admin.school')}</th><th>${t('common.actions')}</th>
         </tr></thead><tbody>
-          ${list.map((u) => html`<tr class="${u.active ? '' : 'muted'}">
+          ${list.map((u) => html`<tr style="${u.active ? '' : 'opacity:.6'}">
             <td>${u.name}</td>
             <td style="font-size:.85rem">${u.email}</td>
             <td><span class="pill">${t('role.' + u.role)}</span></td>
-            <td><input type="checkbox" data-active="${u.id}" ${u.active ? raw('checked') : ''} aria-label="${t('admin.active')}" title="${u.active ? 'إيقاف الحساب' : 'تفعيل الحساب'}"></td>
+            <td>${statusPill(!!u.active)}</td>
             <td style="font-size:.8rem">${u.school_id ? (schools.find((x) => x.id === u.school_id)?.name || u.school_id) : '—'}</td>
-            <td style="white-space:nowrap">
-              <button class="btn btn-secondary btn-sm" data-edit="${u.id}" title="تعديل">✏️</button>
-              <button class="btn btn-secondary btn-sm" data-reset="${u.id}" ${resetBlocked(u) ? raw('disabled') : ''} title="${resetBlocked(u) ? 'متاح بعد ' + resetWait(u) : 'توليد كلمة سر جديدة'}">🔑</button>
-              <button class="btn btn-danger btn-sm" data-del="${u.id}" title="${t('admin.deleteUser')}">🗑</button>
-            </td>
+            <td>${rowActions({ id: u.id, hidden: !u.active, extra: html`<button class="act-btn" type="button" data-act="edit" data-id="${u.id}" title="${t('common.edit')}"><span aria-hidden="true">✏️</span><span class="act-lbl">${t('common.edit')}</span></button><button class="act-btn" type="button" data-act="reset" data-id="${u.id}" ${resetBlocked(u) ? raw('disabled') : ''} title="${resetBlocked(u) ? 'متاح بعد ' + resetWait(u) : 'توليد كلمة سر جديدة'}"><span aria-hidden="true">🔑</span><span class="act-lbl">كلمة سر</span></button>` })}</td>
           </tr>`)}
         </tbody></table></div>`);
 
@@ -1080,35 +1103,36 @@ export async function usersView(root) {
       };
       renderForm();
 
-      root.querySelectorAll('[data-active]').forEach((c) => c.onchange = async () => {
-        try { await api.patch(`/admin/users/${c.dataset.active}`, { active: c.checked }); toast(t('common.saved')); await refresh(); render(); }
+      const setActive = async (id, active) => {
+        try { await api.patch(`/admin/users/${id}`, { active }); toast(t('common.saved')); await refresh(); render(); }
         catch (err) { toast(errorMessage(err), 'error'); await refresh(); render(); }
-      });
-      root.querySelectorAll('[data-reset]').forEach((b) => b.onclick = async () => {
-        const u = list.find((x) => String(x.id) === b.dataset.reset);
-        if (!confirm(`توليد كلمة سر جديدة لـ ${u?.name}؟\nستُلغى كلمة السر الحالية، ويمكن تكرار ذلك مرة واحدة فقط كل 24 ساعة.`)) return;
-        b.disabled = true;
-        try {
-          const r = await api.post(`/admin/users/${b.dataset.reset}/reset-password`);
-          await refresh(); render();
-          await showCredentials({ email: r.email, password: r.generatedPassword, name: r.name });
-        } catch (err) {
-          if (err.code === 'reset_limit') toast(`مسموح مرة واحدة كل 24 ساعة. جرّب بعد ${fmtWait(err.details?.retryAt)}`, 'error');
-          else toast(errorMessage(err), 'error');
-          await refresh(); render();
-        }
-      });
-      root.querySelectorAll('[data-edit]').forEach((b) => b.onclick = async () => {
-        try {
-          editUser = await api.get(`/admin/users/${b.dataset.edit}`);
-          formMode = 'edit';
-          renderForm();
-        } catch (err) { toast(errorMessage(err), 'error'); }
-      });
-      root.querySelectorAll('[data-del]').forEach((b) => b.onclick = async () => {
-        if (!confirm(t('admin.confirmDelete'))) return;
-        try { await api.del(`/admin/users/${b.dataset.del}`); await refresh(); render(); }
-        catch (err) { toast(errorMessage(err), 'error'); }
+      };
+      bindActions(root, {
+        hide: (id) => setActive(id, false),
+        show: (id) => setActive(id, true),
+        edit: async (id) => {
+          try { editUser = await api.get(`/admin/users/${id}`); formMode = 'edit'; renderForm(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+          catch (err) { toast(errorMessage(err), 'error'); }
+        },
+        reset: async (id, b) => {
+          const u = list.find((x) => String(x.id) === String(id));
+          if (!(await confirmDialog(`توليد كلمة سر جديدة لـ ${u?.name}؟ ستُلغى كلمة السر الحالية، ويمكن تكرار ذلك مرة واحدة فقط كل 24 ساعة.`))) return;
+          b.disabled = true;
+          try {
+            const r = await api.post(`/admin/users/${id}/reset-password`);
+            await refresh(); render();
+            await showCredentials({ email: r.email, password: r.generatedPassword, name: r.name });
+          } catch (err) {
+            if (err.code === 'reset_limit') toast(`مسموح مرة واحدة كل 24 ساعة. جرّب بعد ${fmtWait(err.details?.retryAt)}`, 'error');
+            else toast(errorMessage(err), 'error');
+            await refresh(); render();
+          }
+        },
+        delete: async (id) => {
+          if (!(await confirmDialog(t('admin.confirmDelete'), { danger: true }))) return;
+          try { await api.del(`/admin/users/${id}`); await refresh(); render(); }
+          catch (err) { toast(errorMessage(err), 'error'); }
+        },
       });
     }
     render();

@@ -2104,3 +2104,17 @@ dialog::backdrop { background: rgb(12 10 9 / .7); backdrop-filter: blur(4px); }
   .q-pad { grid-template-columns: repeat(4, 36px); grid-auto-rows: 36px; min-height: 36px; }
   .q-pad-btn { width: 36px; height: 36px; }
 }
+
+/* Actions unifiées des listes d'administration */
+.list-table td { vertical-align: middle; }
+.act-row { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.act-btn {
+  display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; min-height: 32px;
+  border: 1px solid var(--border, #ddd); border-radius: 8px; background: var(--surface, #fff);
+  color: inherit; font: inherit; font-size: .8rem; line-height: 1; cursor: pointer; text-decoration: none; white-space: nowrap;
+}
+.act-btn:hover { background: var(--primary-soft, #eef); border-color: var(--primary-mid, #99f); }
+.act-btn:disabled { opacity: .45; cursor: not-allowed; }
+.act-btn.act-danger { color: var(--danger, #c00); }
+.act-btn.act-danger:hover { background: var(--danger-soft, #fee); border-color: var(--danger-mid, #f99); }
+@media (max-width: 760px) { .act-btn .act-lbl { display: none; } .act-btn { padding: 6px 9px; } }
