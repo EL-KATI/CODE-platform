@@ -88,15 +88,21 @@ export function schoolTabs() {
   return [['/admin', 'admin.stats'], ['/admin/school/students', 'school.manageStudents'], ['/admin/school/instructors', 'school.manageInstructors'], ['/admin/bookings', 'nav.bookings'], ['/admin/exams', 'nav.exams']];
 }
 // المدرب: طلابه + حجوزاتهم
-const INSTRUCTOR_TABS = [['/admin/students', 'admin.students'], ['/admin/bookings', 'nav.bookings']];
+const INSTRUCTOR_TABS = [['/admin', 'admin.stats'], ['/admin/students', 'admin.students'], ['/admin/bookings', 'nav.bookings']];
+// الأدمن: كل الصفحات
+const ADMIN_TABS = [...ADMIN_TABS_CONTENT, ...ADMIN_TABS_MANAGE];
 
+/** يُستعمل من app.js لبناء القائمة الجانبية */
+export function getStaffTabs() {
+  if (store.isSchool()) return schoolTabs();
+  if (store.isInstructor()) return INSTRUCTOR_TABS;
+  return ADMIN_TABS;
+}
+
+/** shell: للمؤسسة والمدرب والأدمن — المؤسسة والمدرب لا يحتاجان تبويبات علوية (القائمة الجانبية تكفي) */
 export function shell(root, current, body) {
-  let tabs;
-  if (store.isSchool()) tabs = schoolTabs();
-  else if (store.isInstructor()) tabs = INSTRUCTOR_TABS;
-  else tabs = [...ADMIN_TABS_CONTENT, ...(store.isAdmin() ? ADMIN_TABS_MANAGE : [])];
-
-  if (store.isSchool()) { root.innerHTML = html`${body}`.s; return; }
+  if (store.isSchool() || store.isInstructor()) { root.innerHTML = html`${body}`.s; return; }
+  const tabs = [...ADMIN_TABS_CONTENT, ...(store.isAdmin() ? ADMIN_TABS_MANAGE : [])];
   root.innerHTML = html`<div class="page-head"><div><h1>${t('admin.title')}</h1></div></div>
     <nav class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:20px" aria-label="${t('admin.title')}">
       ${tabs.map(([href, key]) => html`<a class="btn ${href === current ? 'btn-primary' : 'btn-secondary'}" href="${href}">${t(key)}</a>`)}
@@ -760,12 +766,24 @@ export async function lessonEditView(root, { params }) {
 export async function studentsView(root) {
   if (store.isSchool()) return navigate('/admin/school/students', { replace: true });
   await load(root, '/admin/students', async () => {
-    const list = await api.get('/admin/students');
-    shell(root, '/admin/students', html`
-      <div class="card" style="overflow:auto"><table class="table list-table"><thead><tr><th>${t('admin.name')}</th><th>${t('admin.email')}</th><th>${t('admin.exams')}</th><th>التقدم</th><th>${t('admin.lastActivity')}</th><th>${t('admin.status')}</th></tr></thead><tbody>
-        ${list.length ? list.map((u) => html`<tr style="${u.active ? '' : 'opacity:.6'}"><td><a href="/admin/students/${u.id}">${u.name}</a></td><td class="small">${u.email}</td><td>${u.exams_passed}/${u.exams}</td><td style="min-width:110px"><div style="height:8px;border-radius:99px;background:var(--border,#ddd);overflow:hidden"><div style="height:100%;width:${u.progress || 0}%;background:var(--success,#16a34a)"></div></div><span class="small">${u.progress || 0}%</span></td><td>${u.last_activity ? fmtDate(u.last_activity) : '—'}</td>
-          <td>${statusPill(!!u.active, 'نشيط', 'موقوف')}</td></tr>`) : html`<tr><td colspan="6" class="muted">${t('common.none')}</td></tr>`}
-      </tbody></table></div>`);
+    const draw = async () => {
+      const list = await api.get('/admin/students');
+      shell(root, '/admin/students', html`
+        <div class="card" style="overflow:auto"><table class="table list-table"><thead><tr>
+          <th>${t('admin.name')}</th><th>${t('admin.email')}</th><th>${t('admin.exams')}</th><th>التقدم</th><th>${t('admin.lastActivity')}</th><th>${t('admin.status')}</th>
+        </tr></thead><tbody>
+          ${list.length ? list.map((u) => html`<tr style="${u.active ? '' : 'opacity:.6'}">
+            <td><a data-view="${u.id}">${u.name}</a></td>
+            <td class="small">${u.email}</td>
+            <td>${u.exams_passed}/${u.exams}</td>
+            <td style="min-width:110px"><div style="height:8px;border-radius:99px;background:var(--border,#ddd);overflow:hidden"><div style="height:100%;width:${u.progress || 0}%;background:var(--success,#16a34a)"></div></div><span class="small">${u.progress || 0}%</span></td>
+            <td>${u.last_activity ? fmtDate(u.last_activity) : '—'}</td>
+            <td>${statusPill(!!u.active, 'نشيط', 'موقوف')}</td>
+          </tr>`) : html`<tr><td colspan="6" class="muted">${t('common.none')}</td></tr>`}
+        </tbody></table></div>`);
+      import('./userModal.js').then(({ bindUserLinks }) => bindUserLinks(root, draw));
+    };
+    await draw();
   });
 }
 
@@ -991,143 +1009,74 @@ export function showCredentials({ email, password, name }) {
 
 export async function usersView(root) {
   await load(root, '/admin/users', async () => {
-    const list = await api.get('/admin/users');
-    const schools = list.filter((x) => x.role === 'school');
-    let formMode = null;      // null | 'add' | 'edit'
-    let editUser = null;
-    let addRole = 'student';
+    const { openUserView, openUserForm } = await import('./userModal.js');
 
-    const refresh = async () => {
-      const updated = await api.get('/admin/users');
-      list.splice(0, list.length, ...updated);
-      schools.splice(0, schools.length, ...updated.filter((x) => x.role === 'school'));
-    };
+    const fetchList = () => api.get('/admin/users');
+    let list = await fetchList();
+    const schools = () => list.filter((x) => x.role === 'school');
 
-    function renderForm() {
-      const wrap = root.querySelector('#add-form-wrap');
-      if (!wrap) return;
-      wrap.innerHTML = '';
-      if (!formMode) return;
-      const editing = formMode === 'edit';
-      const role = editing ? editUser.role : addRole;
-      const div = document.createElement('div');
-      div.className = 'card';
-      div.style.marginBottom = '16px';
-      div.innerHTML = `<h3 style="margin-top:0">${editing ? '✏️ تعديل بيانات: ' + String(editUser.name).replace(/</g, '&lt;') : t('admin.addUser')}</h3>
-        <form id="user-form" class="stack" style="max-width:680px">
-          ${editing
-            ? `<input type="hidden" name="role" value="${role}"><p class="muted small" style="margin:0">${t('admin.role')}: <b>${t('role.' + role)}</b> — لا يمكن تغيير الدور بعد الإنشاء</p>`
-            : `<label>${t('admin.role')}
-                <select class="input" name="role" id="role-select">
-                  ${['student', 'school', 'admin'].map((r) => `<option value="${r}" ${r === role ? 'selected' : ''}>${t('role.' + r)}</option>`).join('')}
-                </select></label>`}
-          <div id="role-extra-fields">${roleExtraFields(role, schools)}</div>
-          ${editing ? '' : '<p class="muted small" style="margin:0">🔑 تُولَّد كلمة سر عشوائية خاصة عند الحفظ وتظهر مرة واحدة.</p>'}
-          <div style="display:flex;gap:8px">
-            <button class="btn btn-primary" type="submit">${t('common.save')}</button>
-            <button class="btn btn-secondary" type="button" id="btn-cancel-user">${t('common.cancel')}</button>
-          </div>
-        </form>`;
-      wrap.appendChild(div);
-      const form = div.querySelector('#user-form');
-      if (editing) fillUserForm(form, editUser);
+    const refresh = async () => { list = await fetchList(); };
 
-      const roleSelect = div.querySelector('#role-select');
-      if (roleSelect) roleSelect.onchange = () => { addRole = roleSelect.value; renderForm(); };
-      div.querySelector('#btn-cancel-user').onclick = () => { formMode = null; editUser = null; renderForm(); };
-      div.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-
-      form.onsubmit = async (e) => {
-        e.preventDefault();
-        const submitBtn = div.querySelector('button[type="submit"]');
-        if (submitBtn.disabled) return;
-        submitBtn.disabled = true;
-        const fd = new FormData(form);
-        const body = {};
-        for (const [k, v] of fd.entries()) {
-          if (k.startsWith('valid_cat_')) continue;
-          const val = typeof v === 'string' ? v.trim() : v;
-          if (editing) body[k] = val; else if (val !== '') body[k] = val;
-        }
-        if (role === 'student') body.valid_categories = JSON.stringify(ALL_CATS.filter((c) => fd.get('valid_cat_' + c)));
-        try {
-          if (editing) {
-            await api.patch(`/admin/users/${editUser.id}`, body);
-            toast(t('common.saved'));
-            formMode = null; editUser = null;
-            await refresh(); render();
-          } else {
-            const created = await api.post('/admin/users', body);
-            formMode = null; addRole = 'student';
-            await refresh(); render();
-            await showCredentials({ email: created.email, password: created.generatedPassword, name: created.name });
-          }
-        } catch (err) {
-          submitBtn.disabled = false;
-          toast(errorMessage(err), 'error');
-        }
-      };
-    }
-
-    function render() {
+    const render = async () => {
+      const sch = schools();
       shell(root, '/admin/users', html`
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
           <h2 style="margin:0">${t('admin.users')}</h2>
           <button class="btn btn-primary btn-sm" id="btn-add-user">＋ ${t('admin.addUser')}</button>
         </div>
-        <div id="add-form-wrap"></div>
         <div class="card table-wrap"><table class="table list-table"><thead><tr>
           <th>${t('admin.name')}</th><th>${t('admin.email')}</th><th>${t('admin.role')}</th><th>${t('admin.status')}</th><th>${t('admin.school')}</th><th>${t('common.actions')}</th>
         </tr></thead><tbody>
           ${list.map((u) => html`<tr style="${u.active ? '' : 'opacity:.6'}">
-            <td>${u.name}</td>
+            <td><a data-view="${u.id}">${u.name}</a></td>
             <td style="font-size:.85rem">${u.email}</td>
             <td><span class="pill">${t('role.' + u.role)}</span></td>
             <td>${statusPill(!!u.active, 'نشيط', 'موقوف')}</td>
-            <td style="font-size:.8rem">${u.school_id ? (schools.find((x) => x.id === u.school_id)?.name || u.school_id) : '—'}</td>
-            <td>${rowActions({ id: u.id, hidden: !u.active, hideLabel: 'إيقاف الحساب', showLabel: 'تفعيل الحساب', extra: html`<button class="act-btn" type="button" data-act="edit" data-id="${u.id}" title="${t('common.edit')}"><span aria-hidden="true">✏️</span><span class="act-lbl">${t('common.edit')}</span></button><button class="act-btn" type="button" data-act="reset" data-id="${u.id}" ${resetBlocked(u) ? raw('disabled') : ''} title="${resetBlocked(u) ? 'متاح بعد ' + resetWait(u) : 'توليد كلمة سر جديدة'}"><span aria-hidden="true">🔑</span><span class="act-lbl">كلمة سر</span></button>` })}</td>
+            <td style="font-size:.8rem">${u.school_id ? (sch.find((x) => x.id === u.school_id)?.name || u.school_id) : '—'}</td>
+            <td>${rowActions({ id: u.id, hidden: !u.active, hideLabel: 'إيقاف الحساب', showLabel: 'تفعيل الحساب',
+              extra: html`<button class="act-btn" type="button" data-act="edit" data-id="${u.id}" title="${t('common.edit')}"><span aria-hidden="true">✏️</span><span class="act-lbl">${t('common.edit')}</span></button>
+                          <button class="act-btn" type="button" data-act="reset" data-id="${u.id}" ${resetBlocked(u) ? raw('disabled') : ''} title="${resetBlocked(u) ? 'متاح بعد ' + resetWait(u) : 'توليد كلمة سر جديدة'}"><span aria-hidden="true">🔑</span><span class="act-lbl">كلمة سر</span></button>` })}</td>
           </tr>`)}
         </tbody></table></div>`);
 
-      root.querySelector('#btn-add-user').onclick = () => {
-        if (formMode === 'add') formMode = null; else { formMode = 'add'; editUser = null; }
-        renderForm();
-      };
-      renderForm();
+      // ربط نقر الاسم بنافذة العرض
+      root.querySelectorAll('[data-view]').forEach((a) => {
+        a.onclick = (e) => { e.preventDefault(); openUserView(a.dataset.view, { onChanged: async () => { await refresh(); await render(); } }); };
+      });
+
+      root.querySelector('#btn-add-user').onclick = () =>
+        openUserForm({ mode: 'add', roles: ['student', 'school', 'admin'], onDone: async () => { await refresh(); await render(); } });
 
       const setActive = async (id, active) => {
-        try { await api.patch(`/admin/users/${id}`, { active }); toast(t('common.saved')); await refresh(); render(); }
-        catch (err) { toast(errorMessage(err), 'error'); await refresh(); render(); }
+        try { await api.patch(`/admin/users/${id}`, { active }); toast(t('common.saved')); await refresh(); await render(); }
+        catch (err) { toast(errorMessage(err), 'error'); }
       };
       bindActions(root, {
         hide: (id) => setActive(id, false),
         show: (id) => setActive(id, true),
-        edit: async (id) => {
-          try { editUser = await api.get(`/admin/users/${id}`); formMode = 'edit'; renderForm(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
-          catch (err) { toast(errorMessage(err), 'error'); }
-        },
+        edit: (id) => openUserForm({ mode: 'edit', id, onDone: async () => { await refresh(); await render(); } }),
         reset: async (id, b) => {
           const u = list.find((x) => String(x.id) === String(id));
           if (!(await confirmDialog(`توليد كلمة سر جديدة لـ ${u?.name}؟ ستُلغى كلمة السر الحالية، ويمكن تكرار ذلك مرة واحدة فقط كل 24 ساعة.`))) return;
           b.disabled = true;
           try {
             const r = await api.post(`/admin/users/${id}/reset-password`);
-            await refresh(); render();
+            await refresh(); await render();
             await showCredentials({ email: r.email, password: r.generatedPassword, name: r.name });
           } catch (err) {
             if (err.code === 'reset_limit') toast(`مسموح مرة واحدة كل 24 ساعة. جرّب بعد ${fmtWait(err.details?.retryAt)}`, 'error');
             else toast(errorMessage(err), 'error');
-            await refresh(); render();
+            await refresh(); await render();
           }
         },
         delete: async (id) => {
           if (!(await confirmDialog(t('admin.confirmDelete'), { danger: true }))) return;
-          try { await api.del(`/admin/users/${id}`); await refresh(); render(); }
+          try { await api.del(`/admin/users/${id}`); await refresh(); await render(); }
           catch (err) { toast(errorMessage(err), 'error'); }
         },
       });
-    }
-    render();
+    };
+    await render();
   });
 }
 
