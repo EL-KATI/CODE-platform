@@ -82,8 +82,29 @@ router.get('/school/stats', auth.requireRole('school'), (req, res) => {
   const prog = rows.map((r) => { let sc = 0; try { sc = progress.dashboard(r.id).readiness.score || 0; } catch { /* ignore */ } return { id: r.id, name: r.name, progress: sc }; });
   const avgProgress = prog.length ? Math.round(prog.reduce((a, r) => a + r.progress, 0) / prog.length) : 0;
   const ready = prog.filter((r) => r.progress >= 70).length;
+  const days = [7, 30, 90].includes(Number(req.query.days)) ? Number(req.query.days) : 30;
+  const examsSeries = d.prepare(`SELECT substr(a.finished_at,1,10) AS d, COUNT(*) AS total, COALESCE(SUM(a.passed),0) AS passed
+    FROM attempts a JOIN users u ON u.id = a.user_id
+    WHERE u.school_id = ? AND u.role = 'student' AND a.mode = 'exam' AND a.finished_at IS NOT NULL
+      AND a.finished_at >= strftime('%Y-%m-%dT%H:%M:%fZ','now','-' || ? || ' days')
+    GROUP BY d ORDER BY d`).all(sid, days);
+  const horizon = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
+  const slots = d.prepare(`SELECT s.id, s.slot_date AS date, s.slot_hour AS hour, s.capacity, s.instructor_id, i.name AS instructor,
+      (SELECT COUNT(*) FROM training_bookings b WHERE b.slot_id = s.id AND b.status IN ('pending','approved','rescheduled')) AS booked,
+      (SELECT COUNT(*) FROM training_bookings b WHERE b.slot_id = s.id AND b.status = 'pending') AS pending
+    FROM training_slots s LEFT JOIN users i ON i.id = s.instructor_id
+    WHERE s.school_id = ? AND s.slot_date BETWEEN ? AND ? ORDER BY s.slot_date, s.slot_hour, i.name`).all(sid, today, horizon);
+  const load = new Map();
+  for (const sl of slots) {
+    const k = sl.instructor_id;
+    if (!load.has(k)) load.set(k, { id: k, name: sl.instructor || '—', seats: 0, booked: 0, slots: 0 });
+    const o = load.get(k); o.seats += sl.capacity; o.booked += sl.booked; o.slots += 1;
+  }
+  const buckets = [0, 0, 0, 0];
+  for (const r of prog) buckets[Math.min(3, Math.floor(r.progress / 25))] += 1;
   res.json({
-    students, instructors, new30, active7, exams, bookings, upcoming, avgProgress, ready,
+    days, students, instructors, new30, active7, exams, bookings, upcoming, avgProgress, ready,
+    examsSeries, slots, instructorLoad: [...load.values()], buckets,
     top: [...prog].sort((a, b) => b.progress - a.progress).slice(0, 5),
     lagging: [...prog].sort((a, b) => a.progress - b.progress).slice(0, 5),
   });
@@ -602,6 +623,7 @@ router.post('/users', schoolOrAdmin, wrap(async (req, res) => {
     console.error('[POST /users] INSERT error:', e.message);
     throw new HttpError(500, 'server_error');
   }
+  if (role === 'school') d.prepare('UPDATE users SET school_id = id WHERE id = ?').run(info.lastInsertRowid);
   db.audit(req.user.id, 'create', 'user', info.lastInsertRowid, { name, email, role });
   res.status(201).json({ id: info.lastInsertRowid, name, email, role, active: 1, generatedPassword: password });
 }));

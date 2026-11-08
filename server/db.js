@@ -367,6 +367,7 @@ function open(file = config.dbFile) {
       })();
     } finally { db.pragma('foreign_keys = ON'); }
   }
+  db.exec("UPDATE users SET school_id = id WHERE role = 'school' AND (school_id IS NULL OR school_id = '')");
   const bkCols = db.prepare('PRAGMA table_info(training_bookings)').all().map((c) => c.name);
   if (!bkCols.includes('instructor_name')) db.exec('ALTER TABLE training_bookings ADD COLUMN instructor_name TEXT');
   if (!userCols.includes('pw_reset_at'))     db.exec('ALTER TABLE users ADD COLUMN pw_reset_at TEXT');

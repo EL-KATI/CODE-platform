@@ -164,35 +164,110 @@ async function managedView(root, role) {
   render();
 }
 
-/* ═══ لوحة إحصائيات المؤسسة — الواجهة الأولى ═══ */
-export async function schoolStatsView(root) {
+/* ═══ لوحة إحصائيات المؤسسة — الواجهة الأولى (تفاعلية) ═══ */
+const HOUR_LBL = { 9: '9:00 ص', 11: '11:00 ص', 15: '3:00 م', 17: '5:00 م' };
+const dayShort = (d) => d.slice(5).replace('-', '/');
+
+export async function schoolStatsView(root, days = 30) {
   root.innerHTML = loading().s;
-  try {
-    const s = await api.get('/admin/school/stats');
-    if (!s) { shell(root, '/admin', html`<div class="empty"><p>${t('common.none')}</p></div>`); return; }
-    const rate = s.exams.total ? Math.round((100 * s.exams.passed) / s.exams.total) : 0;
-    const bk = Object.fromEntries(s.bookings.map((b) => [b.status, b.n]));
-    const card = (label, value, sub = '') => html`<div class="card"><div class="muted small">${label}</div><h2 style="margin:6px 0">${value}</h2>${sub ? html`<div class="small muted">${sub}</div>` : ''}</div>`;
-    const bar = (v) => html`<div style="height:8px;border-radius:99px;background:var(--border,#ddd);overflow:hidden;min-width:90px"><div style="height:100%;width:${v}%;background:var(--success,#16a34a)"></div></div>`;
-    const list = (rows) => rows.length
-      ? html`<table class="table"><tbody>${rows.map((r) => html`<tr><td><a href="/admin/students/${r.id}">${r.name}</a></td><td style="width:40%">${bar(r.progress)}</td><td class="small" style="width:48px">${r.progress}%</td></tr>`)}</tbody></table>`
-      : html`<p class="muted small" style="margin:0">${t('common.none')}</p>`;
-    shell(root, '/admin', html`
-      <div class="grid grid-4">
-        ${card('المتعلمون', s.students.total, `${s.students.active} نشيط · ${s.students.suspended} موقوف · ${s.students.archived} مؤرشف`)}
-        ${card('المدربون', s.instructors.total, `${s.instructors.active} نشيط`)}
-        ${card('جدد آخر 30 يوماً', s.new30)}
-        ${card('نشطون هذا الأسبوع', s.active7)}
-      </div>
-      <div class="grid grid-4" style="margin-top:16px">
-        ${card('متوسط التقدم', `${s.avgProgress}%`, `${s.ready} متعلم جاهز للامتحان (70%+)`)}
-        ${card('نسبة النجاح في الامتحانات', `${rate}%`, `${s.exams.passed}/${s.exams.total}`)}
-        ${card('حصص قادمة مقبولة', s.upcoming)}
-        ${card('طلبات حجز معلقة', bk.pending || 0, `${bk.approved || 0} مقبول · ${bk.cancelled || 0} ملغى`)}
-      </div>
-      <div class="grid grid-2" style="margin-top:24px">
-        <div class="card"><h2 style="margin:0 0 10px;font-size:1rem">🏆 الأعلى تقدماً</h2>${list(s.top)}</div>
-        <div class="card"><h2 style="margin:0 0 10px;font-size:1rem">⚠️ يحتاجون متابعة</h2>${list(s.lagging)}</div>
-      </div>`);
-  } catch (err) { root.innerHTML = html`<div class="empty"><p>${errorMessage(err)}</p></div>`.s; }
+  let s;
+  try { s = await api.get(`/admin/school/stats?days=${days}`); }
+  catch (err) { root.innerHTML = html`<div class="empty"><p>${errorMessage(err)}</p></div>`.s; return; }
+  if (!s) { shell(root, '/admin', html`<div class="empty"><p>${t('common.none')}</p></div>`); return; }
+
+  const rate = s.exams.total ? Math.round((100 * s.exams.passed) / s.exams.total) : 0;
+  const bk = Object.fromEntries(s.bookings.map((b) => [b.status, b.n]));
+  const kpi = (icon, label, value, sub, href) => html`<a class="dash-kpi" href="${href}" data-tip="${label}: ${value}${sub ? ' — ' + sub : ''}">
+    <span class="dash-kpi-ic" aria-hidden="true">${icon}</span><span class="muted small">${label}</span><strong>${value}</strong>${sub ? html`<span class="small muted">${sub}</span>` : ''}</a>`;
+
+  // ── مخطط الامتحانات (أعمدة مكدّسة: ناجح/راسب لكل يوم) ──
+  const ex = s.examsSeries;
+  const maxEx = Math.max(1, ...ex.map((x) => x.total));
+  const examChart = ex.length ? html`<div class="dash-bars" role="img" aria-label="${t('nav.exams')}">${ex.map((x) => {
+    const failed = x.total - x.passed;
+    return html`<div class="dash-bar-col" data-tip="${x.d}: ${x.passed} ناجح · ${failed} راسب"><div class="dash-bar" style="height:${Math.round((100 * x.total) / maxEx)}%"><i style="flex:${failed};background:var(--danger,#dc2626)"></i><i style="flex:${x.passed};background:var(--success,#16a34a)"></i></div><span class="small muted">${dayShort(x.d)}</span></div>`;
+  })}</div>` : html`<p class="muted small">لا امتحانات في هذه الفترة</p>`;
+
+  // ── توزيع التقدم ──
+  const bl = ['0–24%', '25–49%', '50–74%', '75–100%'];
+  const maxB = Math.max(1, ...s.buckets);
+  const progChart = html`${s.buckets.map((n, i) => html`<a class="dash-hrow" href="/admin/school/students" data-tip="${bl[i]}: ${n} متعلم"><span class="small" style="width:70px">${bl[i]}</span><span class="dash-track"><i style="width:${Math.round((100 * n) / maxB)}%;background:${['#dc2626', '#f59e0b', '#2563eb', '#16a34a'][i]}"></i></span><strong class="small" style="width:28px;text-align:end">${n}</strong></a>`)}`;
+
+  // ── حالة الحجوزات (أسطورة قابلة للإخفاء/الإظهار) ──
+  const BK = [['pending', 'قيد الانتظار', '#f59e0b'], ['approved', 'مقبول', '#16a34a'], ['rescheduled', 'تغيير موعد', '#2563eb'], ['rejected', 'مرفوض', '#dc2626'], ['cancelled', 'ملغى', '#94a3b8']];
+
+  // ── حمل المدربين ──
+  const loadChart = s.instructorLoad.length ? html`${s.instructorLoad.map((i) => {
+    const p = i.seats ? Math.round((100 * i.booked) / i.seats) : 0;
+    return html`<a class="dash-hrow" href="/admin/bookings" data-tip="${i.name}: ${i.booked}/${i.seats} مقعد في ${i.slots} حصة (14 يوماً القادمة)"><span class="small" style="width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i.name}</span><span class="dash-track"><i style="width:${p}%;background:${p >= 90 ? '#dc2626' : 'var(--primary,#c2410c)'}"></i></span><strong class="small" style="width:60px;text-align:end">${i.booked}/${i.seats}</strong></a>`;
+  })}` : html`<p class="muted small">لا حصص مجدولة — أضف حصصاً من «حجز التدريب»</p>`;
+
+  // ── الحصص القادمة (مجمّعة حسب اليوم) ──
+  const byDay = {};
+  for (const sl of s.slots) (byDay[sl.date] ||= []).push(sl);
+  const slotsView = Object.keys(byDay).length ? html`${Object.keys(byDay).slice(0, 7).map((dte) => html`<div class="dash-day"><div class="small muted" style="margin-bottom:4px">${dte}</div><div class="dash-chips">${byDay[dte].map((sl) => {
+    const full = sl.booked >= sl.capacity;
+    return html`<a class="dash-chip ${full ? 'is-full' : ''}" href="/admin/bookings" data-tip="${sl.instructor || '—'} — ${HOUR_LBL[sl.hour] || sl.hour}: ${sl.booked}/${sl.capacity}${sl.pending ? ' · ' + sl.pending + ' معلّق' : ''}"><b>${HOUR_LBL[sl.hour] || sl.hour}</b><span class="small">${sl.instructor || '—'}</span><span class="small">${sl.booked}/${sl.capacity}</span></a>`;
+  })}</div></div>`)}` : html`<p class="muted small">لا حصص خلال 14 يوماً القادمة</p>`;
+
+  const list = (rows) => rows.length
+    ? html`${rows.map((r) => html`<a class="dash-hrow" href="/admin/students/${r.id}" data-tip="${r.name}: ${r.progress}%"><span class="small" style="width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.name}</span><span class="dash-track"><i style="width:${r.progress}%;background:var(--success,#16a34a)"></i></span><strong class="small" style="width:40px;text-align:end">${r.progress}%</strong></a>`)}`
+    : html`<p class="muted small">${t('common.none')}</p>`;
+
+  shell(root, '/admin', html`
+    <div class="row" style="margin-bottom:14px;gap:8px;flex-wrap:wrap;align-items:center">
+      <h2 style="margin:0">📊 ${t('admin.stats')}</h2><span class="spacer"></span>
+      <div class="dash-seg" role="group" aria-label="period">${[7, 30, 90].map((d) => html`<button type="button" class="${d === s.days ? 'on' : ''}" data-days="${d}">${d} يوم</button>`)}</div>
+    </div>
+    <div class="dash-kpis">
+      ${kpi('🎓', 'المتعلمون', s.students.active, `${s.students.total} إجمالاً · ${s.students.suspended} موقوف · ${s.students.archived} مؤرشف`, '/admin/school/students')}
+      ${kpi('🧑‍🏫', 'المدربون', s.instructors.active, `${s.instructors.total} إجمالاً`, '/admin/school/instructors')}
+      ${kpi('📈', 'متوسط التقدم', `${s.avgProgress}%`, `${s.ready} جاهز للامتحان`, '/admin/school/students')}
+      ${kpi('📝', 'نجاح الامتحانات', `${rate}%`, `${s.exams.passed}/${s.exams.total}`, '/admin/exams')}
+      ${kpi('📅', 'حصص قادمة مقبولة', s.upcoming, '', '/admin/bookings')}
+      ${kpi('⏳', 'طلبات معلقة', bk.pending || 0, 'تحتاج قراراً', '/admin/bookings')}
+    </div>
+    <div class="grid grid-2" style="margin-top:20px">
+      <div class="card"><h3 class="dash-h">📝 الامتحانات حسب اليوم <span class="small muted">(آخر ${s.days} يوماً)</span></h3>${examChart}
+        <div class="small muted" style="margin-top:8px"><span class="dash-dot" style="background:var(--success,#16a34a)"></span> ناجح <span class="dash-dot" style="background:var(--danger,#dc2626)"></span> راسب</div></div>
+      <div class="card"><h3 class="dash-h">📊 توزيع تقدم المتعلمين</h3>${progChart}</div>
+      <div class="card"><h3 class="dash-h">🧑‍🏫 إشغال المدربين <span class="small muted">(14 يوماً القادمة)</span></h3>${loadChart}</div>
+      <div class="card"><h3 class="dash-h">📅 حالة الحجوزات <span class="small muted">(اضغط للإخفاء/الإظهار)</span></h3>
+        <div class="dash-stack" id="bk-stack"></div><div class="dash-legend" id="bk-legend"></div></div>
+    </div>
+    <div class="card" style="margin-top:20px"><h3 class="dash-h">🗓 الحصص القادمة</h3>${slotsView}</div>
+    <div class="grid grid-2" style="margin-top:20px">
+      <div class="card"><h3 class="dash-h">🏆 الأعلى تقدماً</h3>${list(s.top)}</div>
+      <div class="card"><h3 class="dash-h">⚠️ يحتاجون متابعة</h3>${list(s.lagging)}</div>
+    </div>
+    <div id="dash-tip" class="dash-tip" hidden></div>`);
+
+  // الفترة
+  root.querySelectorAll('[data-days]').forEach((b) => { b.onclick = () => schoolStatsView(root, Number(b.dataset.days)); });
+
+  // أسطورة الحجوزات التفاعلية
+  const off = new Set();
+  const drawBk = () => {
+    const vis = BK.filter(([k]) => !off.has(k));
+    const total = vis.reduce((a, [k]) => a + (bk[k] || 0), 0);
+    root.querySelector('#bk-stack').innerHTML = total
+      ? vis.map(([k, l, c]) => (bk[k] ? `<i data-tip="${l}: ${bk[k]}" style="flex:${bk[k]};background:${c}"></i>` : '')).join('')
+      : '<span class="small muted" style="padding:6px">لا حجوزات</span>';
+    root.querySelector('#bk-legend').innerHTML = BK.map(([k, l, c]) =>
+      `<button type="button" class="dash-lg ${off.has(k) ? 'off' : ''}" data-k="${k}"><span class="dash-dot" style="background:${c}"></span>${l} <b>${bk[k] || 0}</b></button>`).join('');
+    root.querySelectorAll('#bk-legend [data-k]').forEach((b) => { b.onclick = () => { off.has(b.dataset.k) ? off.delete(b.dataset.k) : off.add(b.dataset.k); drawBk(); }; });
+  };
+  drawBk();
+
+  // تلميحات عند التمرير/اللمس
+  const tip = root.querySelector('#dash-tip');
+  const show = (e) => {
+    const el = e.target.closest('[data-tip]');
+    if (!el) { tip.hidden = true; return; }
+    tip.textContent = el.dataset.tip; tip.hidden = false;
+    const x = Math.min(window.innerWidth - tip.offsetWidth - 8, Math.max(8, e.clientX + 12));
+    tip.style.left = `${x}px`; tip.style.top = `${e.clientY + 16}px`;
+  };
+  root.addEventListener('mousemove', show);
+  root.addEventListener('mouseleave', () => { tip.hidden = true; });
 }

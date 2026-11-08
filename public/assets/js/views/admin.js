@@ -84,7 +84,7 @@ const ADMIN_TABS_CONTENT = [
 ];
 const ADMIN_TABS_MANAGE = [['/admin/users', 'admin.users'], ['/admin/settings', 'admin.settings'], ['/admin/audit', 'admin.audit']];
 // المؤسسة: بيانات المؤسسة + طلابها + حجوزاتهم
-function schoolTabs() {
+export function schoolTabs() {
   return [['/admin', 'admin.stats'], ['/admin/school/students', 'school.manageStudents'], ['/admin/school/instructors', 'school.manageInstructors'], ['/admin/bookings', 'nav.bookings'], ['/admin/exams', 'nav.exams']];
 }
 // المدرب: طلابه + حجوزاتهم
@@ -96,6 +96,7 @@ export function shell(root, current, body) {
   else if (store.isInstructor()) tabs = INSTRUCTOR_TABS;
   else tabs = [...ADMIN_TABS_CONTENT, ...(store.isAdmin() ? ADMIN_TABS_MANAGE : [])];
 
+  if (store.isSchool()) { root.innerHTML = html`${body}`.s; return; }
   root.innerHTML = html`<div class="page-head"><div><h1>${t('admin.title')}</h1></div></div>
     <nav class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:20px" aria-label="${t('admin.title')}">
       ${tabs.map(([href, key]) => html`<a class="btn ${href === current ? 'btn-primary' : 'btn-secondary'}" href="${href}">${t(key)}</a>`)}

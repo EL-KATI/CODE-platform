@@ -41,11 +41,34 @@ function navLinks() {
   return links;
 }
 
+// --- القائمة الجانبية للمؤسسة -----------------------------------------------------
+const SIDE_ICONS = { '/admin': '📊', '/admin/school/students': '🎓', '/admin/school/instructors': '🧑‍🏫', '/admin/bookings': '📅', '/admin/exams': '📝' };
+function renderSchoolSide() {
+  const on = !!store.user && store.isSchool() && location.pathname.startsWith('/admin');
+  let side = document.getElementById('school-side');
+  document.body.classList.toggle('has-side', on);
+  if (!on) { if (side) side.remove(); return; }
+  if (!side) {
+    side = document.createElement('aside');
+    side.id = 'school-side';
+    side.className = 'school-side';
+    document.getElementById('app').before(side);
+  }
+  const path = location.pathname;
+  const cur = (href) => (href === '/admin' ? path === '/admin' : path === href || path.startsWith(href + '/') || (href === '/admin/school/students' && path.startsWith('/admin/students/')));
+  side.setAttribute('aria-label', t('admin.title'));
+  side.innerHTML = html`<div class="side-title">${t('admin.title')}</div>
+    <nav>${admin.schoolTabs().map(([href, key]) => html`<a href="${href}" ${cur(href) ? html`aria-current="page"` : ''}><span aria-hidden="true">${SIDE_ICONS[href] || '•'}</span><span>${t(key)}</span></a>`)}</nav>`.s;
+  const hdr = document.querySelector('.site-header');
+  if (hdr) document.documentElement.style.setProperty('--hdr-h', `${hdr.offsetHeight}px`);
+}
+
 export function renderShell() {
   const path = location.pathname;
   const isCur = (href) => (href === '/' ? path === '/' : path === href || path.startsWith(href + '/'));
   const linkHtml = navLinks().map(([href, key]) => html`<a href="${href}" ${isCur(href) ? html`aria-current="page"` : ''}>${t(key)}</a>`);
   document.getElementById('main-nav').innerHTML = html`${linkHtml}`.s;
+  renderSchoolSide();
   const mobile = document.getElementById('mobile-nav');
   mobile.innerHTML = html`${linkHtml}${store.user ? html`<a href="/profile">${t('nav.profile')}</a>` : html`<a href="/register">${t('nav.register')}</a>`}`.s;
   mobile.classList.remove('open');

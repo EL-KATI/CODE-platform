@@ -60,6 +60,8 @@ function loadUser(req, _res, next) {
         } else {
           u.school_id = null;
         }
+        // حساب المؤسسة ينتمي دائماً لنفسه (school_id = id)
+        if (u.role === 'school' && !u.school_id) u.school_id = u.id;
         req.user = u;
       }
     } catch { /* jeton invalide ou expiré : on l'ignore */ }
