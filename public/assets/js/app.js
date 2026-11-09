@@ -47,6 +47,7 @@ const SIDE_ICONS = {
   '/admin/bookings': '📅', '/admin/exams': '📝',
   '/admin/questions': '❓', '/admin/series': '📚', '/admin/lessons': '🎓',
   '/admin/students': '👥', '/admin/users': '👤', '/admin/settings': '⚙️', '/admin/audit': '🔍',
+  '/admin/import': '📥',
 };
 function renderStaffSide() {
   const u = store.user;
@@ -198,6 +199,7 @@ route('/admin/students/:id', view(admin.studentView), staff);
 route('/admin/users', view(admin.usersView), adminOnly);
 route('/admin/settings', view(admin.settingsView), adminOnly);
 route('/admin/audit', view(admin.auditView), adminOnly);
+route('/admin/import', view(admin.importView), adminOnly);
 const adminBookings = view(adminBookingsView);
 // الأدمين لا يدير حجوزات التدريب (للمؤسسة والمدرب فقط)
 route('/admin/bookings', (ctx) => (store.user?.role === 'admin' ? navigate('/admin', { replace: true }) : adminBookings(ctx)), staff);

@@ -83,20 +83,25 @@ const ADMIN_TABS_CONTENT = [
   ['/admin/lessons', 'admin.lessons'], ['/admin/students', 'admin.students'],
 ];
 const ADMIN_TABS_MANAGE = [['/admin/users', 'admin.users'], ['/admin/settings', 'admin.settings'], ['/admin/audit', 'admin.audit']];
+// تبويبات السوبر أدمين الإضافية
+const SUPER_TABS = [['/admin/import', 'admin.import']];
 // المؤسسة: بيانات المؤسسة + طلابها + حجوزاتهم
 export function schoolTabs() {
   return [['/admin', 'admin.stats'], ['/admin/school/students', 'school.manageStudents'], ['/admin/school/instructors', 'school.manageInstructors'], ['/admin/bookings', 'nav.bookings'], ['/admin/exams', 'nav.exams']];
 }
 // المدرب: طلابه + حجوزاتهم
 const INSTRUCTOR_TABS = [['/admin', 'admin.stats'], ['/admin/students', 'admin.students'], ['/admin/bookings', 'nav.bookings']];
-// الأدمن: كل الصفحات
+// الأدمن: كل الصفحات (+ استيراد الأسئلة للسوبر أدمين)
 const ADMIN_TABS = [...ADMIN_TABS_CONTENT, ...ADMIN_TABS_MANAGE];
+function adminTabs() {
+  return store.isSuperAdmin() ? [...ADMIN_TABS_CONTENT, ...SUPER_TABS, ...ADMIN_TABS_MANAGE] : ADMIN_TABS;
+}
 
 /** يُستعمل من app.js لبناء القائمة الجانبية */
 export function getStaffTabs() {
   if (store.isSchool()) return schoolTabs();
   if (store.isInstructor()) return INSTRUCTOR_TABS;
-  return ADMIN_TABS;
+  return adminTabs();
 }
 
 /** shell: بدون تبويبات علوية — التنقل عبر القائمة الجانبية فقط
@@ -106,7 +111,7 @@ export function getStaffTabs() {
  */
 export function shell(root, current, body) {
   const allTabs = [
-    ...ADMIN_TABS_CONTENT, ...ADMIN_TABS_MANAGE,
+    ...ADMIN_TABS_CONTENT, ...ADMIN_TABS_MANAGE, ...SUPER_TABS,
     ...schoolTabs(), ...INSTRUCTOR_TABS,
     ['/admin/bookings', 'nav.bookings'],
     ['/admin/exams', 'nav.exams'],
@@ -1171,5 +1176,152 @@ export async function auditView(root) {
       <div class="card" style="overflow:auto"><table class="table"><thead><tr><th>${t('admin.date')}</th><th>${t('admin.user')}</th><th>${t('admin.action')}</th></tr></thead><tbody>
         ${list.map((a) => html`<tr><td>${fmtDate(a.created_at)}</td><td>${a.user_name || '—'}</td><td>${a.action} ${a.entity || ''} ${a.entity_id ?? ''}</td></tr>`)}
       </tbody></table></div>`);
+  });
+}
+
+// --- استيراد الأسئلة (سوبر أدمين) -----------------------------------------------
+export async function importView(root) {
+  if (!store.isSuperAdmin()) { navigate('/admin', { replace: true }); return; }
+
+  await load(root, '/admin/import', async () => {
+    const cats = await store.getCategories();
+
+    shell(root, '/admin/import', html`
+      <div style="display:grid;gap:20px;max-width:860px">
+
+        <!-- قسم 1: استيراد JSON -->
+        <div class="card">
+          <div class="dash-h">📥 استيراد أسئلة من ملف JSON</div>
+          <p class="muted small" style="margin:0 0 14px">الصيغة المدعومة: مصفوفة JSON فيها أسئلة. كل سؤال يحتوي على: <code>category</code>، <code>text</code>، <code>options</code>، <code>correct</code>.</p>
+
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <label class="label">اختر ملف JSON
+              <input type="file" id="imp-file" accept=".json" class="input" style="margin-top:4px">
+            </label>
+
+            <div id="imp-preview" style="display:none">
+              <div class="dash-kpis" id="imp-stats"></div>
+              <details style="margin-top:10px">
+                <summary class="small muted" style="cursor:pointer">معاينة أول 3 أسئلة</summary>
+                <pre id="imp-sample" style="font-size:.78rem;background:var(--bg-soft);padding:12px;border-radius:8px;overflow:auto;max-height:260px;direction:ltr"></pre>
+              </details>
+            </div>
+
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+              <select id="imp-cat" class="input" style="width:auto;min-width:160px">
+                <option value="">— صنف افتراضي (اختياري) —</option>
+                ${cats.map((c) => html`<option value="${c.slug}">${c.name_ar || c.nameAr}</option>`)}
+              </select>
+              <button class="btn btn-primary" id="imp-btn" disabled>📤 استيراد الآن</button>
+              <a class="btn" href="/api/admin/questions-export" download="questions.json">⬇️ تصدير الأسئلة الحالية</a>
+            </div>
+
+            <div id="imp-result" style="display:none"></div>
+          </div>
+        </div>
+
+        <!-- قسم 2: بنية JSON مع مثال -->
+        <div class="card">
+          <div class="dash-h">📋 بنية الملف المدعومة</div>
+          <pre style="font-size:.8rem;background:var(--bg-soft);padding:14px;border-radius:8px;overflow:auto;direction:ltr;line-height:1.6">[
+  {
+    "category": "b",           // slug الصنف (B, A, C...)
+    "text": "نص السؤال هنا",
+    "options": [
+      "الخيار الأول",
+      "الخيار الثاني",
+      "الخيار الثالث",
+      "الخيار الرابع"
+    ],
+    "correct": [1],            // رقم الإجابة الصحيحة (يبدأ من 1)
+    "explanation": "شرح الإجابة (اختياري)",
+    "image": null,             // رابط الصورة أو null
+    "video": null,             // رابط الفيديو أو null
+    "difficulty": 2,           // 1=سهل 2=متوسط 3=صعب
+    "is_double": 0             // 0=منفرد 1=مزدوج
+  },
+  {
+    "category": "b",
+    "text": "سؤال مزدوج — هل يمكن التجاوز هنا؟",
+    "options": [],
+    "correct": [],
+    "is_double": 1,
+    "sub_questions": [
+      { "text": "السؤال الفرعي أ", "options": ["نعم","لا"], "correct": [2] },
+      { "text": "السؤال الفرعي ب", "options": ["نعم","لا"], "correct": [1] }
+    ]
+  }
+]</pre>
+        </div>
+
+      </div>`);
+
+    // --- منطق الصفحة ---
+    let parsed = null;
+    const fileInput = root.querySelector('#imp-file');
+    const impBtn = root.querySelector('#imp-btn');
+    const preview = root.querySelector('#imp-preview');
+    const stats = root.querySelector('#imp-stats');
+    const sample = root.querySelector('#imp-sample');
+    const result = root.querySelector('#imp-result');
+    const catSel = root.querySelector('#imp-cat');
+
+    fileInput.onchange = async () => {
+      const file = fileInput.files[0];
+      if (!file) { parsed = null; impBtn.disabled = true; preview.style.display = 'none'; return; }
+      try {
+        const text = await file.text();
+        const raw = JSON.parse(text);
+        parsed = Array.isArray(raw) ? raw : (raw.questions || []);
+        if (!parsed.length) throw new Error('الملف فارغ');
+
+        // إحصاء
+        const doubles = parsed.filter((q) => q.is_double).length;
+        const withImg = parsed.filter((q) => q.image).length;
+        const withVid = parsed.filter((q) => q.video).length;
+        stats.innerHTML = html`
+          <a class="dash-kpi no-link"><span class="dash-kpi-ic">📝</span><span class="muted small">إجمالي الأسئلة</span><strong>${parsed.length}</strong></a>
+          <a class="dash-kpi no-link"><span class="dash-kpi-ic">🔀</span><span class="muted small">مزدوجة</span><strong>${doubles}</strong></a>
+          <a class="dash-kpi no-link"><span class="dash-kpi-ic">🖼️</span><span class="muted small">مع صورة</span><strong>${withImg}</strong></a>
+          <a class="dash-kpi no-link"><span class="dash-kpi-ic">🎬</span><span class="muted small">مع فيديو</span><strong>${withVid}</strong></a>`.s;
+
+        sample.textContent = JSON.stringify(parsed.slice(0, 3), null, 2);
+        preview.style.display = '';
+        impBtn.disabled = false;
+        result.style.display = 'none';
+      } catch (err) {
+        toast(`خطأ في الملف: ${err.message}`, 'error');
+        parsed = null; impBtn.disabled = true; preview.style.display = 'none';
+      }
+    };
+
+    impBtn.onclick = async () => {
+      if (!parsed) return;
+      impBtn.disabled = true;
+      impBtn.textContent = '⏳ جارٍ الاستيراد...';
+      result.style.display = 'none';
+      try {
+        const defCat = catSel.value || undefined;
+        const payload = defCat ? parsed.map((q) => ({ ...q, category: q.category || defCat })) : parsed;
+        const res = await api.post('/admin/questions-import', payload);
+        const errHtml = res.errors?.length
+          ? html`<details style="margin-top:8px"><summary class="small">عرض ${res.errors.length} خطأ</summary><pre style="font-size:.75rem;overflow:auto;max-height:200px;direction:ltr">${JSON.stringify(res.errors, null, 2)}</pre></details>`
+          : html``;
+        result.innerHTML = html`<div class="nrs-fb-ok" style="padding:12px 16px;border-radius:8px;background:rgba(22,101,52,.15);border:1px solid #166534">
+          ✅ تمّ استيراد <strong>${res.created}</strong> سؤال بنجاح${res.errors?.length ? html` — ${res.errors.length} سؤال فيه خطأ` : ''}
+          ${errHtml}
+        </div>`.s;
+        result.style.display = '';
+        toast(`استُورد ${res.created} سؤال ✅`);
+        parsed = null; fileInput.value = ''; impBtn.disabled = true; preview.style.display = 'none';
+      } catch (err) {
+        result.innerHTML = html`<div style="color:var(--danger)">${errorMessage(err)}</div>`.s;
+        result.style.display = '';
+        toast(errorMessage(err), 'error');
+      } finally {
+        impBtn.disabled = false;
+        impBtn.textContent = '📤 استيراد الآن';
+      }
+    };
   });
 }
