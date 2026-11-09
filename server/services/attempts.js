@@ -145,6 +145,7 @@ function answer(user, attemptId, body) {
   const timeMs = Number.isFinite(Number(body.timeMs)) ? Math.max(0, Math.round(Number(body.timeMs))) : null;
 
   let selected, ok, correct, selectedStored;
+  let subCorrect = null; // للسؤال المزدوج: الجواب الصحيح لكل جزء
 
   const sqs = parseSubs(row);
   if (sqs) {
@@ -161,6 +162,7 @@ function answer(user, attemptId, body) {
     const okB = isCorrect(selB, sqs[1].correct);
     ok = okA && okB;
     correct = JSON.parse(row.correct); // إجابة الجزء الرئيسي (للتوافق)
+    subCorrect = [sqs[0].correct, sqs[1].correct];
     selected = []; // لا يُستخدم للمزدوج
     selectedStored = JSON.stringify({ a: selA, b: selB });
   } else {
@@ -177,7 +179,7 @@ function answer(user, attemptId, body) {
     .run(a.id, qid, selectedStored, ok ? 1 : 0, timeMs);
   progress.recordResult(user.id, qid, ok);
 
-  if (a.practice) return { recorded: true, isCorrect: ok, correct, explanation: row.explanation, late: !!late };
+  if (a.practice) return { recorded: true, isCorrect: ok, correct, ...(subCorrect ? { subCorrect } : {}), explanation: row.explanation, late: !!late };
   return { recorded: true, late: !!late };
 }
 

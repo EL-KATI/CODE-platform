@@ -69,7 +69,8 @@ export function speechText(q, questionNumber) {
   const numPrefix = questionNumber ? `${darijaQNum(questionNumber)}. ` : '';
   if (q.audioText) return `${numPrefix}${q.audioText}`;
   if (q.is_double && Array.isArray(q.sub_questions) && q.sub_questions.length === 2) {
-    const parts = q.sub_questions.map((sq) => `${sq.text}. ${(sq.options || []).map((o, i) => `${DARIJA_NUM[i] || i + 1}: ${o}`).join('. ')}`);
+    // ترقيم الاختيارات مطابق لأزرار الشاشة: 1 و2 للجزء الأول، 3 و4 للجزء الثاني
+    const parts = q.sub_questions.map((sq, si) => `${sq.text}. ${(sq.options || []).map((o, i) => `${DARIJA_NUM[i + si * 2] || i + si * 2 + 1}: ${o}`).join('. ')}`);
     return `${numPrefix}${q.text}. ${parts.join('. ')}.`;
   }
   const opts = q.options.map((o, i) => `الجواب ${DARIJA_NUM[i] || i + 1}: ${o}`).join('. ');

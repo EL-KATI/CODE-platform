@@ -58,17 +58,15 @@ export async function quizView(appRoot, { params }) {
         <!-- ══ اللوحة الجانبية الزرقاء (يسار) ══ -->
         <aside class="nrs-side">
 
-          <!-- مؤشرات الأسئلة (مربعات الأعلى) -->
-          <div class="nrs-indicators" id="nrs-indicators"></div>
+          <!-- مؤشرات الإجابات: 4 خانات -->
+          <div class="nrs-indicators" id="nrs-indicators" aria-hidden="true"></div>
 
-          <!-- زر تصحيح -->
-          <button class="nrs-btn-correct" id="btn-correct" type="button">تصحيح</button>
-
-          <!-- أزرار الاختيار 1-4 -->
-          <div class="nrs-choices" id="nrs-choices"></div>
-
-          <!-- زر موافق -->
-          <button class="nrs-btn-ok" id="btn-ok" type="button">موافق</button>
+          <!-- اللوحة البنفسجية: تصحيح + أزرار 1-4 + موافق -->
+          <div class="nrs-panel">
+            <button class="nrs-btn-correct" id="btn-correct" type="button">تصحيح</button>
+            <div class="nrs-choices" id="nrs-choices"></div>
+            <button class="nrs-btn-ok" id="btn-ok" type="button">موافق</button>
+          </div>
 
           <!-- زر إغلاق خفي -->
           <button class="nrs-btn-close" id="nrs-close" type="button" title="${t('quiz.close')}">✕</button>
@@ -94,7 +92,7 @@ export async function quizView(appRoot, { params }) {
           </div>
           <div class="nrs-footer-item ${exam ? 'nrs-timer-wrap' : ''}">
             <span class="nrs-footer-label">الوقت المتبقي</span>
-            <span class="nrs-footer-val nrs-timer-val" id="nrs-timer">30</span>
+            <span class="nrs-footer-val nrs-timer-val" id="nrs-timer">${exam ? (a.secondsPerQuestion || 30) : '—'}</span>
           </div>
         </footer>
       </div>`;
@@ -115,9 +113,8 @@ export async function quizView(appRoot, { params }) {
         if (left > 0 && !(await confirmDialog(t('quiz.confirmFinish', { n: left }), { okLabel: t('quiz.finish') }))) return;
         finish();
       } else {
-        // في وضع التدريب: انتقل للأسئلة المجابة
-        const first = a.questions.findIndex((x) => x.answer);
-        if (first !== -1) go(first);
+        // في وضع التمرين: كشف الجواب الصحيح والشرح مباشرة، حتى بدون اختيار (يُحتسب خطأً)
+        if (!q().answer) validate({ reveal: true });
       }
     };
 
@@ -133,22 +130,31 @@ export async function quizView(appRoot, { params }) {
     });
   }
 
-  // ── رسم مؤشرات الأسئلة (مربعات الأعلى) ──────────────────────────
+  // ── مؤشرات الإجابات (الخانات الأربع أعلى اللوحة الجانبية) ──────────
+  // شرطة حمراء = الاختيار غير محدد، الرقم = الاختيار محدد. بعد التصحيح في التمرين: أخضر = صحيح، أحمر = خطأ.
   function renderIndicators() {
     const el = overlay.querySelector('#nrs-indicators');
     if (!el) return;
-    el.innerHTML = a.questions.map((qst, i) => {
-      let cls = 'nrs-ind';
-      if (i === idx) cls += ' nrs-ind-cur';
-      else if (qst.answer) {
-        const ok = qst.answer.isCorrect;
-        cls += ok === false ? ' nrs-ind-wrong' : ok === true ? ' nrs-ind-ok' : ' nrs-ind-done';
+    const cur = q();
+    const ans = cur.answer;
+    const reveal = !exam && ans;
+    const isDouble = cur.is_double && Array.isArray(cur.sub_questions) && cur.sub_questions.length === 2;
+    const slots = [1, 2, 3, 4].map((n) => {
+      if (isDouble) {
+        const part = n <= 2 ? 0 : 1;
+        const local = n <= 2 ? n : n - 2;
+        const set = (part === 0 ? selected.a : selected.b) || new Set();
+        return { n, on: set.has(local), ok: norm(cur.sub_questions[part].correct).includes(local) };
       }
-      return `<button class="${cls}" data-i="${i}" title="سؤال ${i + 1}">${i + 1}</button>`;
-    }).join('');
-    el.querySelectorAll('.nrs-ind').forEach((b) => {
-      b.onclick = () => { if (!exam || q().answer) go(Number(b.dataset.i)); };
+      return { n, on: selected.has(n), ok: norm(cur.correct).includes(n) };
     });
+    el.innerHTML = slots.map(({ n, on, ok }) => {
+      let cls = 'nrs-ind';
+      if (on) cls += ' nrs-ind-on';
+      if (reveal && ok) cls += ' nrs-ind-ok';
+      else if (reveal && on) cls += ' nrs-ind-wrong';
+      return `<span class="${cls}">${on || (reveal && ok) ? n : ''}</span>`;
+    }).join('');
   }
 
   // ── رسم أزرار الاختيار (اليسار) ──────────────────────────────────
@@ -227,6 +233,7 @@ export async function quizView(appRoot, { params }) {
       }
       b.classList.toggle('choice-on', pressed);
     });
+    renderIndicators();
     renderTextPanel(); // تحديث ☐/☑ في النص
   }
 
@@ -248,7 +255,19 @@ export async function quizView(appRoot, { params }) {
     }
   }
 
-  // ── لوحة النص (الشريط الأسود) ────────────────────────────────────
+  // ── التصحيح في وضع التمرين: سطر بسيط داخل اللوحة السوداء + شرح القاعدة ──
+  function feedbackHtml(ok, correctNums, explanation) {
+    const nums = [...correctNums].sort((x, y) => x - y).join('، ');
+    return `<div class="nrs-fb ${ok ? 'is-ok' : 'is-ko'}">${ok ? '✓ إجابة صحيحة' : `✗ إجابة خاطئة${nums ? ` — الجواب الصحيح: ${nums}` : ''}`}</div>${explanation ? `<div class="nrs-fb-text">${esc(explanation)}</div>` : ''}`;
+  }
+
+  // سطر اختيار: -النص (أزرق) ......... الرقم
+  function optHtml(n, text, state) {
+    return `<div class="nrs-opt ${state}"><span class="nrs-opt-text">-${esc(text)}</span><span class="nrs-opt-dots" aria-hidden="true"></span><span class="nrs-opt-n">${n}</span></div>`;
+  }
+  const optText = (o) => ((o && typeof o === 'object') ? (o.text || '') : String(o ?? ''));
+
+  // ── لوحة النص (الصندوق الأسود) ────────────────────────────────────
   function renderTextPanel() {
     const el = overlay.querySelector('#nrs-text-panel');
     if (!el) return;
@@ -256,85 +275,41 @@ export async function quizView(appRoot, { params }) {
     const ans = cur.answer;
     const isDouble = cur.is_double && Array.isArray(cur.sub_questions) && cur.sub_questions.length === 2;
     const reveal = !exam && ans;
+    // بعد التصحيح الصندوق الأسود يكبر قليلاً ليظهر السؤال والشرح معاً
+    el.classList.toggle('has-result', !!reveal);
+    const state = (on, isCorrect) => (reveal && isCorrect ? 'sub-ok' : reveal && on ? 'sub-wrong' : on ? 'sub-on' : '');
 
+    // السؤال المزدوج: نعرض السطر الأول فقط من النص (الأسطر التالية في الأسئلة القديمة تكرر الجزأين)،
+    // ونحذفه إذا كان هو نفسه عنوان الجزء الأول.
+    const flat = (x) => String(x || '').replace(/[\s؟?:.-]+/g, '');
+    let main = cur.text;
     if (isDouble) {
-      const sq = cur.sub_questions;
-      const corrA = new Set(norm(sq[0].correct));
-      const corrB = new Set(norm(sq[1].correct));
-      const selA = selected.a || new Set();
-      const selB = selected.b || new Set();
-
-      // نص السؤال الرئيسي
-      let html2 = `<div class="nrs-q-main" dir="rtl">${esc(cur.text)}</div>`;
-
-      // نعم / لا للأسئلة المزدوجة بناءً على options الفعلية
-      const optLabels = (opts) => opts.map((o, i) => {
-        const text = (o && typeof o === 'object') ? (o.text || '') : o;
-        return text;
+      main = String(cur.text || '').split('\n')[0].trim();
+      if (flat(main) === flat(cur.sub_questions[0].text)) main = '';
+    }
+    let out = `${main ? `<div class="nrs-q-main" dir="rtl">${esc(main)}</div>` : ''}<div class="nrs-block" dir="rtl">`;
+    if (isDouble) {
+      const sets = [selected.a || new Set(), selected.b || new Set()];
+      const corrAll = [];
+      cur.sub_questions.forEach((sq, si) => {
+        const corr = new Set(norm(sq.correct));
+        const labels = (sq.options || []).map(optText);
+        // اختيارات قصيرة (نعم / لا) جنباً إلى جنب كما في الامتحان؛ الطويلة كل واحدة في سطر
+        const inline = labels.every((l) => l.length <= 14);
+        out += `<div class="nrs-sub-label">-${esc(sq.text)}</div><div class="${inline ? 'nrs-opts-row' : 'nrs-opts-list'}">`;
+        labels.forEach((lbl, i) => { out += optHtml(i + 1 + si * 2, lbl, state(sets[si].has(i + 1), corr.has(i + 1))); });
+        out += '</div>';
+        corr.forEach((n) => corrAll.push(n + si * 2));
       });
-
-      const labelsA = optLabels(sq[0].options);
-      const labelsB = optLabels(sq[1].options);
-
-      // حالة أ
-      html2 += `<div class="nrs-sub-block" dir="rtl">`;
-      html2 += `<div class="nrs-sub-label">-${esc(sq[0].text)}</div>`;
-      html2 += `<div class="nrs-sub-opts">`;
-      labelsA.forEach((lbl, i) => {
-        const n = i + 1;
-        const on = selA.has(n);
-        const ok = reveal && corrA.has(n);
-        const wrong = reveal && on && !corrA.has(n);
-        html2 += `<span class="nrs-sub-opt ${ok ? 'sub-ok' : wrong ? 'sub-wrong' : on ? 'sub-on' : ''}">${n}- ${esc(lbl)}</span>`;
-      });
-      html2 += `</div></div>`;
-
-      // حالة ب
-      html2 += `<div class="nrs-sub-block" dir="rtl">`;
-      html2 += `<div class="nrs-sub-label">-${esc(sq[1].text)}</div>`;
-      html2 += `<div class="nrs-sub-opts">`;
-      labelsB.forEach((lbl, i) => {
-        const n = i + 1;
-        const on = selB.has(n);
-        const ok = reveal && corrB.has(n);
-        const wrong = reveal && on && !corrB.has(n);
-        html2 += `<span class="nrs-sub-opt ${ok ? 'sub-ok' : wrong ? 'sub-wrong' : on ? 'sub-on' : ''}">${n}- ${esc(lbl)}</span>`;
-      });
-      html2 += `</div></div>`;
-
-      // تغذية راجعة
-      if (reveal && ans) {
-        const ok = ans.isCorrect;
-        html2 += `<div class="nrs-feedback ${ok ? 'nrs-fb-ok' : 'nrs-fb-ko'}">${ok ? '✓ صحيح' : '✗ خطأ'}${cur.explanation ? ' — ' + esc(cur.explanation) : ''}</div>`;
-      }
-
-      el.innerHTML = html2;
-
+      if (reveal) out += feedbackHtml(ans.isCorrect, corrAll, cur.explanation);
     } else {
       const correct = new Set(norm(cur.correct));
-      const opts = cur.options || [];
-      let html2 = `<div class="nrs-q-main" dir="rtl">${esc(cur.text)}</div>`;
-      html2 += `<div class="nrs-opts-list" dir="rtl">`;
-      opts.forEach((o, i) => {
-        const n = i + 1;
-        const text = (o && typeof o === 'object') ? (o.text || '') : o;
-        const on = selected.has(n);
-        const ok = !exam && ans && correct.has(n);
-        const wrong = !exam && ans && on && !correct.has(n);
-        html2 += `<div class="nrs-opt ${ok ? 'sub-ok' : wrong ? 'sub-wrong' : on ? 'sub-on' : ''}">
-          <span class="nrs-opt-n">${n}</span>
-          <span class="nrs-opt-text">${esc(text)}</span>
-        </div>`;
-      });
-      html2 += `</div>`;
-
-      if (!exam && ans) {
-        const ok = ans.isCorrect;
-        html2 += `<div class="nrs-feedback ${ok ? 'nrs-fb-ok' : 'nrs-fb-ko'}">${ok ? '✓ إجابة صحيحة' : '✗ إجابة خاطئة — الصحيح: ' + [...correct].join(', ')}${cur.explanation ? '<br><small>' + esc(cur.explanation) + '</small>' : ''}</div>`;
-      }
-
-      el.innerHTML = html2;
+      out += '<div class="nrs-opts-list">';
+      (cur.options || []).forEach((o, i) => { out += optHtml(i + 1, optText(o), state(selected.has(i + 1), correct.has(i + 1))); });
+      out += '</div>';
+      if (reveal) out += feedbackHtml(ans.isCorrect, [...correct], cur.explanation);
     }
+    el.innerHTML = `${out}</div>`;
   }
 
   // ── تحديث الشريط السفلي ───────────────────────────────────────────
@@ -364,7 +339,12 @@ export async function quizView(appRoot, { params }) {
 
     // تحديث حالة زر موافق
     const okBtn = overlay.querySelector('#btn-ok');
-    if (okBtn) okBtn.textContent = ans ? (idx < a.questions.length - 1 ? 'التالي →' : '🏁 النتائج') : 'موافق';
+    if (okBtn) okBtn.textContent = ans ? (idx < a.questions.length - 1 ? 'التالي' : 'النتائج') : 'موافق';
+
+    // بعد التصحيح: ننزلو فاللوحة السوداء باش يبان الشرح بلا تمرير يدوي
+    if (!exam && ans) { const panel = overlay.querySelector('#nrs-text-panel'); const fb = overlay.querySelector('.nrs-fb'); if (panel && fb) panel.scrollTop = Math.max(0, fb.offsetTop - panel.offsetTop - 8); }
+    const corrBtn = overlay.querySelector('#btn-correct');
+    if (corrBtn && !exam) corrBtn.disabled = !!ans;
 
     shownAt = Date.now();
     if (exam && !ans) startTimer();
@@ -377,19 +357,29 @@ export async function quizView(appRoot, { params }) {
   }
 
   function toggle(n) {
-    if (q().answer || n > (q().options?.length || 4)) return;
+    const cur = q();
+    if (cur.answer) return;
+    if (cur.is_double && Array.isArray(cur.sub_questions) && cur.sub_questions.length === 2) {
+      const set = n <= 2 ? selected.a : selected.b;
+      const local = n <= 2 ? n : n - 2;
+      if (set.has(local)) set.delete(local); else set.add(local);
+      sound.play('click');
+      syncChoices();
+      return;
+    }
+    if (n > (cur.options?.length || 4)) return;
     if (selected.has(n)) selected.delete(n); else selected.add(n);
     sound.play('click');
     syncChoices();
     renderTextPanel();
   }
 
-  async function validate({ timeout = false } = {}) {
+  async function validate({ timeout = false, reveal = false } = {}) {
     const cur = q();
     if (busy || cur.answer) return;
     const isDouble = cur.is_double && Array.isArray(cur.sub_questions) && cur.sub_questions.length === 2;
     const hasAnswer = isDouble ? (selected.a.size > 0 || selected.b.size > 0) : selected.size > 0;
-    if (!hasAnswer && !timeout && !exam) { toast(t('quiz.pickOne')); return; }
+    if (!hasAnswer && !timeout && !reveal && !exam) { toast(t('quiz.pickOne')); return; }
     busy = true;
     stopTimer();
     stopSpeaking();
@@ -404,6 +394,8 @@ export async function quizView(appRoot, { params }) {
       if (!exam) {
         cur.answer.isCorrect = res.isCorrect;
         cur.correct = res.correct;
+        // السؤال المزدوج: الجواب الصحيح لكل جزء (بدونه كانت الاختيارات الصحيحة تُلوَّن كخاطئة)
+        if (isDouble && Array.isArray(res.subCorrect)) cur.sub_questions.forEach((sq, i) => { sq.correct = res.subCorrect[i]; });
         cur.explanation = res.explanation;
         sound.play(res.isCorrect ? 'correct' : 'wrong');
         live.textContent = res.isCorrect ? t('quiz.right') : t('quiz.wrong', { a: (res.correct || []).join(' + ') });
