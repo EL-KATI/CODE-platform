@@ -2270,17 +2270,22 @@ body.has-side .site-footer { margin-inline-start:230px; }
 .nrs-opts-row { display: grid; grid-template-columns: 1fr 1fr; column-gap: 12%; }
 /* سطر اختيار: -النص (أزرق) ......... الرقم (أبيض) */
 .nrs-opt { display: flex; align-items: baseline; font-size: clamp(1.2rem, 2.2vw, 1.7rem); line-height: 1.5; color: #fff; }
-.nrs-opt-text { color: #4573e6; }
+.nrs-opt-text { color: #6b9bff; }
 .nrs-opt-dots { flex: 1; min-width: 28px; margin: 0 1px; border-bottom: 2px dotted #fff; transform: translateY(-.28em); }
-.nrs-opt-n { color: #fff; font-family: 'Times New Roman', serif; font-size: .92em; min-width: .8em; text-align: left; }
-.nrs-opt.sub-ok .nrs-opt-text { color: #35d05a; }
-.nrs-opt.sub-wrong .nrs-opt-text { color: #ff5a4e; }
+.nrs-opt-n { color: #fff; font-family: 'Times New Roman', serif; font-size: 1em; font-weight: 700; min-width: .8em; text-align: left; }
+.nrs-opt.sub-ok .nrs-opt-text { color: #4ade6e; }
+.nrs-opt.sub-wrong .nrs-opt-text { color: #ff7a70; }
 /* السؤال المزدوج: عنوان كل جزء بالأبيض */
 .nrs-sub-label { color: #fff; font-size: clamp(1.2rem, 2.2vw, 1.7rem); line-height: 1.5; text-align: right; }
 /* التصحيح في وضع التمرين: نص بسيط داخل الصندوق الأسود */
 .nrs-fb { margin-top: 8px; padding-top: 6px; border-top: 1px solid #444; font-size: clamp(1.05rem, 1.9vw, 1.35rem); font-weight: 700; text-align: right; }
-.nrs-fb.is-ok { color: #35d05a; } .nrs-fb.is-ko { color: #ff5a4e; }
-.nrs-fb-text { color: #e6e6e6; font-size: clamp(1rem, 1.7vw, 1.2rem); line-height: 1.6; text-align: right; }
+.nrs-fb.is-ok { color: #4ade6e; } .nrs-fb.is-ko { color: #ff7a70; }
+/* ظهور تدريجي ناعم لسطر التصحيح والشرح */
+@keyframes nrs-fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.nrs-fb { animation: nrs-fade .4s ease both; }
+.nrs-fb-text { animation: nrs-fade .4s ease .12s both; }
+@media (prefers-reduced-motion: reduce) { .nrs-fb, .nrs-fb-text { animation: none; } }
+.nrs-fb-text { color: #f2f2f2; font-size: clamp(1rem, 1.7vw, 1.2rem); line-height: 1.6; text-align: right; }
 
 /* ── اللوحة الجانبية ── */
 .nrs-side { grid-area: side; position: relative; display: flex; flex-direction: column; align-items: center; gap: 28px; padding: 12px 14px; background: #77779a; }
