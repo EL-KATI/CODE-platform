@@ -174,7 +174,7 @@ export function registerView(root, { query }) {
           </fieldset>
 
           <!-- كلمة السر -->
-          <div style="padding:10px 12px;background:var(--surface-alt,#f8fafc);border-radius:8px;border:1px solid var(--border);margin-bottom:14px;font-size:.88rem">
+          <div style="padding:10px 12px;background:var(--surface-2);border-radius:8px;border:1px solid var(--border);margin-bottom:14px;font-size:.88rem">
             🔑 ${t('auth.autoPassword')}
           </div>
 

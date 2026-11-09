@@ -8,9 +8,14 @@ export function profileView(root) {
   const render = () => {
     const cu = store.user;
     root.innerHTML = html`
-      <div class="page-head"><div><h1>${t('profile.title')}</h1><p>${cu.email} · <span class="pill">${t('role.' + cu.role)}</span></p></div>
-        <a class="btn btn-secondary" href="/history">${t('history.title')}</a></div>
-      <div class="grid grid-2">
+      <div class="pg pg-narrow profile">
+        <header class="profile-head">
+          <span class="profile-avatar" aria-hidden="true">${(cu.name || '?').trim().charAt(0).toUpperCase()}</span>
+          <h1>${cu.name}</h1>
+          <p class="muted">${cu.email}</p>
+          <span class="pill">${t('role.' + cu.role)}</span>
+        </header>
+        <a class="card profile-link" href="/history"><span class="cat-icon" aria-hidden="true">🕘</span><strong>${t('history.title')}</strong><span class="row-chevron">${raw('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>')}</span></a>
         <form class="card" id="info">
           <h2>${t('profile.info')}</h2>
           <div class="field"><label for="name">${t('auth.name')}</label><input id="name" name="name" value="${cu.name}" required></div>

@@ -5,6 +5,7 @@ const db = require('../db');
 const auth = require('../auth');
 const attempts = require('../services/attempts');
 const progress = require('../services/progress');
+const { parseSubs } = require('../services/questions');
 const { wrap, str, int, bad, notFound, HttpError } = require('../http');
 const { password, generatePassword } = require('./auth');
 const RESET_COOLDOWN_MS = 24 * 3600 * 1000;
@@ -44,13 +45,14 @@ router.put('/questions/:id/bookmark', wrap(async (req, res) => {
 
 // Liste des questions ratées (avec correction) pour la page « Mes erreurs ».
 router.get('/me/mistakes', (req, res) => {
-  const rows = db.get().prepare(`SELECT q.*, uq.wrong, uq.correct AS right_count, uq.bookmarked FROM user_questions uq
+  const rows = db.get().prepare(`SELECT q.*, uq.wrong, uq.correct AS right_count, uq.bookmarked, uq.last_result FROM user_questions uq
     JOIN questions q ON q.id = uq.question_id AND q.status = 'published'
     WHERE uq.user_id = ? AND (uq.last_result = 0 OR uq.bookmarked = 1) ORDER BY uq.updated_at DESC LIMIT 200`).all(req.user.id);
   res.json(rows.map((r) => ({
     id: r.id, categoryId: r.category_id, text: r.text, options: JSON.parse(r.options), correct: JSON.parse(r.correct),
     explanation: r.explanation, visual: r.visual ? JSON.parse(r.visual) : null, image: r.image, imageAlt: r.image_alt, video: r.video || null, audioText: r.audio_text || '',
-    wrong: r.wrong, right: r.right_count, bookmarked: !!r.bookmarked,
+    wrong: r.wrong, right: r.right_count, bookmarked: !!r.bookmarked, lastWrong: r.last_result === 0,
+    is_double: parseSubs(r) ? 1 : 0, sub_questions: parseSubs(r),
   })));
 });
 
