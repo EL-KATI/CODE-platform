@@ -32,24 +32,16 @@ function roleBadge(role) {
    schoolsView — قائمة المؤسسات (أدمين)
    ══════════════════════════════════════════════════════════════════════════ */
 export async function schoolsView(root) {
-  shell(root, '/admin/schools', '');
+  shell(root, '/admin/schools', { action: `<button class="btn btn-primary btn-sm" id="add-school-btn">+ ${t('schools.addSchool')}</button>`,
+    content: `<div id="schools-list"><div class="loading-spinner">${t('common.loading')}</div></div>` });
 
-  const wrap = document.createElement('div');
-  wrap.className = 'schools-view';
-  root.appendChild(wrap);
+  root.querySelector('#add-school-btn').addEventListener('click', () => openSchoolModal(root, reload));
 
   async function reload() {
-    wrap.innerHTML = `<div class="page-head row" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
-      <h2 style="margin:0">${t('schools.title')}</h2>
-      <button class="btn btn-primary" id="add-school-btn">+ ${t('schools.addSchool')}</button>
-    </div>
-    <div id="schools-list"><div class="loading-spinner">${t('common.loading')}</div></div>`;
-
-    wrap.querySelector('#add-school-btn').addEventListener('click', () => openSchoolModal(root, null, reload));
-
+    root.querySelector('#schools-list').innerHTML = `<div class="loading-spinner">${t('common.loading')}</div>`;
     try {
       const data = await api.get('/admin/schools');
-      const list = wrap.querySelector('#schools-list');
+      const list = root.querySelector('#schools-list');
       if (!data.schools.length) {
         list.innerHTML = `<p class="empty">${t('schools.noSchools')}</p>`;
         return;
@@ -113,7 +105,7 @@ export async function schoolsView(root) {
         });
       });
     } catch (e) {
-      wrap.querySelector('#schools-list').innerHTML = `<p class="empty">${errMsg(e)}</p>`;
+      root.querySelector('#schools-list').innerHTML = `<p class="empty">${errMsg(e)}</p>`;
     }
   }
 
@@ -218,15 +210,7 @@ export async function schoolDetailView(root, ctx) {
   const id = ctx?.params?.id;
   if (!id) { root.innerHTML = `<p class="empty">${t('err.not_found')}</p>`; return; }
 
-  // للمؤسسة: نُبرز تبويب مؤسستهم بدلاً من /admin/schools (الذي لا يملكون صلاحيته)
-  shell(root, `/admin/schools/${id}`, '');
-
-  const wrap = document.createElement('div');
-  wrap.className = 'schools-view school-detail-view';
-  root.appendChild(wrap);
-
   async function reload() {
-    wrap.innerHTML = `<div class="loading-spinner">${t('common.loading')}</div>`;
     try {
       const data = await api.get(`/admin/schools/${id}`);
       const { school, members } = data;
@@ -235,55 +219,47 @@ export async function schoolDetailView(root, ctx) {
       const instructors = members.filter(m => m.role === 'instructor');
       const managers = members.filter(m => m.role === 'school');
 
-      wrap.innerHTML = `
-        <div class="page-head row" style="justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
-          <div>
-            ${store.isAdmin() ? `<a class="btn btn-ghost btn-xs" href="/admin/schools">← ${t('common.back')}</a>` : ''}
-            <h2 style="margin:4px 0 2px">${esc(school.name)}</h2>
-            <small class="text-muted">
-              <code>${esc(school.code)}</code>
-              ${school.phone ? ` · 📞 ${esc(school.phone)}` : ''}
-              ${school.address ? ` · 📍 ${esc(school.address)}` : ''}
-            </small>
-          </div>
-          <div class="row" style="gap:8px;flex-wrap:wrap">
-            <button class="btn btn-secondary" id="add-instructor-btn">+ ${t('schools.addInstructor')}</button>
-            <button class="btn btn-secondary" id="add-student-btn">+ ${t('schools.addStudentNew')}</button>
-            <button class="btn btn-primary" id="enroll-student-btn">🔗 ${t('schools.enrollExisting')}</button>
-          </div>
-        </div>
+      const actionBtns = `<div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${store.isAdmin() ? `<a class="btn btn-ghost btn-sm" href="/admin/schools">← ${t('common.back')}</a>` : ''}
+        <button class="btn btn-secondary btn-sm" id="add-instructor-btn">+ ${t('schools.addInstructor')}</button>
+        <button class="btn btn-secondary btn-sm" id="add-student-btn">+ ${t('schools.addStudentNew')}</button>
+        <button class="btn btn-primary btn-sm" id="enroll-student-btn">🔗 ${t('schools.enrollExisting')}</button>
+      </div>`;
 
-        <!-- إحصاءات سريعة -->
-        <div class="school-stats-row">
-          <div class="school-stat"><strong>${students.length}</strong><span>${t('schools.students')}</span></div>
-          <div class="school-stat"><strong>${instructors.length}</strong><span>${t('schools.instructors')}</span></div>
-          <div class="school-stat"><strong>${managers.length}</strong><span>${t('schools.managers')}</span></div>
+      const content = `
+        <p class="muted small" style="margin-bottom:16px">
+          <code>${esc(school.code)}</code>
+          ${school.phone ? ` · 📞 ${esc(school.phone)}` : ''}
+          ${school.address ? ` · 📍 ${esc(school.address)}` : ''}
+        </p>
+        <div class="dash-kpis" style="margin-bottom:20px">
+          <div class="dash-kpi no-link"><span class="dash-kpi-ic">👨‍🎓</span><span class="muted small">${t('schools.students')}</span><strong>${students.length}</strong></div>
+          <div class="dash-kpi no-link"><span class="dash-kpi-ic">👨‍🏫</span><span class="muted small">${t('schools.instructors')}</span><strong>${instructors.length}</strong></div>
+          <div class="dash-kpi no-link"><span class="dash-kpi-ic">🏫</span><span class="muted small">${t('schools.managers')}</span><strong>${managers.length}</strong></div>
         </div>
-
-        <!-- قائمة المدربين -->
         ${instructors.length ? `
         <section class="school-section">
-          <h3>${t('schools.instructors')} (${instructors.length})</h3>
-          ${membersTable(instructors, id)}
+          <h3 class="dash-h">${t('schools.instructors')} (${instructors.length})</h3>
+          <div class="card">${membersTable(instructors, id)}</div>
         </section>` : ''}
-
-        <!-- قائمة المتعلمين -->
         <section class="school-section">
-          <h3>${t('schools.students')} (${students.length})</h3>
-          ${students.length ? membersTable(students, id) : `<p class="empty">${t('schools.noStudents')}</p>`}
+          <h3 class="dash-h">${t('schools.students')} (${students.length})</h3>
+          <div class="card">${students.length ? membersTable(students, id) : `<p class="empty">${t('schools.noStudents')}</p>`}</div>
         </section>
       `;
 
+      shell(root, `/admin/schools/${id}`, { action: actionBtns, content });
+
       // أحداث الأزرار
-      wrap.querySelector('#add-instructor-btn').addEventListener('click', () =>
+      root.querySelector('#add-instructor-btn').addEventListener('click', () =>
         openAddMemberModal(root, id, 'instructor', reload));
-      wrap.querySelector('#add-student-btn').addEventListener('click', () =>
+      root.querySelector('#add-student-btn').addEventListener('click', () =>
         openAddMemberModal(root, id, 'student', reload));
-      wrap.querySelector('#enroll-student-btn').addEventListener('click', () =>
+      root.querySelector('#enroll-student-btn').addEventListener('click', () =>
         openEnrollModal(root, id, reload));
 
       // فصل الأعضاء
-      wrap.querySelectorAll('.unenroll-btn').forEach(btn => {
+      root.querySelectorAll('.unenroll-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
           if (!confirm(t('schools.confirmUnenroll', { name: btn.dataset.name }))) return;
           try {
@@ -294,7 +270,7 @@ export async function schoolDetailView(root, ctx) {
       });
 
     } catch (e) {
-      wrap.innerHTML = `<p class="empty">${errMsg(e)}</p>`;
+      shell(root, `/admin/schools/${id}`, `<p class="empty">${errMsg(e)}</p>`);
     }
   }
 

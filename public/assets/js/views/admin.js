@@ -99,14 +99,32 @@ export function getStaffTabs() {
   return ADMIN_TABS;
 }
 
-/** shell: للمؤسسة والمدرب والأدمن — المؤسسة والمدرب لا يحتاجان تبويبات علوية (القائمة الجانبية تكفي) */
+/** shell: بدون تبويبات علوية — التنقل عبر القائمة الجانبية فقط
+ *  @param {Element} root
+ *  @param {string}  current   href الصفحة الحالية (لاختيار العنوان)
+ *  @param {object|string} body  إما HTML string أو {content, action} لإضافة زر في رأس الصفحة
+ */
 export function shell(root, current, body) {
-  if (store.isSchool() || store.isInstructor()) { root.innerHTML = html`${body}`.s; return; }
-  const tabs = [...ADMIN_TABS_CONTENT, ...(store.isAdmin() ? ADMIN_TABS_MANAGE : [])];
-  root.innerHTML = html`<div class="page-head"><div><h1>${t('admin.title')}</h1></div></div>
-    <nav class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:20px" aria-label="${t('admin.title')}">
-      ${tabs.map(([href, key]) => html`<a class="btn ${href === current ? 'btn-primary' : 'btn-secondary'}" href="${href}">${t(key)}</a>`)}
-    </nav>${body}`.s;
+  const allTabs = [
+    ...ADMIN_TABS_CONTENT, ...ADMIN_TABS_MANAGE,
+    ...schoolTabs(), ...INSTRUCTOR_TABS,
+    ['/admin/bookings', 'nav.bookings'],
+    ['/admin/exams', 'nav.exams'],
+    ['/admin/schools', 'schools.title'],
+    ['/admin/school/students', 'school.manageStudents'],
+    ['/admin/school/instructors', 'school.manageInstructors'],
+  ];
+  const found = allTabs.find(([href]) => href === current);
+  const pageTitle = found ? t(found[1]) : t('admin.title');
+
+  // body يمكن أن يكون كائناً { content, action } أو HTML مباشراً
+  const { content, action } = (body && typeof body === 'object' && body.content !== undefined)
+    ? body : { content: body, action: null };
+
+  root.innerHTML = html`<div class="page-head">
+      <div><h1>${pageTitle}</h1></div>
+      ${action || ''}
+    </div>${content}`.s;
 }
 
 async function load(root, current, fn) {
@@ -116,9 +134,19 @@ async function load(root, current, fn) {
 
 const val = (form, name) => form.elements[name]?.value ?? '';
 
+// مساعد مشترك: بطاقة KPI
+export const kpiCard = (icon, label, value, sub = '', href = '') => html`<a class="dash-kpi ${href ? '' : 'no-link'}" ${href ? html`href="${href}"` : ''}>
+  <span class="dash-kpi-ic" aria-hidden="true">${icon}</span>
+  <span class="muted small">${label}</span>
+  <strong>${value}</strong>
+  ${sub ? html`<span class="small muted">${sub}</span>` : ''}
+</a>`;
+
+// مساعد مشترك: عنوان قسم
+const secHead = (txt) => html`<h3 class="dash-h">${txt}</h3>`;
+
 // --- Statistiques ----------------------------------------------------------------
 export async function statsView(root) {
-  // المؤسسة والمدرب يُوجَّهان مباشرة لقائمة طلابهم
   if (store.isSchool()) { import('./school.js').then((m) => m.schoolStatsView(root)); return; }
   if (store.isInstructor()) { studentsView(root); return; }
   await load(root, '/admin', async () => {
@@ -126,20 +154,26 @@ export async function statsView(root) {
     const total = s.users.reduce((a, u) => a + u.n, 0);
     const rate = s.exams.total ? pct(s.exams.passed, s.exams.total) : 0;
     shell(root, '/admin', html`
-      <div class="grid grid-4">
-        <div class="card"><div class="muted small">${t('admin.users_count')}</div><h2 style="margin:6px 0">${total}</h2></div>
-        <div class="card"><div class="muted small">${t('admin.new30')}</div><h2 style="margin:6px 0">${s.newUsers30}</h2></div>
-        <div class="card"><div class="muted small">${t('admin.active7')}</div><h2 style="margin:6px 0">${s.activeUsers7}</h2></div>
-        <div class="card"><div class="muted small">${t('admin.examsPassRate')}</div><h2 style="margin:6px 0">${rate}%</h2><div class="small muted">${s.exams.total} ${t('admin.examsTotal')}</div></div>
+      <div class="dash-kpis">
+        ${kpiCard('👥', t('admin.users_count'), total)}
+        ${kpiCard('🆕', t('admin.new30'), s.newUsers30)}
+        ${kpiCard('⚡', t('admin.active7'), s.activeUsers7)}
+        ${kpiCard('📝', t('admin.examsPassRate'), rate + '%', s.exams.total + ' ' + t('admin.examsTotal'))}
       </div>
-      <h2 style="margin:28px 0 12px">${t('admin.coverage')}</h2>
-      <div class="card"><table class="table"><tbody>
-        ${s.coverage.map((c) => html`<tr><td>${catName(c)}</td><td>${c.published}</td><td style="width:40%">${progressBar(Math.min(100, pct(c.published, Math.max(1, c.perExam * 3))))}</td></tr>`)}
-      </tbody></table></div>
-      <h2 style="margin:28px 0 12px">${t('admin.hardest')}</h2>
-      <div class="card"><table class="table"><tbody>
-        ${s.hardest.length ? s.hardest.map((q) => html`<tr><td><a href="/admin/questions/${q.id}">#${q.id}</a> ${q.text}</td><td>${q.success}%</td></tr>`) : html`<tr><td class="muted">${t('common.none')}</td></tr>`}
-      </tbody></table></div>`);
+      <div class="grid grid-2" style="margin-top:20px">
+        <div class="card">
+          ${secHead('📚 ' + t('admin.coverage'))}
+          <table class="table"><tbody>
+            ${s.coverage.map((c) => html`<tr><td>${catName(c)}</td><td>${c.published}</td><td style="width:40%">${progressBar(Math.min(100, pct(c.published, Math.max(1, c.perExam * 3))))}</td></tr>`)}
+          </tbody></table>
+        </div>
+        <div class="card">
+          ${secHead('🔥 ' + t('admin.hardest'))}
+          <table class="table"><tbody>
+            ${s.hardest.length ? s.hardest.map((q) => html`<tr><td><a href="/admin/questions/${q.id}">#${q.id}</a> ${q.text}</td><td class="small muted">${q.success}%</td></tr>`) : html`<tr><td class="muted">${t('common.none')}</td></tr>`}
+          </tbody></table>
+        </div>
+      </div>`);
   });
 }
 
@@ -1022,11 +1056,7 @@ export async function usersView(root) {
       const amSuper = store.isSuperAdmin();
       // الأدمين العادي لا يرى الأدمين الأكبر (الخادم يستبعده أيضاً، هذا للأمان المضاعف)
       const visible = amSuper ? list : list.filter((u) => !u.is_super_admin);
-      shell(root, '/admin/users', html`
-        <div class="page-head">
-          <div><h1>${t('admin.users')}</h1></div>
-          <button class="btn btn-primary btn-sm" id="btn-add-user">＋ ${t('admin.addUser')}</button>
-        </div>
+      shell(root, '/admin/users', { action: html`<button class="btn btn-primary btn-sm" id="btn-add-user">＋ ${t('admin.addUser')}</button>`, content: html`
         <div class="card table-wrap"><table class="table list-table"><thead><tr>
           <th>${t('admin.name')}</th><th>${t('admin.email')}</th><th>${t('admin.role')}</th><th>${t('admin.status')}</th><th>${t('admin.school')}</th><th>${t('common.actions')}</th>
         </tr></thead><tbody>
@@ -1043,7 +1073,7 @@ export async function usersView(root) {
                             <button class="act-btn" type="button" data-act="reset" data-id="${u.id}" ${resetBlocked(u) ? raw('disabled') : ''} title="${resetBlocked(u) ? 'متاح بعد ' + resetWait(u) : 'توليد كلمة سر جديدة'}"><span aria-hidden="true">🔑</span><span class="act-lbl">كلمة سر</span></button>` })}</td>
             </tr>`;
           })}
-        </tbody></table></div>`);
+        </tbody></table></div>` });
 
       // ربط نقر الاسم بنافذة العرض
       root.querySelectorAll('[data-view]').forEach((a) => {

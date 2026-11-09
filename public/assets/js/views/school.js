@@ -42,17 +42,14 @@ async function managedView(root, role) {
       ? html`<th>${t('admin.name')}</th><th>${t('admin.email')}</th><th>${t('admin.exams')}</th><th>التقدم</th><th>${t('admin.lastActivity')}</th><th>${t('admin.status')}</th><th>${t('common.actions')}</th>`
       : html`<th>${t('admin.name')}</th><th>${t('admin.email')}</th><th>الهاتف</th><th>المدينة</th><th>${t('admin.status')}</th><th>${t('common.actions')}</th>`;
     const cols = role === 'student' ? 7 : 6;
-    shell(root, cfg.path, html`
-      <div class="row" style="margin-bottom:12px;gap:8px;flex-wrap:wrap">
-        <h2 style="margin:0">${t(cfg.title)}</h2>
-        <span class="spacer"></span>
+    shell(root, cfg.path, { action: html`<div class="row" style="gap:8px">
         <select id="u-filter" class="input" style="width:auto" aria-label="${t('admin.status')}">
           <option value="live" ${filter === 'live' ? raw('selected') : ''}>${t('booking.filterActive')}</option>
           <option value="archived" ${filter === 'archived' ? raw('selected') : ''}>${t('common.archived')}</option>
           <option value="all" ${filter === 'all' ? raw('selected') : ''}>${t('booking.filterAll')}</option>
         </select>
         <button class="btn btn-primary btn-sm" id="btn-add-user">＋ ${t(cfg.add)}</button>
-      </div>
+      </div>`, content: html`
       <div class="card table-wrap" style="overflow:auto"><table class="table list-table"><thead><tr>${head}</tr></thead><tbody>
         ${shown.length ? shown.map((u) => {
           const acts = rowActions({
@@ -69,7 +66,7 @@ async function managedView(root, role) {
             : html`<tr style="${u.active ? '' : 'opacity:.6'}">
                 <td><a data-view="${u.id}">${u.name}</a></td><td class="small">${u.email}</td><td class="small">${u.phone || '—'}</td><td class="small">${u.city || '—'}</td><td>${statePill(u)}</td><td>${acts}</td></tr>`;
         }) : html`<tr><td colspan="${cols}" class="muted">${t('common.none')}</td></tr>`}
-      </tbody></table></div>`);
+      </tbody></table></div>` });
 
     root.querySelector('#u-filter').onchange = (e) => { filter = e.target.value; render(); };
     root.querySelector('#btn-add-user').onclick = () =>
@@ -163,11 +160,7 @@ export async function schoolStatsView(root, days = 30) {
     ? html`${rows.map((r) => html`<a class="dash-hrow" href="/admin/students/${r.id}" data-tip="${r.name}: ${r.progress}%"><span class="small" style="width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.name}</span><span class="dash-track"><i style="width:${r.progress}%;background:var(--success,#16a34a)"></i></span><strong class="small" style="width:40px;text-align:end">${r.progress}%</strong></a>`)}`
     : html`<p class="muted small">${t('common.none')}</p>`;
 
-  shell(root, '/admin', html`
-    <div class="row" style="margin-bottom:14px;gap:8px;flex-wrap:wrap;align-items:center">
-      <h2 style="margin:0">📊 ${t('admin.stats')}</h2><span class="spacer"></span>
-      <div class="dash-seg" role="group" aria-label="period">${[7, 30, 90].map((d) => html`<button type="button" class="${d === s.days ? 'on' : ''}" data-days="${d}">${d} يوم</button>`)}</div>
-    </div>
+  shell(root, '/admin', { action: html`<div class="dash-seg" role="group" aria-label="period">${[7, 30, 90].map((d) => html`<button type="button" class="${d === s.days ? 'on' : ''}" data-days="${d}">${d} يوم</button>`)}</div>`, content: html`
     <div class="dash-kpis">
       ${kpi('🎓', 'المتعلمون', s.students.active, `${s.students.total} إجمالاً · ${s.students.suspended} موقوف · ${s.students.archived} مؤرشف`, '/admin/school/students')}
       ${kpi('🧑‍🏫', 'المدربون', s.instructors.active, `${s.instructors.total} إجمالاً`, '/admin/school/instructors')}
@@ -189,7 +182,7 @@ export async function schoolStatsView(root, days = 30) {
       <div class="card"><h3 class="dash-h">🏆 الأعلى تقدماً</h3>${list(s.top)}</div>
       <div class="card"><h3 class="dash-h">⚠️ يحتاجون متابعة</h3>${list(s.lagging)}</div>
     </div>
-    <div id="dash-tip" class="dash-tip" hidden></div>`);
+    <div id="dash-tip" class="dash-tip" hidden></div>` });
 
   // الفترة
   root.querySelectorAll('[data-days]').forEach((b) => { b.onclick = () => schoolStatsView(root, Number(b.dataset.days)); });
