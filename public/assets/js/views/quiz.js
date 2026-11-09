@@ -1,5 +1,5 @@
-// Simulateur : examen blanc (chronométré, sans retour, correction à la fin)
-// ou entraînement (correction immédiate avec explication, navigation libre).
+// واجهة الامتحان — تصميم NARSA الرسمي
+// لوحة زرقاء يسار | شاشة وسائط + نص يمين | شريط سفلي
 import { html, raw, loading, toast, errorMessage, sound, speak, stopSpeaking, autoRead, confirmDialog } from '../ui.js';
 import { t, catName } from '../i18n.js';
 import { api } from '../api.js';
@@ -16,15 +16,12 @@ export async function quizView(appRoot, { params }) {
   const cats = new Map((await store.getCategories()).map((c) => [c.id, c]));
   const live = document.getElementById('live');
 
-  // ── نافذة منبثقة بملء الشاشة (تتكيّف مع الحاسوب والتابلت والهاتف) ──
+  // ── نافذة ملء الشاشة ──
   appRoot.innerHTML = '';
   const overlay = document.createElement('div');
-  overlay.className = 'qz-overlay';
+  overlay.className = 'nrs-overlay';
   overlay.setAttribute('role', 'dialog');
   overlay.setAttribute('aria-modal', 'true');
-  const root = document.createElement('div');
-  root.className = 'qz-window';
-  overlay.appendChild(root);
   document.body.appendChild(overlay);
   const prevOverflow = document.body.style.overflow;
   document.body.style.overflow = 'hidden';
@@ -42,142 +39,311 @@ export async function quizView(appRoot, { params }) {
 
   const q = () => a.questions[idx];
   const answeredCount = () => a.questions.filter((x) => x.answer).length;
+  const norm = (arr) => (arr || []).map((c) => (typeof c === 'string' && c.startsWith('opt_') ? Number(c.replace('opt_', '')) : Number(c))).filter(Boolean);
 
-  // ── الهيكل الرئيسي ────────────────────────────────────────────────
+  // ── الهيكل الرئيسي: نمط NARSA ──────────────────────────────────────
   function layout() {
-    root.innerHTML = html`
-      <!-- شريط أعلى القيز -->
-      <div class="quiz-header">
-        <div class="quiz-title">
-          <span>${a.mode === 'exam' ? '📋' : '✏️'}</span>
-          <span>${a.mode === 'exam' ? t('mode.exam') : modeLabel(a)}</span>
-        </div>
-        <span class="${exam ? 'quiz-mode-badge exam-mode' : 'quiz-mode-badge'}">
-          ${exam ? '⏱ ' + t('mode.examConditions') : '✍️ ' + t('mode.practice')}
-        </span>
-        <div style="flex:1"></div>
-        <!-- عداد التقدم -->
-        <div class="quiz-progress-wrap" style="margin:0;width:140px">
-          <div class="quiz-progress-info">
-            <span id="counter" aria-live="polite"></span>
-            <span id="answered-count" style="color:var(--primary)"></span>
-          </div>
-          <div class="quiz-progress-bar"><span id="progress-fill"></span></div>
-        </div>
-        <!-- أزرار أدوات -->
-        <button class="btn btn-ghost btn-sm" id="autoread" type="button" aria-pressed="${reading}" title="${t('quiz.autoRead')}"></button>
-        <button class="btn btn-secondary btn-sm" id="quit" style="border-color:var(--danger-mid);color:var(--danger)">
-          ${exam ? '🏁 ' + t('quiz.finishNow') : '✓ ' + t('quiz.finish')}
-        </button>
-        <button class="btn btn-ghost btn-sm" id="qz-close" type="button" aria-label="${t('quiz.close')}" title="${t('quiz.close')}">✕</button>
-      </div>
+    overlay.innerHTML = `
+      <div class="nrs-window">
 
-      <!-- المحتوى الرئيسي -->
-      <div class="quiz-layout">
-        <!-- بطاقة السؤال -->
-        <div id="qcard" class="qcard" aria-live="off"></div>
+        <!-- ══ الشاشة الرئيسية (يمين/فوق) ══ -->
+        <div class="nrs-main">
+          <!-- منطقة الوسائط: صورة أو فيديو -->
+          <div class="nrs-media" id="nrs-media"></div>
 
-        <!-- الشريط الجانبي -->
-        <aside class="quiz-sidebar">
-          ${exam ? html`
-            <div class="q-timer-wrap">
-              <div style="position:relative">
-                <div class="q-timer" id="timer" role="timer" aria-label="${t('quiz.timeLeft')}">
-                  <span class="q-timer-val" id="timer-v">—</span>
-                </div>
-                <span class="q-timer-label">${t('quiz.timeLeft')}</span>
-              </div>
-            </div>` : ''}
-          <div class="q-pad-wrap" id="ans-pad" role="group" aria-label="${t('quiz.answerPad')}"></div>
-          <div class="q-current" aria-live="polite">
-            <span class="q-current-label">${t('quiz.qLabel')}</span>
-            <span class="q-current-num" id="q-current-num"></span>
-          </div>
+          <!-- شريط النص الأسود (السؤال والخيارات) -->
+          <div class="nrs-text-panel" id="nrs-text-panel"></div>
+        </div>
+
+        <!-- ══ اللوحة الجانبية الزرقاء (يسار) ══ -->
+        <aside class="nrs-side">
+
+          <!-- مؤشرات الأسئلة (مربعات الأعلى) -->
+          <div class="nrs-indicators" id="nrs-indicators"></div>
+
+          <!-- زر تصحيح -->
+          <button class="nrs-btn-correct" id="btn-correct" type="button">تصحيح</button>
+
+          <!-- أزرار الاختيار 1-4 -->
+          <div class="nrs-choices" id="nrs-choices"></div>
+
+          <!-- زر موافق -->
+          <button class="nrs-btn-ok" id="btn-ok" type="button">موافق</button>
+
+          <!-- زر إغلاق خفي -->
+          <button class="nrs-btn-close" id="nrs-close" type="button" title="${t('quiz.close')}">✕</button>
         </aside>
-      </div>`.s;
 
-    // ربط أزرار الأدوات
-    const ar = root.querySelector('#autoread');
-    const drawAr = () => {
-      ar.textContent = `${reading ? '🔊' : '🔇'} ${t('quiz.autoRead')}`;
-      ar.setAttribute('aria-pressed', String(reading));
-    };
-    drawAr();
-    ar.onclick = () => {
-      reading = !reading; autoRead.set(reading); drawAr();
-      toast(reading ? t('quiz.autoReadOn') : t('quiz.autoReadOff'));
-      if (reading) speak(speechText(q(), idx + 1), { silent: true }); else stopSpeaking();
-    };
-    root.querySelector('#qz-close').onclick = async () => {
+        <!-- ══ الشريط السفلي ══ -->
+        <footer class="nrs-footer">
+          <div class="nrs-footer-item">
+            <span class="nrs-footer-label">صنف التكوين</span>
+            <span class="nrs-footer-val" id="nrs-cat">${a.licenseCategory || store.user?.license_cat || 'B'}</span>
+          </div>
+          <div class="nrs-footer-item nrs-vol">
+            <span class="nrs-footer-label">Volume</span>
+            <div class="nrs-vol-dots" id="nrs-vol">
+              <button class="nrs-vol-dot" data-v="0" title="صامت">○</button>
+              <button class="nrs-vol-dot" data-v="1" title="منخفض">○</button>
+              <button class="nrs-vol-dot on" data-v="2" title="عالٍ">●</button>
+            </div>
+          </div>
+          <div class="nrs-footer-item">
+            <span class="nrs-footer-label">سؤال</span>
+            <span class="nrs-footer-val" id="nrs-counter">1/${a.questions.length}</span>
+          </div>
+          <div class="nrs-footer-item ${exam ? 'nrs-timer-wrap' : ''}">
+            <span class="nrs-footer-label">الوقت المتبقي</span>
+            <span class="nrs-footer-val nrs-timer-val" id="nrs-timer">30</span>
+          </div>
+        </footer>
+      </div>`;
+
+    // أحداث الأزرار الثابتة
+    overlay.querySelector('#nrs-close').onclick = async () => {
       if (exam && !finished && !(await confirmDialog(t('quiz.closeConfirm'), { okLabel: t('quiz.close') }))) return;
       navigate(exam ? '/exam' : '/practice');
     };
-    root.querySelector('#quit').onclick = async () => {
-      const left = a.questions.length - answeredCount();
-      if (left > 0 && !(await confirmDialog(t('quiz.confirmFinish', { n: left }), { okLabel: t('quiz.finish') }))) return;
-      finish();
+
+    overlay.querySelector('#btn-ok').onclick = () => {
+      if (q().answer) next(); else validate();
     };
-  }
 
-  // ── شريط التنقل بين الأسئلة ───────────────────────────────────────
-  function renderNav() {
-    const cn = root.querySelector('#q-current-num');
-    if (cn) cn.textContent = `${idx + 1} / ${a.questions.length}`;
-
-    // تحديث العداد والشريط
-    const answered = answeredCount();
-    const counter = root.querySelector('#counter');
-    const fill = root.querySelector('#progress-fill');
-    const ac = root.querySelector('#answered-count');
-    if (counter) counter.textContent = t('quiz.counter', { i: idx + 1, n: a.questions.length });
-    if (ac) ac.textContent = `${answered}/${a.questions.length}`;
-    if (fill) fill.style.width = `${(answered / a.questions.length) * 100}%`;
-  }
-
-  // ── رسم مجموعة خيارات ─────────────────────────────────────────────
-  function renderOptions(opts, correctSet, selSet, reveal, answered, prefix = '') {
-    return opts.map((o, i) => {
-      const n = i + 1;
-      const text = (o && typeof o === 'object') ? (o.text || '') : o;
-      let cls = '';
-      let mark = '';
-      if (reveal) {
-        if (correctSet.has(n)) { cls = 'opt-correct'; mark = '✓'; }
-        else if (selSet.has(n)) { cls = 'opt-wrong'; mark = '✗'; }
+    overlay.querySelector('#btn-correct').onclick = async () => {
+      if (exam) {
+        const left = a.questions.length - answeredCount();
+        if (left > 0 && !(await confirmDialog(t('quiz.confirmFinish', { n: left }), { okLabel: t('quiz.finish') }))) return;
+        finish();
+      } else {
+        // في وضع التدريب: انتقل للأسئلة المجابة
+        const first = a.questions.findIndex((x) => x.answer);
+        if (first !== -1) go(first);
       }
-      return html`
-        <button type="button" class="q-option ${cls}" data-prefix="${prefix}" data-n="${n}"
-          aria-pressed="${selSet.has(n)}" ${answered ? 'disabled' : ''} lang="ar" dir="rtl">
-          <span class="q-option-num">${n}</span>
-          <span class="q-option-text">${text}</span>
-          ${mark ? html`<span class="q-option-mark" aria-hidden="true">${mark}</span>` : ''}
-          ${reveal && correctSet.has(n) ? html`<span class="sr-only">${t('quiz.correctAnswer')}</span>` : ''}
-        </button>`.s;
+    };
+
+    // أزرار الصوت
+    overlay.querySelectorAll('.nrs-vol-dot').forEach((b) => {
+      b.onclick = () => {
+        overlay.querySelectorAll('.nrs-vol-dot').forEach((d) => { d.textContent = '○'; d.classList.remove('on'); });
+        b.textContent = '●'; b.classList.add('on');
+        const v = Number(b.dataset.v);
+        sound.setVolume?.(v / 2);
+        if (v > 0 && reading) speak(speechText(q(), idx + 1), { silent: true });
+      };
+    });
+  }
+
+  // ── رسم مؤشرات الأسئلة (مربعات الأعلى) ──────────────────────────
+  function renderIndicators() {
+    const el = overlay.querySelector('#nrs-indicators');
+    if (!el) return;
+    el.innerHTML = a.questions.map((qst, i) => {
+      let cls = 'nrs-ind';
+      if (i === idx) cls += ' nrs-ind-cur';
+      else if (qst.answer) {
+        const ok = qst.answer.isCorrect;
+        cls += ok === false ? ' nrs-ind-wrong' : ok === true ? ' nrs-ind-ok' : ' nrs-ind-done';
+      }
+      return `<button class="${cls}" data-i="${i}" title="سؤال ${i + 1}">${i + 1}</button>`;
     }).join('');
+    el.querySelectorAll('.nrs-ind').forEach((b) => {
+      b.onclick = () => { if (!exam || q().answer) go(Number(b.dataset.i)); };
+    });
   }
 
-  // ── ترتيب جسم السؤال ليظهر كله في شاشة واحدة: الصورة بجانب (أو فوق) السؤال والأجوبة ──
-  function arrangeBody(card) {
-    const body = card.querySelector('.qcard-body');
-    if (!body) return;
-    const kids = [...body.children];
-    const media = kids.filter((el) => el.classList.contains('scene'));
-    const rest = kids.filter((el) => !media.includes(el));
-    body.innerHTML = '';
-    if (media.length) {
-      const m = document.createElement('div');
-      m.className = 'qz-media';
-      media.forEach((el) => m.appendChild(el));
-      body.appendChild(m);
+  // ── رسم أزرار الاختيار (اليسار) ──────────────────────────────────
+  function renderChoices() {
+    const el = overlay.querySelector('#nrs-choices');
+    if (!el) return;
+    const cur = q();
+    const ans = cur.answer;
+    const isDouble = cur.is_double && Array.isArray(cur.sub_questions) && cur.sub_questions.length === 2;
+
+    if (isDouble) {
+      // 4 أزرار: 1,2 للسؤال أ / 3,4 للسؤال ب
+      const selA = selected.a || new Set();
+      const selB = selected.b || new Set();
+      const corrA = new Set(norm(cur.sub_questions[0].correct));
+      const corrB = new Set(norm(cur.sub_questions[1].correct));
+      el.innerHTML = [
+        { n: 1, pre: 'a', set: selA, corr: corrA },
+        { n: 2, pre: 'a', set: selA, corr: corrA },
+        { n: 3, pre: 'b', set: selB, corr: corrB },
+        { n: 4, pre: 'b', set: selB, corr: corrB },
+      ].map(({ n, pre, set, corr }) => {
+        const localN = pre === 'a' ? n : n - 2;
+        const pressed = set.has(localN);
+        let cls = 'nrs-choice-btn';
+        if (ans) {
+          if (corr.has(localN)) cls += ' choice-correct';
+          else if (set.has(localN)) cls += ' choice-wrong';
+        } else if (pressed) cls += ' choice-on';
+        const sep = n === 3 ? ' nrs-choice-sep' : '';
+        return `<button class="${cls}${sep}" data-prefix="${pre}" data-n="${localN}" data-abs="${n}" ${ans ? 'disabled' : ''}><span class="nrs-choice-num">${n}</span><span class="nrs-choice-sq"></span></button>`;
+      }).join('');
+    } else {
+      const correct = new Set(norm(cur.correct));
+      const count = cur.options?.length || 4;
+      el.innerHTML = Array.from({ length: count }, (_, i) => {
+        const n = i + 1;
+        const pressed = selected.has(n);
+        let cls = 'nrs-choice-btn';
+        if (ans) {
+          if (correct.has(n)) cls += ' choice-correct';
+          else if (pressed) cls += ' choice-wrong';
+        } else if (pressed) cls += ' choice-on';
+        return `<button class="${cls}" data-n="${n}" ${ans ? 'disabled' : ''}><span class="nrs-choice-num">${n}</span><span class="nrs-choice-sq"></span></button>`;
+      }).join('');
     }
-    const main = document.createElement('div');
-    main.className = 'qz-main';
-    rest.forEach((el) => main.appendChild(el));
-    body.appendChild(main);
-    body.classList.toggle('has-media', media.length > 0);
+
+    el.querySelectorAll('.nrs-choice-btn:not([disabled])').forEach((b) => {
+      b.onclick = () => {
+        const n = Number(b.dataset.n);
+        const pre = b.dataset.prefix;
+        if (pre) {
+          const set = pre === 'a' ? selected.a : selected.b;
+          if (set.has(n)) set.delete(n); else set.add(n);
+          sound.play('click');
+          syncChoices();
+        } else {
+          toggle(n);
+        }
+      };
+    });
   }
 
-  // ── رسم السؤال ────────────────────────────────────────────────────
+  function syncChoices() {
+    const cur = q();
+    const isDouble = cur.is_double && Array.isArray(cur.sub_questions);
+    overlay.querySelectorAll('.nrs-choice-btn:not([disabled])').forEach((b) => {
+      const n = Number(b.dataset.n);
+      const pre = b.dataset.prefix;
+      let pressed;
+      if (pre) {
+        const set = pre === 'a' ? selected.a : selected.b;
+        pressed = set.has(n);
+      } else {
+        pressed = selected.has(n);
+      }
+      b.classList.toggle('choice-on', pressed);
+    });
+    renderTextPanel(); // تحديث ☐/☑ في النص
+  }
+
+  // ── منطقة الوسائط ─────────────────────────────────────────────────
+  function renderMedia() {
+    const el = overlay.querySelector('#nrs-media');
+    if (!el) return;
+    const cur = q();
+    const vidHtml = videoBlock(cur).s;
+    if (vidHtml) {
+      el.innerHTML = vidHtml;
+      el.classList.add('has-video');
+    } else if (cur.image || cur.visual) {
+      el.innerHTML = `<div class="nrs-img-wrap">${renderVisual(cur)}</div>`;
+      el.classList.remove('has-video');
+    } else {
+      el.innerHTML = `<div class="nrs-no-media"><span>🚗</span></div>`;
+      el.classList.remove('has-video');
+    }
+  }
+
+  // ── لوحة النص (الشريط الأسود) ────────────────────────────────────
+  function renderTextPanel() {
+    const el = overlay.querySelector('#nrs-text-panel');
+    if (!el) return;
+    const cur = q();
+    const ans = cur.answer;
+    const isDouble = cur.is_double && Array.isArray(cur.sub_questions) && cur.sub_questions.length === 2;
+    const reveal = !exam && ans;
+
+    if (isDouble) {
+      const sq = cur.sub_questions;
+      const corrA = new Set(norm(sq[0].correct));
+      const corrB = new Set(norm(sq[1].correct));
+      const selA = selected.a || new Set();
+      const selB = selected.b || new Set();
+
+      // نص السؤال الرئيسي
+      let html2 = `<div class="nrs-q-main" dir="rtl">${esc(cur.text)}</div>`;
+
+      // نعم / لا للأسئلة المزدوجة بناءً على options الفعلية
+      const optLabels = (opts) => opts.map((o, i) => {
+        const text = (o && typeof o === 'object') ? (o.text || '') : o;
+        return text;
+      });
+
+      const labelsA = optLabels(sq[0].options);
+      const labelsB = optLabels(sq[1].options);
+
+      // حالة أ
+      html2 += `<div class="nrs-sub-block" dir="rtl">`;
+      html2 += `<div class="nrs-sub-label">-${esc(sq[0].text)}</div>`;
+      html2 += `<div class="nrs-sub-opts">`;
+      labelsA.forEach((lbl, i) => {
+        const n = i + 1;
+        const on = selA.has(n);
+        const ok = reveal && corrA.has(n);
+        const wrong = reveal && on && !corrA.has(n);
+        html2 += `<span class="nrs-sub-opt ${ok ? 'sub-ok' : wrong ? 'sub-wrong' : on ? 'sub-on' : ''}">${n}- ${esc(lbl)}</span>`;
+      });
+      html2 += `</div></div>`;
+
+      // حالة ب
+      html2 += `<div class="nrs-sub-block" dir="rtl">`;
+      html2 += `<div class="nrs-sub-label">-${esc(sq[1].text)}</div>`;
+      html2 += `<div class="nrs-sub-opts">`;
+      labelsB.forEach((lbl, i) => {
+        const n = i + 1;
+        const on = selB.has(n);
+        const ok = reveal && corrB.has(n);
+        const wrong = reveal && on && !corrB.has(n);
+        html2 += `<span class="nrs-sub-opt ${ok ? 'sub-ok' : wrong ? 'sub-wrong' : on ? 'sub-on' : ''}">${n}- ${esc(lbl)}</span>`;
+      });
+      html2 += `</div></div>`;
+
+      // تغذية راجعة
+      if (reveal && ans) {
+        const ok = ans.isCorrect;
+        html2 += `<div class="nrs-feedback ${ok ? 'nrs-fb-ok' : 'nrs-fb-ko'}">${ok ? '✓ صحيح' : '✗ خطأ'}${cur.explanation ? ' — ' + esc(cur.explanation) : ''}</div>`;
+      }
+
+      el.innerHTML = html2;
+
+    } else {
+      const correct = new Set(norm(cur.correct));
+      const opts = cur.options || [];
+      let html2 = `<div class="nrs-q-main" dir="rtl">${esc(cur.text)}</div>`;
+      html2 += `<div class="nrs-opts-list" dir="rtl">`;
+      opts.forEach((o, i) => {
+        const n = i + 1;
+        const text = (o && typeof o === 'object') ? (o.text || '') : o;
+        const on = selected.has(n);
+        const ok = !exam && ans && correct.has(n);
+        const wrong = !exam && ans && on && !correct.has(n);
+        html2 += `<div class="nrs-opt ${ok ? 'sub-ok' : wrong ? 'sub-wrong' : on ? 'sub-on' : ''}">
+          <span class="nrs-opt-n">${n}</span>
+          <span class="nrs-opt-text">${esc(text)}</span>
+        </div>`;
+      });
+      html2 += `</div>`;
+
+      if (!exam && ans) {
+        const ok = ans.isCorrect;
+        html2 += `<div class="nrs-feedback ${ok ? 'nrs-fb-ok' : 'nrs-fb-ko'}">${ok ? '✓ إجابة صحيحة' : '✗ إجابة خاطئة — الصحيح: ' + [...correct].join(', ')}${cur.explanation ? '<br><small>' + esc(cur.explanation) + '</small>' : ''}</div>`;
+      }
+
+      el.innerHTML = html2;
+    }
+  }
+
+  // ── تحديث الشريط السفلي ───────────────────────────────────────────
+  function renderFooter() {
+    const ctr = overlay.querySelector('#nrs-counter');
+    if (ctr) ctr.textContent = `${idx + 1}/${a.questions.length}`;
+  }
+
+  // ── رسم السؤال كامل ──────────────────────────────────────────────
   function renderQuestion() {
     const cur = q();
     const ans = cur.answer;
@@ -190,254 +356,32 @@ export async function quizView(appRoot, { params }) {
       selected = new Set(ans ? ans.selected : []);
     }
 
-    const reveal = !exam && ans;
-    const c = cats.get(cur.categoryId);
-    const card = root.querySelector('#qcard');
+    renderMedia();
+    renderTextPanel();
+    renderChoices();
+    renderIndicators();
+    renderFooter();
 
-    const header = '';
+    // تحديث حالة زر موافق
+    const okBtn = overlay.querySelector('#btn-ok');
+    if (okBtn) okBtn.textContent = ans ? (idx < a.questions.length - 1 ? 'التالي →' : '🏁 النتائج') : 'موافق';
 
-    // المنطقة المرئية (صورة / مشهد)
-    const visual = html`
-      ${raw(videoBlock(cur).s || '')}
-      ${cur.image || cur.visual ? html`<figure class="scene" style="margin:0 0 20px;border-radius:12px;overflow:hidden">${raw(renderVisual(cur))}</figure>` : ''}`;
-
-    // رقم السؤال
-    const qNum = html`<div class="q-number">${t('quiz.qn', { n: idx + 1 })}</div>`;
-
-    if (isDouble) {
-      const sq = cur.sub_questions;
-      const normC = (arr) => (arr || []).map((c) =>
-        typeof c === 'string' && c.startsWith('opt_') ? Number(c.replace('opt_', '')) : Number(c)
-      ).filter(Boolean);
-      const corrA = new Set(normC(sq[0].correct));
-      const corrB = new Set(normC(sq[1].correct));
-      const selA = selected.a;
-      const selB = selected.b;
-
-      const subOkA = reveal && corrA.size && [...corrA].every((n) => selA.has(n)) && selA.size === corrA.size;
-      const subOkB = reveal && corrB.size && [...corrB].every((n) => selB.has(n)) && selB.size === corrB.size;
-
-      card.innerHTML = html`
-        ${header}
-        <div class="qcard-body">
-          ${visual}
-          ${qNum}
-          <p class="q-hint">⚡ ${t('quiz.doubleHint')}</p>
-          <p class="q-text" lang="ar" dir="rtl">${cur.text}</p>
-
-          <!-- السؤال الفرعي أ -->
-          <div class="sub-q-block">
-            <div class="sub-q-label">
-              <span class="sub-q-dot">أ</span>
-              <span>${t('quiz.subQ1')}</span>
-            </div>
-            <p class="sub-q-text" lang="ar" dir="rtl" id="sq1text">${sq[0].text}</p>
-            <div class="sub-q-options" role="group" aria-labelledby="sq1text">
-              ${raw(renderOptions(sq[0].options, corrA, selA, reveal, !!ans, 'a'))}
-            </div>
-            ${reveal ? html`<div style="padding:0 12px 12px"><div class="q-feedback ${subOkA ? 'fb-ok' : 'fb-ko'}" style="margin:0"><div class="q-feedback-title">${subOkA ? '✓' : '✗'} ${t('quiz.correctAnswer')}: ${[...corrA].join(', ')}</div></div></div>` : ''}
-          </div>
-
-          <!-- السؤال الفرعي ب -->
-          <div class="sub-q-block">
-            <div class="sub-q-label">
-              <span class="sub-q-dot">ب</span>
-              <span>${t('quiz.subQ2')}</span>
-            </div>
-            <p class="sub-q-text" lang="ar" dir="rtl" id="sq2text">${sq[1].text}</p>
-            <div class="sub-q-options" role="group" aria-labelledby="sq2text">
-              ${raw(renderOptions(sq[1].options, corrB, selB, reveal, !!ans, 'b'))}
-            </div>
-            ${reveal ? html`<div style="padding:0 12px 12px"><div class="q-feedback ${subOkB ? 'fb-ok' : 'fb-ko'}" style="margin:0"><div class="q-feedback-title">${subOkB ? '✓' : '✗'} ${t('quiz.correctAnswer')}: ${[...corrB].join(', ')}</div></div></div>` : ''}
-          </div>
-
-          <!-- الشرح والتغذية الراجعة الكلية -->
-          <div id="fb">${reveal && ans ? feedbackDouble(cur) : ''}</div>
-
-          <!-- أزرار الإجراءات -->
-          <div class="q-actions">
-            ${ans
-              ? html`
-                ${!exam && idx > 0 ? html`<button class="btn btn-secondary" id="prev">← ${t('quiz.prev')}</button>` : ''}
-                <div class="spacer"></div>
-                <button class="btn btn-primary" id="next">
-                  ${idx < a.questions.length - 1 ? t('quiz.next') + ' →' : '🏁 ' + t('quiz.seeResults')}
-                </button>`
-              : html`
-                <button class="btn btn-secondary btn-sm" id="clear" style="color:var(--muted)">↺ ${t('quiz.clear')}</button>
-                <div class="spacer"></div>
-                ${!exam && idx > 0 ? html`<button class="btn btn-ghost" id="prev">← ${t('quiz.prev')}</button>` : ''}
-                <button class="btn btn-primary" id="validate">✓ ${t('quiz.validate')}</button>`}
-          </div>
-        </div>`.s;
-
-      card.querySelectorAll('.q-option:not([disabled])').forEach((b) => {
-        b.onclick = () => {
-          const pre = b.dataset.prefix;
-          const n = Number(b.dataset.n);
-          const set = pre === 'a' ? selected.a : selected.b;
-          if (set.has(n)) set.delete(n); else set.add(n);
-          syncDoubleOptions();
-        };
-      });
-
-    } else {
-      // ── سؤال منفرد ────────────────────────────────────────────────
-      // تطبيع correct: ["opt_1","opt_2"] → [1,2]  أو  [1,2] → [1,2]
-      const normalizeCorrect = (arr) => (arr || []).map((c) =>
-        typeof c === 'string' && c.startsWith('opt_') ? Number(c.replace('opt_', '')) : Number(c)
-      ).filter(Boolean);
-      const correct = new Set(normalizeCorrect(cur.correct));
-      const multiAnswer = cur.correct && cur.correct.length > 1;
-
-      card.innerHTML = html`
-        ${header}
-        <div class="qcard-body">
-          ${visual}
-          ${qNum}
-          ${multiAnswer && !ans ? html`<div class="q-hint">📌 ${t('quiz.multiHint')}</div>` : ''}
-          <h2 class="q-text" id="qtext" lang="ar" dir="rtl">${cur.text}</h2>
-
-          <div class="q-options" role="group" aria-labelledby="qtext">
-            ${raw(renderOptions(cur.options, correct, selected, reveal, !!ans, ''))}
-          </div>
-
-          <!-- التغذية الراجعة بعد الإجابة -->
-          <div id="fb">${reveal ? feedback(cur) : ''}</div>
-
-          <!-- أزرار الإجراءات -->
-          <div class="q-actions">
-            ${ans
-              ? html`
-                ${!exam && idx > 0 ? html`<button class="btn btn-secondary" id="prev">← ${t('quiz.prev')}</button>` : ''}
-                <div class="spacer"></div>
-                <button class="btn btn-primary" id="next">
-                  ${idx < a.questions.length - 1 ? t('quiz.next') + ' →' : '🏁 ' + t('quiz.seeResults')}
-                </button>`
-              : html`
-                <button class="btn btn-secondary btn-sm" id="clear" style="color:var(--muted)">↺ ${t('quiz.clear')}</button>
-                <div class="spacer"></div>
-                ${!exam && idx > 0 ? html`<button class="btn btn-ghost" id="prev">← ${t('quiz.prev')}</button>` : ''}
-                <button class="btn btn-primary" id="validate">✓ ${t('quiz.validate')}</button>`}
-          </div>
-        </div>`.s;
-
-      card.querySelectorAll('.q-option:not([disabled])').forEach((b) => (b.onclick = () => toggle(Number(b.dataset.n))));
-    }
-
-    arrangeBody(card);
-    renderPad();
-
-    // ربط الأزرار المشتركة
-    const spk = card.querySelector('#speak'); if (spk) spk.onclick = () => speak(speechText(cur, idx + 1));
-    const bmk = card.querySelector('#bm'); if (bmk) bmk.onclick = toggleBookmark;
-    const v = card.querySelector('#validate'); if (v) v.onclick = validate;
-    const cl = card.querySelector('#clear');
-    if (cl) cl.onclick = () => {
-      if (cur.is_double) { selected.a.clear(); selected.b.clear(); syncDoubleOptions(); }
-      else { selected.clear(); syncOptions(); }
-    };
-    const nx = card.querySelector('#next'); if (nx) nx.onclick = next;
-    const pv = card.querySelector('#prev'); if (pv) pv.onclick = () => go(idx - 1);
-
-    renderNav();
     shownAt = Date.now();
     if (exam && !ans) startTimer();
     if (reading && !ans) speak(speechText(cur, idx + 1), { silent: true });
   }
 
-  // ── لوحة أرقام الإجابة (تحت العدّاد): 1..عدد الخيارات ───────────────
-  function renderPad() {
-    const el = root.querySelector('#ans-pad');
-    if (!el) return;
-    const cur = q();
-    const ans = cur.answer;
-    const reveal = !exam && ans;
-    const norm = (arr) => (arr || []).map((c) => (typeof c === 'string' && c.startsWith('opt_') ? Number(c.replace('opt_', '')) : Number(c))).filter(Boolean);
-    const isDouble = cur.is_double && Array.isArray(cur.sub_questions) && cur.sub_questions.length === 2;
-    const row = (count, prefix, correctArr, selSet, label) => {
-      const corr = new Set(norm(correctArr));
-      const btns = Array.from({ length: count }, (_, i) => {
-        const n = i + 1;
-        let cls = 'q-pad-btn';
-        if (reveal) { if (corr.has(n)) cls += ' opt-correct'; else if (selSet.has(n)) cls += ' opt-wrong'; }
-        return `<button type="button" class="${cls}" data-prefix="${prefix}" data-n="${n}" aria-pressed="${selSet.has(n)}" ${ans ? 'disabled' : ''}>${n}</button>`;
-      }).join('');
-      return `<div class="q-pad-row">${label ? `<span class="q-pad-label">${label}</span>` : ''}<div class="q-pad">${btns}</div></div>`;
-    };
-    el.innerHTML = isDouble
-      ? row(cur.sub_questions[0].options.length, 'a', cur.sub_questions[0].correct, selected.a, 'أ') + row(cur.sub_questions[1].options.length, 'b', cur.sub_questions[1].correct, selected.b, 'ب')
-      : row(cur.options.length, '', cur.correct, selected, '');
-    el.querySelectorAll('.q-pad-btn:not([disabled])').forEach((b) => {
-      b.onclick = () => {
-        const n = Number(b.dataset.n);
-        if (isDouble) {
-          const set = b.dataset.prefix === 'a' ? selected.a : selected.b;
-          if (set.has(n)) set.delete(n); else set.add(n);
-          sound.play('click');
-          syncDoubleOptions();
-        } else toggle(n);
-      };
-    });
-  }
-
-  function syncPad() {
-    const el = root.querySelector('#ans-pad');
-    if (!el) return;
-    el.querySelectorAll('.q-pad-btn').forEach((b) => {
-      const set = b.dataset.prefix === 'a' ? selected.a : b.dataset.prefix === 'b' ? selected.b : selected;
-      b.setAttribute('aria-pressed', String(!!set && set.has(Number(b.dataset.n))));
-    });
-  }
-
-  function syncDoubleOptions() {
-    const card = root.querySelector('#qcard');
-    card.querySelectorAll('.q-option[data-prefix="a"]').forEach((b) => b.setAttribute('aria-pressed', String(selected.a.has(Number(b.dataset.n)))));
-    card.querySelectorAll('.q-option[data-prefix="b"]').forEach((b) => b.setAttribute('aria-pressed', String(selected.b.has(Number(b.dataset.n)))));
-    syncPad();
-  }
-
-  // ── التغذية الراجعة ───────────────────────────────────────────────
-  function feedback(cur) {
-    const ok = cur.answer.isCorrect;
-    return html`
-      <div class="q-feedback ${ok ? 'fb-ok' : 'fb-ko'}" role="status">
-        <div class="q-feedback-title">
-          <span>${ok ? '✓' : '✗'}</span>
-          <span>${ok ? t('quiz.right') : t('quiz.wrong', { a: (cur.correct || []).join(' + ') })}</span>
-        </div>
-        ${cur.explanation ? html`<div class="q-explain" style="margin-top:8px;background:transparent;border:0;padding:0">
-          <span class="q-explain-icon">💡</span>
-          <span class="q-feedback-explain" lang="ar" dir="rtl">${cur.explanation}</span>
-        </div>` : ''}
-      </div>`;
-  }
-
-  function feedbackDouble(cur) {
-    const ok = cur.answer.isCorrect;
-    return html`
-      <div class="q-feedback ${ok ? 'fb-ok' : 'fb-ko'}" role="status">
-        <div class="q-feedback-title">
-          <span>${ok ? '✓' : '✗'}</span>
-          <span>${ok ? t('quiz.right') : t('quiz.wrong', { a: '' })}</span>
-        </div>
-        ${cur.explanation ? html`<div class="q-explain" style="margin-top:8px;background:transparent;border:0;padding:0">
-          <span class="q-explain-icon">💡</span>
-          <span class="q-feedback-explain" lang="ar" dir="rtl">${cur.explanation}</span>
-        </div>` : ''}
-      </div>`;
-  }
-
-  function syncOptions() {
-    root.querySelectorAll('.q-option').forEach((b) => b.setAttribute('aria-pressed', String(selected.has(Number(b.dataset.n)))));
-    syncPad();
+  // ── مساعدات ──────────────────────────────────────────────────────
+  function esc(s) {
+    return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
   function toggle(n) {
-    if (q().answer || n > q().options.length) return;
+    if (q().answer || n > (q().options?.length || 4)) return;
     if (selected.has(n)) selected.delete(n); else selected.add(n);
     sound.play('click');
-    syncOptions();
+    syncChoices();
+    renderTextPanel();
   }
 
   async function validate({ timeout = false } = {}) {
@@ -464,7 +408,6 @@ export async function quizView(appRoot, { params }) {
         sound.play(res.isCorrect ? 'correct' : 'wrong');
         live.textContent = res.isCorrect ? t('quiz.right') : t('quiz.wrong', { a: (res.correct || []).join(' + ') });
         renderQuestion();
-        root.querySelector('#next')?.focus();
       } else {
         if (timeout) toast(t('quiz.timeUp'));
         next();
@@ -477,7 +420,6 @@ export async function quizView(appRoot, { params }) {
   }
 
   function next() {
-    // في الامتحان: لا ينتقل إلا بعد الإجابة أو انتهاء وقت السؤال
     if (exam && !q().answer) return;
     const firstOpen = a.questions.findIndex((x, i) => i > idx && !x.answer);
     if (idx < a.questions.length - 1) return go(exam ? (firstOpen === -1 ? idx + 1 : firstOpen) : idx + 1);
@@ -489,16 +431,11 @@ export async function quizView(appRoot, { params }) {
   function go(i) {
     if (i < 0 || i >= a.questions.length) return;
     if (exam && i < idx) return;
-    // في الامتحان التجريبي: لا يمكن تخطي السؤال الحالي قبل الإجابة
-    if (exam && i !== idx && !q().answer) {
-      toast(t('quiz.mustAnswer'), 'warning');
-      return;
-    }
+    if (exam && i !== idx && !q().answer) { toast(t('quiz.mustAnswer'), 'warning'); return; }
     stopTimer();
     stopSpeaking();
     idx = i;
     renderQuestion();
-    root.querySelector('#qtext')?.focus?.();
   }
 
   async function finish() {
@@ -512,30 +449,17 @@ export async function quizView(appRoot, { params }) {
     } catch (e) { finished = false; toast(errorMessage(e), 'error'); }
   }
 
-  async function toggleBookmark() {
-    const cur = q();
-    try {
-      const r = await api.put(`/questions/${cur.id}/bookmark`, { bookmarked: !cur.bookmarked });
-      cur.bookmarked = r.bookmarked;
-      const b = root.querySelector('#bm');
-      if (!b) return;
-      b.textContent = cur.bookmarked ? '★' : '☆';
-      b.setAttribute('aria-pressed', String(cur.bookmarked));
-      toast(cur.bookmarked ? t('quiz.bookmarked') : t('quiz.unbookmarked'));
-    } catch (e) { toast(errorMessage(e), 'error'); }
-  }
-
   // ── المؤقت ────────────────────────────────────────────────────────
   function startTimer(from) {
     stopTimer();
-    const total = a.secondsPerQuestion;
+    const total = a.secondsPerQuestion || 30;
     remaining = from ?? total;
-    const el = root.querySelector('#timer');
-    const val = root.querySelector('#timer-v');
+    const el = overlay.querySelector('#nrs-timer');
     const draw = () => {
-      val.textContent = remaining;
-      el.style.setProperty('--p', String((100 * remaining) / total));
+      if (!el) return;
+      el.textContent = remaining;
       el.classList.toggle('timer-low', remaining <= 5);
+      el.classList.toggle('timer-warn', remaining <= 10 && remaining > 5);
     };
     draw();
     timer = setInterval(() => {
@@ -552,11 +476,9 @@ export async function quizView(appRoot, { params }) {
   function onKey(e) {
     if (e.target.closest('input, textarea, select, dialog')) return;
     if (/^[1-4]$/.test(e.key)) { e.preventDefault(); toggle(Number(e.key)); }
-    else if (e.key === 'Enter' && !e.target.closest('button')) { e.preventDefault(); q().answer ? next() : validate(); }
-    else if (!exam && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
-      const forward = (document.dir === 'rtl') === (e.key === 'ArrowLeft');
-      go(idx + (forward ? 1 : -1));
-    }
+    else if (e.key === 'Enter') { e.preventDefault(); q().answer ? next() : validate(); }
+    else if (!exam && e.key === 'ArrowRight') go(idx + 1);
+    else if (!exam && e.key === 'ArrowLeft') go(idx - 1);
   }
   const beforeUnload = (e) => { if (exam && !finished) { e.preventDefault(); e.returnValue = ''; } };
 
