@@ -360,15 +360,18 @@ router.post('/questions-import', instructorReadOnly, wrap(async (req, res) => {
   if (list.length > 5000) throw bad('import_too_large');
   const d = db.get();
   const cats = new Map(d.prepare('SELECT id, slug FROM categories').all().map((c) => [c.slug, c.id]));
-  const ins = d.prepare(`INSERT INTO questions (category_id, text, options, correct, explanation, visual, image, image_alt, difficulty, status)
-    VALUES (@category_id, @text, @options, @correct, @explanation, @visual, @image, @image_alt, @difficulty, @status)`);
+  const ins = d.prepare(`INSERT INTO questions (category_id, text, options, correct, explanation, visual, image, image_alt, video, audio_text, difficulty, status, is_double, sub_questions, skill_type)
+    VALUES (@category_id, @text, @options, @correct, @explanation, @visual, @image, @image_alt, @video, @audio_text, @difficulty, @status, @is_double, @sub_questions, @skill_type)`);
+  const dup = d.prepare('SELECT 1 FROM questions WHERE category_id = ? AND text = ?');
   let created = 0;
   const errors = [];
   d.transaction(() => {
     list.forEach((raw, i) => {
       try {
         const categoryId = raw.categoryId || cats.get(raw.category);
-        ins.run(validateQuestion({ ...raw, categoryId }));
+        const v = validateQuestion({ ...raw, categoryId });
+        if (dup.get(v.category_id, v.text)) throw bad('duplicate_question');
+        ins.run(v);
         created++;
       } catch (e) {
         errors.push({ index: i, error: e.code || e.message });

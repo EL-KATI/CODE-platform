@@ -4,22 +4,50 @@ import { api } from '../api.js';
 import { store } from '../store.js';
 import { startAttempt } from './common.js';
 
+// ألوان أيقونات المحاور (نفس لوحة ألوان الإجراءات السريعة)
+const CAT_TONE = { road: 'blue', traffic: 'orange', driver: 'purple', vehicle: 'green', offences: 'red' };
+
 export async function practiceView(root) {
   root.innerHTML = loading().s;
-  const series = await api.get('/series');
+  const [series, cats] = await Promise.all([api.get('/series'), store.getCategories()]);
+  const usable = cats.filter((c) => c.question_count > 0);
   root.innerHTML = html`
-    <div class="page-head"><div><h1>${t('practice.series')}</h1></div></div>
-    <p class="muted small">${t('practice.seriesHelp')}</p>
-    <div class="grid grid-3">
-      ${series.map((s, i) => html`<div class="card">
-        <div class="row"><span class="pill">${t('practice.seriesN', { n: i + 1 })}</span><span class="spacer"></span>
-          <span class="pill ${s.best === null ? '' : s.best >= 80 ? 'pill-success' : 'pill-warning'}">${t('practice.best', { v: s.best === null ? '—' : s.best + '%' })}</span></div>
-        <h3 style="margin-top:10px">${s.title.replace(/^السلسلة\s*\d+\s*:\s*/, '')}</h3>
-        <p class="small muted">${t('practice.questions', { n: s.question_count })}</p>
-        <div class="row"><button class="btn btn-secondary btn-sm" data-series="${s.id}" data-practice="1">🎯 ${t('mode.practice')}</button>
-        <button class="btn btn-primary btn-sm" data-series="${s.id}" data-practice="0">⏱️ ${t('mode.examConditions')}</button></div></div>`)}
+    <div class="pg">
+      <header class="pg-head"><h1>${t('practice.title')}</h1><p>${t('practice.subtitle')}</p></header>
+
+      <section>
+        <h2 class="dash-h">${t('practice.byCategory')}</h2>
+        <p class="pg-help">${t('practice.byCategoryHelp')}</p>
+        <div class="cat-grid">
+          ${usable.map((c) => html`<button type="button" class="cat-tile tone-${CAT_TONE[c.slug] || 'blue'}" data-cat="${c.id}">
+            <span class="cat-tile-icon" aria-hidden="true">${c.icon}</span>
+            <strong>${catName(c)}</strong>
+            <small>${t('practice.questions', { n: c.question_count })}</small>
+          </button>`)}
+        </div>
+      </section>
+
+      <section>
+        <h2 class="dash-h">${t('practice.series')}</h2>
+        <p class="pg-help">${t('practice.seriesHelp')}</p>
+        ${series.length ? html`<div class="card dash-list">
+          ${series.map((s, i) => html`<div class="series-row">
+            <span class="series-num" aria-hidden="true">${i + 1}</span>
+            <div class="series-body">
+              <strong>${s.title.replace(/^السلسلة\s*\d+\s*:\s*/, '')}</strong>
+              <span class="muted small">${t('practice.questions', { n: s.question_count })}${s.best === null ? '' : ' · ' + t('practice.best', { v: s.best + '%' })}</span>
+              ${s.best === null ? '' : html`<div class="cat-bar ${s.best >= 80 ? 'bar-good' : ''}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${s.best}" aria-label="${t('practice.best', { v: s.best + '%' })}"><i style="width:${s.best}%"></i></div>`}
+            </div>
+            <div class="series-actions">
+              <button class="btn btn-secondary btn-sm" data-series="${s.id}" data-practice="1">${t('mode.practice')}</button>
+              <button class="btn btn-primary btn-sm" data-series="${s.id}" data-practice="0">${t('mode.examConditions')}</button>
+            </div>
+          </div>`)}
+        </div>` : html`<div class="card empty"><div class="big">📚</div><p>${t('practice.noSeries')}</p></div>`}
+      </section>
     </div>`.s;
 
+  root.querySelectorAll('[data-cat]').forEach((b) => (b.onclick = () => startAttempt({ mode: 'category', categoryId: Number(b.dataset.cat), practice: true }, b)));
   root.querySelectorAll('[data-series]').forEach((b) => (b.onclick = () => startAttempt({ mode: 'series', seriesId: Number(b.dataset.series), practice: b.dataset.practice === '1' }, b)));
 }
 

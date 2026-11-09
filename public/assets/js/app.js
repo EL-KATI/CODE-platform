@@ -10,6 +10,7 @@ import { loginView, registerView } from './views/auth.js';
 import { dashboardView } from './views/dashboard.js';
 import { lessonsView, lessonView } from './views/lessons.js';
 import { practiceView, examIntroView } from './views/practice.js';
+import { aiTutorView } from './views/ai-tutor.js';
 import { quizView } from './views/quiz.js';
 import { resultsView } from './views/results.js';
 import { mistakesView, historyView } from './views/mistakes.js';
@@ -36,7 +37,7 @@ function navLinks() {
   if (u && (store.isAdmin() || store.isSchool() || store.isInstructor())) return [['/admin', 'nav.admin']];
   // المتعلم: دروس + تمارين + (حجوزات إذا مرتبط بمؤسسة)
   const links = u
-    ? [['/dashboard', 'nav.dashboard'], ['/lessons', 'nav.lessons'], ['/practice', 'nav.practice'], ['/exam', 'nav.exam'], ['/mistakes', 'nav.mistakes'], ...(store.isEnrolled() ? [['/bookings', 'nav.bookings']] : [])]
+    ? [['/dashboard', 'nav.dashboard'], ['/lessons', 'nav.lessons'], ['/practice', 'nav.practice'], ['/exam', 'nav.exam'], ['/mistakes', 'nav.mistakes'], ['/assistant', 'nav.ai'], ...(store.isEnrolled() ? [['/bookings', 'nav.bookings']] : [])]
     : [['/', 'nav.home'], ['/lessons', 'nav.lessons'], ['/login', 'nav.login']];
   return links;
 }
@@ -79,6 +80,8 @@ export function renderShell() {
   const linkHtml = navLinks().map(([href, key]) => html`<a href="${href}" ${isCur(href) ? html`aria-current="page"` : ''}>${t(key)}</a>`);
   document.getElementById('main-nav').innerHTML = html`${linkHtml}`.s;
   renderStaffSide();
+  // واجهة المترشح والزائر بنمط Apple؛ لوحات الإدارة تحتفظ بتصميمها
+  document.body.classList.toggle('ui-apple', !(store.user && (store.isAdmin() || store.isSchool() || store.isInstructor())));
   const mobile = document.getElementById('mobile-nav');
   mobile.innerHTML = html`${linkHtml}${store.user ? html`<a href="/profile">${t('nav.profile')}</a>` : html`<a href="/register">${t('nav.register')}</a>`}`.s;
   mobile.classList.remove('open');
@@ -178,6 +181,7 @@ route('/exam', view(examIntroView), learner);
 route('/quiz/:id', view(quizView), learner);
 route('/results/:id', view(resultsView), learner);
 route('/mistakes', view(mistakesView), learner);
+route('/assistant', view(aiTutorView), learner);
 route('/history', view(historyView), learner);
 route('/profile', view(profileView), { auth: true });
 route('/privacy', view(privacyView));

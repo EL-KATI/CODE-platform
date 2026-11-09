@@ -1,7 +1,7 @@
 'use strict';
 const db = require('../db');
 const { bad, notFound, HttpError } = require('../http');
-const { toQuestion, getByIds, isCorrect, shuffle } = require('./questions');
+const { toQuestion, parseSubs, getByIds, isCorrect, shuffle } = require('./questions');
 const progress = require('./progress');
 
 const GRACE_SECONDS = 10; // tolérance réseau par question
@@ -146,9 +146,9 @@ function answer(user, attemptId, body) {
 
   let selected, ok, correct, selectedStored;
 
-  if (row.is_double && row.sub_questions) {
+  const sqs = parseSubs(row);
+  if (sqs) {
     // --- سؤال مزدوج: التحقق من كلا الجزأين ---
-    const sqs = JSON.parse(row.sub_questions);
     const sdRaw = body.selected_double || { a: [], b: [] };
     const cleanSub = (arr, opts) => {
       if (late) return [];

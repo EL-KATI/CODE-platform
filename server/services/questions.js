@@ -1,6 +1,21 @@
 'use strict';
 const db = require('../db');
 
+/**
+ * الأجزاء الفرعية للسؤال المزدوج، أو null إذا كانت البنية ناقصة
+ * (سؤال قديم بدون options/correct) — حينها يُعامل السؤال كسؤال منفرد بدل ما يطيح العرض.
+ */
+function parseSubs(row) {
+  if (!row.is_double || !row.sub_questions) return null;
+  let subs;
+  try { subs = JSON.parse(row.sub_questions); } catch { return null; }
+  const valid = Array.isArray(subs) && subs.length === 2 && subs.every((sq) => sq && typeof sq.text === 'string'
+    && Array.isArray(sq.options) && sq.options.length >= 2
+    && Array.isArray(sq.correct) && sq.correct.length
+    && sq.correct.every((c) => Number.isInteger(c) && c >= 1 && c <= sq.options.length));
+  return valid ? subs : null;
+}
+
 /** Convertit une ligne SQL en objet question. includeAnswer=false pour l'envoyer pendant un examen. */
 function toQuestion(row, { includeAnswer = false } = {}) {
   const q = {
@@ -13,17 +28,16 @@ function toQuestion(row, { includeAnswer = false } = {}) {
     imageAlt: row.image_alt || '',
     video: row.video || null,
     audioText: row.audio_text || '',
-    is_double: row.is_double ? 1 : 0,
+    is_double: 0,
     skill_type: row.skill_type || 'معرفية',
-    // للسؤال المزدوج: إرسال sub_questions بدون الإجابات الصحيحة حال الامتحان
-    sub_questions: row.sub_questions
-      ? JSON.parse(row.sub_questions).map((sq) => ({
-          text: sq.text,
-          options: sq.options,
-          ...(includeAnswer ? { correct: sq.correct } : {}),
-        }))
-      : null,
+    sub_questions: null,
   };
+  // للسؤال المزدوج: إرسال sub_questions بدون الإجابات الصحيحة حال الامتحان
+  const subs = parseSubs(row);
+  if (subs) {
+    q.is_double = 1;
+    q.sub_questions = subs.map((sq) => ({ text: sq.text, options: sq.options, ...(includeAnswer ? { correct: sq.correct } : {}) }));
+  }
   if (includeAnswer) {
     q.correct = JSON.parse(row.correct);
     q.explanation = row.explanation;
@@ -53,4 +67,4 @@ function shuffle(arr) {
   return a;
 }
 
-module.exports = { toQuestion, getByIds, isCorrect, shuffle };
+module.exports = { toQuestion, parseSubs, getByIds, isCorrect, shuffle };

@@ -4,6 +4,7 @@
  * - Les questions de chaque محور sont découpées en blocs de 40 (classées par id).
  * - Les restes (blocs incomplets) sont regroupés en séries « مراجعة شاملة ».
  * - La dernière série incomplète est complétée avec d'autres questions pour atteindre 40.
+ * Les restes sont entrelacés entre محاور pour que chaque série de révision soit équilibrée.
  * Idempotent : ne fait rien si des séries auto (description = 'auto40') existent déjà.
  * Les anciennes séries sont dépubliées (pas supprimées) pour conserver l'historique.
  */
@@ -17,13 +18,16 @@ function ensureSeries40(d) {
   if (!qs.length) return false;
 
   const plan = []; // { title, ids }
-  const rest = [];
+  const restByCat = [];
   for (const c of cats) {
     const ids = qs.filter((q) => q.category_id === c.id).map((q) => q.id);
     let n = 0;
     for (let i = 0; i + SIZE <= ids.length; i += SIZE) plan.push({ title: `${c.name_ar} — السلسلة ${++n}`, ids: ids.slice(i, i + SIZE) });
-    rest.push(...ids.slice(Math.floor(ids.length / SIZE) * SIZE));
+    restByCat.push(ids.slice(Math.floor(ids.length / SIZE) * SIZE));
   }
+  // توزيع بالتناوب بين المحاور باش كل سلسلة مراجعة تكون متوازنة
+  const rest = [];
+  for (let i = 0; restByCat.some((l) => i < l.length); i++) for (const l of restByCat) if (i < l.length) rest.push(l[i]);
   let n = 0;
   for (let i = 0; i < rest.length; i += SIZE) {
     const ids = rest.slice(i, i + SIZE);

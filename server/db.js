@@ -314,6 +314,7 @@ function open(file = config.dbFile) {
   if (!cols.includes('is_double')) db.exec('ALTER TABLE questions ADD COLUMN is_double INTEGER NOT NULL DEFAULT 0');
   if (!cols.includes('sub_questions')) db.exec('ALTER TABLE questions ADD COLUMN sub_questions TEXT');
   if (!cols.includes('skill_type')) db.exec("ALTER TABLE questions ADD COLUMN skill_type TEXT NOT NULL DEFAULT 'معرفية'");
+  repairDoubleQuestions(db);
   // Migration: add school_id + NARSA fields to users if missing
   const userCols = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
   if (!userCols.includes('school_id'))     db.exec('ALTER TABLE users ADD COLUMN school_id INTEGER');
@@ -447,6 +448,36 @@ function getSettings() {
 function audit(userId, action, entity, entityId, details) {
   get().prepare('INSERT INTO audit_log (user_id, action, entity, entity_id, details) VALUES (?,?,?,?,?)')
     .run(userId || null, action, entity, entityId ?? null, details ? JSON.stringify(details) : null);
+}
+
+/**
+ * إصلاح الأسئلة المزدوجة القديمة التي ليس فيها options/correct داخل sub_questions.
+ * - إذا وُجد السؤال نفسه (نفس id ونفس النص) في seed/questions.json ببنية صحيحة: نأخذها منه.
+ * - وإلا يُحوَّل إلى سؤال منفرد (options/correct الرئيسية تبقى كما هي).
+ * العملية idempotent: لا تمس الأسئلة السليمة.
+ */
+function repairDoubleQuestions(db) {
+  const okSubs = (subs) => Array.isArray(subs) && subs.length === 2 && subs.every((sq) => sq && typeof sq.text === 'string'
+    && Array.isArray(sq.options) && sq.options.length >= 2 && Array.isArray(sq.correct) && sq.correct.length);
+  const rows = db.prepare('SELECT id, text, sub_questions FROM questions WHERE is_double = 1').all();
+  const broken = rows.filter((r) => { try { return !okSubs(JSON.parse(r.sub_questions)); } catch { return true; } });
+  if (!broken.length) return;
+  let seed = new Map();
+  try {
+    const file = require('path').join(__dirname, '..', 'seed', 'questions.json');
+    seed = new Map(JSON.parse(require('fs').readFileSync(file, 'utf8')).map((q) => [q.id, q]));
+  } catch { /* لا يوجد ملف seed: نحوّل الكل إلى منفرد */ }
+  const fix = db.prepare('UPDATE questions SET sub_questions = ? WHERE id = ?');
+  const demote = db.prepare('UPDATE questions SET is_double = 0, sub_questions = NULL WHERE id = ?');
+  let fixed = 0;
+  db.transaction(() => {
+    for (const r of broken) {
+      const s = seed.get(r.id);
+      if (s && s.text === r.text && s.is_double && okSubs(s.sub_questions)) { fix.run(JSON.stringify(s.sub_questions), r.id); fixed++; }
+      else demote.run(r.id);
+    }
+  })();
+  console.log(`[db] double questions repaired: ${fixed} fixed, ${broken.length - fixed} converted to single`);
 }
 
 module.exports = { open, get, getSettings, audit };

@@ -60,8 +60,8 @@ function seedContent(d, { force = false } = {}) {
     });
 
     const questions = JSON.parse(fs.readFileSync(path.join(SEED_DIR, 'questions.json'), 'utf8'));
-    const insQ = d.prepare(`INSERT INTO questions (id, category_id, text, options, correct, explanation, visual, image, is_double, sub_questions, skill_type, difficulty)
-                            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`);
+    const insQ = d.prepare(`INSERT INTO questions (id, category_id, text, options, correct, explanation, visual, image, is_double, sub_questions, skill_type, difficulty, status)
+                            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`);
     for (const q of questions) {
       insQ.run(
         q.id,
@@ -76,6 +76,7 @@ function seedContent(d, { force = false } = {}) {
         q.sub_questions ? JSON.stringify(q.sub_questions) : null,
         q.skill_type || 'معرفية',
         q.difficulty || 2,
+        q.status === 'draft' ? 'draft' : 'published',
       );
     }
 

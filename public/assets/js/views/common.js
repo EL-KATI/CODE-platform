@@ -68,6 +68,10 @@ export function speechText(q, questionNumber) {
   // إلا كان فيه نص صوتي خاص، نضيفو رقم السؤال قبلو
   const numPrefix = questionNumber ? `${darijaQNum(questionNumber)}. ` : '';
   if (q.audioText) return `${numPrefix}${q.audioText}`;
+  if (q.is_double && Array.isArray(q.sub_questions) && q.sub_questions.length === 2) {
+    const parts = q.sub_questions.map((sq) => `${sq.text}. ${(sq.options || []).map((o, i) => `${DARIJA_NUM[i] || i + 1}: ${o}`).join('. ')}`);
+    return `${numPrefix}${q.text}. ${parts.join('. ')}.`;
+  }
   const opts = q.options.map((o, i) => `الجواب ${DARIJA_NUM[i] || i + 1}: ${o}`).join('. ');
   return `${numPrefix}${q.text}. ${opts}.`;
 }

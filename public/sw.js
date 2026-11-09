@@ -1,5 +1,5 @@
 // Service Worker — CODE رخصة السياقة
-const CACHE = 'code-v39';
+const CACHE = 'code-v42';
 const STATIC = [
   '/',
   '/assets/css/app.css',
