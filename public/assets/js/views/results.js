@@ -1,13 +1,13 @@
 // صفحة النتائج — تعرض الحكم (ناجح/راسب) + تفاصيل الأداء + مراجعة الأسئلة
-import { html, raw, esc, loading, toast, errorMessage } from '../ui.js';
+import { html, raw, loading, toast, errorMessage } from '../ui.js';
 import { t, catName } from '../i18n.js';
 import { api } from '../api.js';
 import { store } from '../store.js';
 import { navigate } from '../router.js';
 import { renderVisual } from '../scenario.js';
 
-// ── دالة مشتركة: بطاقة مراجعة سؤال واحد (مُصدَّرة لـ mistakes.js) ──
-export function reviewItem(q, originalIdx, catMap) {
+// ── دالة مشتركة: أجزاء مراجعة سؤال واحد ──
+function reviewParts(q, catMap) {
   const ok = q.answer?.isCorrect === true;
   const ans = q.answer;
   const isDouble = q.is_double && Array.isArray(q.sub_questions) && q.sub_questions.length === 2;
@@ -26,16 +26,7 @@ export function reviewItem(q, originalIdx, catMap) {
     </li>`;
   }).join('');
 
-  return html`
-    <div class="review-card ${ok ? 'rc-ok' : 'rc-ko'}">
-      <div class="review-card-header">
-        ${originalIdx != null ? html`<span class="q-number" style="font-size:.85rem">${t('quiz.qn', { n: originalIdx + 1 })}</span>` : ''}
-        ${c ? html`<span class="pill" style="font-size:.74rem">${c.icon} ${catName(c)}</span>` : ''}
-        <span class="${ok ? 'review-verdict-ok' : 'review-verdict-ko'}">
-          ${ok ? '✓' : '✗'}
-        </span>
-      </div>
-      <div class="review-card-body">
+  const body = html`
         ${q.image || q.visual ? html`<figure class="scene" style="margin:0 0 16px;border-radius:10px;overflow:hidden">${raw(renderVisual(q))}</figure>` : ''}
         ${isDouble ? html`
           <p class="q-text" style="font-size:1.05rem" lang="ar" dir="rtl">${q.text}</p>
@@ -57,8 +48,42 @@ export function reviewItem(q, originalIdx, catMap) {
           <div class="q-explain">
             <span class="q-explain-icon">💡</span>
             <span lang="ar" dir="rtl">${q.explanation}</span>
-          </div>` : ''}
+          </div>` : ''}`;
+  return { ok, c, body };
+}
+
+// بطاقة مراجعة كاملة (مستعملة في «أخطائي»)
+export function reviewItem(q, originalIdx, catMap) {
+  const { ok, c, body } = reviewParts(q, catMap);
+  return html`
+    <div class="review-card ${ok ? 'rc-ok' : 'rc-ko'}">
+      <div class="review-card-header">
+        ${originalIdx != null ? html`<span class="q-number" style="font-size:.85rem">${t('quiz.qn', { n: originalIdx + 1 })}</span>` : ''}
+        ${c ? html`<span class="pill" style="font-size:.74rem">${c.icon} ${catName(c)}</span>` : ''}
+        <span class="${ok ? 'review-verdict-ok' : 'review-verdict-ko'}">
+          ${ok ? '✓' : '✗'}
+        </span>
       </div>
+      <div class="review-card-body">${body}</div>
+    </div>`;
+}
+
+// محتوى التصحيح فقط (الصورة، الاختيارات، الشرح) — مستعمل داخل قائمة النتائج
+export const reviewBody = (q, catMap) => reviewParts(q, catMap).body;
+
+// حلقة النتيجة (نفس نمط حلقة الجاهزية في اللوحة)
+const RING_R = 54;
+const RING_C = 2 * Math.PI * RING_R;
+function scoreRing(correct, total, tone) {
+  const v = total ? correct / total : 0;
+  return html`
+    <div class="rd-ring rd-${tone} res-ring" role="img" aria-label="${t('results.score')}: ${correct}/${total}">
+      <svg viewBox="0 0 128 128" aria-hidden="true">
+        <defs><linearGradient id="rd-grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" class="rd-stop-a"/><stop offset="1" class="rd-stop-b"/></linearGradient></defs>
+        <circle class="rd-track" cx="64" cy="64" r="${RING_R}"/>
+        <circle class="rd-arc" cx="64" cy="64" r="${RING_R}" stroke="url(#rd-grad)" stroke-dasharray="${RING_C.toFixed(1)}" style="--rd-off:${(RING_C * (1 - v)).toFixed(1)};--rd-full:${RING_C.toFixed(1)}"/>
+      </svg>
+      <div class="rd-ring-label"><strong>${correct}<span>/${total}</span></strong><small>${Math.round(v * 100)}%</small></div>
     </div>`;
 }
 
@@ -67,205 +92,139 @@ export async function resultsView(root, { params }) {
 
   let attempt, cats;
   try {
-    [attempt, cats] = await Promise.all([
-      api.get(`/attempts/${params.id}`),
-      store.getCategories(),
-    ]);
+    [attempt, cats] = await Promise.all([api.get(`/attempts/${params.id}`), store.getCategories()]);
   } catch (e) {
-    root.innerHTML = html`<div class="page-wrap"><div class="empty-state">${errorMessage(e)}</div></div>`.s;
+    root.innerHTML = html`<div class="pg pg-narrow"><div class="card empty"><p>${errorMessage(e)}</p></div></div>`.s;
     return;
   }
-
   if (!attempt.finishedAt) return navigate(`/quiz/${attempt.id}`, { replace: true });
 
   const catMap = new Map(cats.map((c) => [c.id, c]));
-  const { questions, score, passed, mode } = attempt;
+  const { questions, passed, mode, passMark } = attempt;
   const total = questions.length;
-  const correct = questions.filter((q) => q.answer?.isCorrect === true).length;
-  const wrong = questions.filter((q) => q.answer?.isCorrect === false).length;
+  const statusOf = (q) => (q.answer?.isCorrect === true ? 'ok' : q.answer ? 'ko' : 'skip');
+  const correct = questions.filter((q) => statusOf(q) === 'ok').length;
+  const wrong = questions.filter((q) => statusOf(q) === 'ko').length;
   const skipped = total - correct - wrong;
-  const pct = Math.round((correct / total) * 100);
+  const missed = wrong + skipped;
 
-  // ── حساب النتائج حسب المحور ──────────────────────────────────────
-  const byCategory = {};
-  for (const q of questions) {
-    const cid = q.categoryId;
-    if (!byCategory[cid]) byCategory[cid] = { total: 0, correct: 0 };
-    byCategory[cid].total++;
-    if (q.answer?.isCorrect === true) byCategory[cid].correct++;
-  }
+  // الحكم: ناجح / راسب عند وجود عتبة، وإلا حسب النسبة (تمرين بدون عتبة)
+  const ratio = total ? correct / total : 0;
+  const tone = passed === true ? 'good' : passed === false ? (passMark && correct >= passMark - 4 ? 'mid' : 'low') : ratio >= 0.8 ? 'good' : ratio >= 0.5 ? 'mid' : 'low';
+  const title = passed === true ? t('results.passed') : passed === false ? t('results.failed') : t('results.done');
+  const cheer = passed === true ? t('results.cheerPass')
+    : passed === false ? (tone === 'mid' ? t('results.cheerClose', { n: passMark - correct }) : t('results.cheerFail'))
+      : missed === 0 ? t('results.cheerPerfect') : t('results.cheerPractice', { n: missed });
 
-  // ── البطاقة الرئيسية (الحكم) ─────────────────────────────────────
-  const verdictCls = passed === true ? 'v-pass' : passed === false ? 'v-fail' : 'v-neutral';
-  const verdictIcon = passed === true ? '🏆' : passed === false ? '📚' : '📊';
-  const verdictLabel = passed === true ? t('results.passed') : passed === false ? t('results.failed') : t('results.done');
+  const byCat = cats.map((c) => {
+    const qs = questions.filter((q) => q.categoryId === c.id);
+    const ok = qs.filter((q) => statusOf(q) === 'ok').length;
+    return { c, total: qs.length, ok, p: qs.length ? Math.round((100 * ok) / qs.length) : 0 };
+  }).filter((x) => x.total);
 
   root.innerHTML = html`
-    <div class="page-wrap">
-
-      <!-- ✦ بطاقة الحكم الرئيسية -->
-      <div class="verdict-card ${verdictCls}">
-        <div class="verdict-icon">${verdictIcon}</div>
-        <div class="verdict-score-ring">
-          <div class="verdict-score-inner">
-            <span class="verdict-score-num">${pct}%</span>
-            <span class="verdict-score-sub">${correct}/${total}</span>
-          </div>
+    <div class="pg pg-narrow res">
+      <section class="card res-hero res-${tone}">
+        ${scoreRing(correct, total, tone)}
+        <div class="res-hero-text">
+          <span class="dash-eyebrow">${mode === 'exam' ? t('results.examMode') : attempt.seriesTitle || t('results.score')}</span>
+          <h1 class="res-title">${title}</h1>
+          <p class="res-cheer">${cheer}</p>
+          ${passMark ? html`<p class="small muted" style="margin:0">${t('results.passMark', { n: `${passMark}/${total}` })}</p>` : ''}
         </div>
-        <div class="verdict-label">${verdictLabel}</div>
-        ${mode === 'exam' ? html`<div class="verdict-info">${t('results.examMode')}</div>` : ''}
-      </div>
-
-      <!-- ✦ ملخص سريع -->
-      <div class="results-summary">
-        <div class="summary-item summary-ok">
-          <span class="summary-num">${correct}</span>
-          <span class="summary-lbl">✓ ${t('results.correct')}</span>
-        </div>
-        <div class="summary-item summary-ko">
-          <span class="summary-num">${wrong}</span>
-          <span class="summary-lbl">✗ ${t('results.wrong')}</span>
-        </div>
-        ${skipped > 0 ? html`
-        <div class="summary-item summary-skip">
-          <span class="summary-num">${skipped}</span>
-          <span class="summary-lbl">— ${t('results.skipped')}</span>
-        </div>` : ''}
-        ${score != null ? html`
-        <div class="summary-item summary-score">
-          <span class="summary-num">${score}</span>
-          <span class="summary-lbl">🎯 ${t('results.score')}</span>
-        </div>` : ''}
-      </div>
-
-      <!-- ✦ النتائج حسب المحور -->
-      <section>
-        <h2 class="section-title">${t('results.byCategory')}</h2>
-        <div class="cat-results-grid">
-          ${cats.filter((c) => byCategory[c.id]).map((c) => {
-            const r = byCategory[c.id] || { total: 0, correct: 0 };
-            const p = r.total ? Math.round((r.correct / r.total) * 100) : 0;
-            const cls = p >= 75 ? 'cat-ok' : p >= 50 ? 'cat-mid' : 'cat-ko';
-            return html`
-              <div class="cat-result-row ${cls}">
-                <div class="cat-result-info">
-                  <span class="cat-result-icon">${c.icon}</span>
-                  <span class="cat-result-name">${catName(c)}</span>
-                  <span class="cat-result-pct">${p}%</span>
-                </div>
-                <div class="cat-result-track">
-                  <div class="cat-result-bar" style="width:${p}%"></div>
-                </div>
-                <span class="cat-result-detail">${r.correct}/${r.total}</span>
-              </div>`;
-          })}
+        <div class="res-counts">
+          <div class="res-count is-ok"><strong>${correct}</strong><small>${t('results.correct')}</small></div>
+          <div class="res-count is-ko"><strong>${wrong}</strong><small>${t('results.wrong')}</small></div>
+          <div class="res-count"><strong>${skipped}</strong><small>${t('results.skipped')}</small></div>
         </div>
       </section>
 
-      <!-- ✦ أزرار الإجراءات -->
-      <div class="results-actions">
-        <button class="btn btn-secondary" id="retry">🔄 ${t('results.retry')}</button>
-        <button class="btn btn-primary" id="new">✨ ${t('results.newSession')}</button>
-        <button class="btn btn-ghost" id="dash">🏠 ${t('results.dashboard')}</button>
+      <div class="res-actions">
+        ${missed ? html`<button class="btn btn-primary" id="only-wrong">${t('results.reviewOnlyWrong', { n: missed })}</button>` : ''}
+        <button class="btn btn-secondary" id="retry">${t('results.retry')}</button>
+        <a class="btn btn-secondary" href="/dashboard">${t('results.dashboard')}</a>
       </div>
 
-      <!-- ✦ مراجعة الأسئلة -->
+      ${byCat.length > 1 ? html`<section>
+        <h2 class="dash-h">${t('results.byCategory')}</h2>
+        <div class="card dash-list">
+          ${byCat.map(({ c, total: n, ok, p }) => html`<div class="cat-row">
+            <span class="cat-icon" aria-hidden="true">${c.icon}</span>
+            <div class="cat-body">
+              <div class="cat-head"><strong>${catName(c)}</strong><span class="muted small">${ok}/${n}</span></div>
+              <div class="cat-bar ${p >= 80 ? 'bar-good' : p < 50 ? 'bar-low' : ''}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${p}" aria-label="${catName(c)}"><i style="width:${p}%"></i></div>
+            </div>
+          </div>`)}
+        </div>
+      </section>` : ''}
+
       <section id="review-section">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
-          <h2 class="section-title" style="margin:0">${t('results.review')}</h2>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn btn-ghost btn-sm filter-btn active" data-filter="all">${t('results.showAll')}</button>
-            <button class="btn btn-ghost btn-sm filter-btn" data-filter="wrong" style="color:var(--danger)">✗ ${t('results.showWrong')}</button>
-            <button class="btn btn-ghost btn-sm filter-btn" data-filter="correct" style="color:var(--success)">✓ ${t('results.showCorrect')}</button>
+        <div class="dash-h-row res-review-head">
+          <h2 class="dash-h">${t('results.review')}</h2>
+          <div class="seg" role="group" aria-label="${t('results.filter')}">
+            <button type="button" data-filter="all" aria-pressed="true">${t('results.showAll')}</button>
+            <button type="button" data-filter="wrong" aria-pressed="false">${t('results.showWrong')}</button>
+            <button type="button" data-filter="correct" aria-pressed="false">${t('results.showCorrect')}</button>
           </div>
         </div>
         <div id="review-list"></div>
       </section>
-
     </div>`.s;
 
-  // ── أزرار الإجراءات ───────────────────────────────────────────────
-  root.querySelector('#retry').onclick = async () => {
-    try {
-      const r = await api.post('/attempts', {
-        categoryIds: attempt.categoryIds,
-        mode: attempt.mode,
-        count: total,
-      });
-      navigate(`/quiz/${r.id}`);
-    } catch (e) { toast(errorMessage(e), 'error'); }
-  };
-  root.querySelector('#new').onclick = () => navigate('/practice');
-  root.querySelector('#dash').onclick = () => navigate('/dashboard');
-
-  // ── فلاتر المراجعة ────────────────────────────────────────────────
-  let currentFilter = 'all';
-  root.querySelectorAll('.filter-btn').forEach((b) => {
-    b.onclick = () => {
-      currentFilter = b.dataset.filter;
-      root.querySelectorAll('.filter-btn').forEach((x) => x.classList.remove('active'));
-      b.classList.add('active');
-      renderReview();
-    };
-  });
-
-  // ── مراجعة الأسئلة: شبكة أرقام (أحمر = خاطئ، أخضر = صحيح) + نافذة منبثقة للسؤال ──
-  const statusOf = (q) => (q.answer?.isCorrect === true ? 'ok' : 'ko');
+  // ── قائمة التصحيح: صف لكل سؤال يتوسع لعرض الجواب الصحيح والشرح ──
+  const list = root.querySelector('#review-list');
+  let filter = 'all';
+  const MARK = { ok: '✓', ko: '✕', skip: '–' };
+  const LABEL = { ok: t('results.correct'), ko: t('results.wrong'), skip: t('results.skipped') };
 
   function renderReview() {
-    const list = root.querySelector('#review-list');
-    const visible = (q) => currentFilter === 'all' || (currentFilter === 'correct' ? statusOf(q) === 'ok' : statusOf(q) === 'ko');
-    const shown = questions.map((q, i) => ({ q, i })).filter(({ q }) => visible(q));
-
-    if (!shown.length) {
-      list.innerHTML = html`<div class="empty-state" style="padding:32px">${t('results.noItems')}</div>`.s;
-      return;
-    }
-    list.innerHTML = html`
-      <div class="q-nav-grid review-nav" style="grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:8px;margin-bottom:16px">
-        ${shown.map(({ q, i }) => raw(`<button type="button" class="nav-${statusOf(q)}" data-i="${i}" aria-label="${esc(t('quiz.qn', { n: i + 1 }))}">${i + 1}</button>`))}
-      </div>
-      <p class="muted small" style="text-align:center">${t('results.tapToReview')}</p>`.s;
-    list.querySelectorAll('button[data-i]').forEach((b) => { b.onclick = () => openModal(Number(b.dataset.i)); });
+    const shown = questions.map((q, i) => ({ q, i, st: statusOf(q) }))
+      .filter(({ st }) => filter === 'all' || (filter === 'correct' ? st === 'ok' : st !== 'ok'));
+    if (!shown.length) { list.innerHTML = html`<div class="card empty"><p>${t('results.noItems')}</p></div>`.s; return; }
+    list.innerHTML = html`<div class="card dash-list">
+      ${shown.map(({ q, i, st }) => html`<details class="acc" data-i="${i}">
+        <summary>
+          <span class="acc-mark is-${st}" aria-hidden="true">${MARK[st]}</span>
+          <span class="acc-text"><small>${t('quiz.qn', { n: i + 1 })} · <span class="sr-only">${LABEL[st]} · </span>${catMap.get(q.categoryId) ? catName(catMap.get(q.categoryId)) : ''}</small><strong>${q.text}</strong></span>
+          <span class="row-chevron acc-chevron">${raw('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>')}</span>
+        </summary>
+        <div class="acc-body"></div>
+      </details>`)}
+    </div>`.s;
+    // المحتوى (والصورة) يُحمَّل عند أول فتح فقط
+    list.querySelectorAll('details.acc').forEach((d) => d.addEventListener('toggle', () => {
+      const body = d.querySelector('.acc-body');
+      if (d.open && !body.firstChild) body.innerHTML = reviewBody(questions[Number(d.dataset.i)], catMap).s;
+    }));
   }
 
-  // ── النافذة المنبثقة ─────────────────────────────────────────────
-  function openModal(startIdx) {
-    let cur = startIdx;
-    const ov = document.createElement('div');
-    ov.className = 'rv-overlay';
-    ov.setAttribute('role', 'dialog');
-    ov.setAttribute('aria-modal', 'true');
-    document.body.appendChild(ov);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
-    const nextWrong = () => questions.findIndex((q, i) => i > cur && statusOf(q) === 'ko');
-    const close = () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prevOverflow;
-      ov.remove();
-    };
-    const onKey = (e) => { if (e.key === 'Escape') close(); };
-    document.addEventListener('keydown', onKey);
-    ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
-
-    function draw() {
-      const nx = nextWrong();
-      ov.innerHTML = html`
-        <div class="rv-modal">
-          <div class="rv-body">${reviewItem(questions[cur], cur, catMap)}</div>
-          <div class="rv-foot">
-            <button type="button" class="btn btn-ghost" id="rv-close">✕ ${t('results.close')}</button>
-            ${nx !== -1 ? html`<button type="button" class="btn btn-primary" id="rv-next">${t('results.nextWrong')} ✗</button>` : ''}
-          </div>
-        </div>`.s;
-      ov.querySelector('#rv-close').onclick = close;
-      const nb = ov.querySelector('#rv-next');
-      if (nb) nb.onclick = () => { cur = nx; draw(); ov.querySelector('.rv-body').scrollTop = 0; };
-    }
-    draw();
+  function setFilter(f) {
+    filter = f;
+    root.querySelectorAll('.seg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.filter === f)));
+    renderReview();
   }
+  root.querySelectorAll('.seg button').forEach((b) => (b.onclick = () => setFilter(b.dataset.filter)));
+
+  const ow = root.querySelector('#only-wrong');
+  if (ow) ow.onclick = () => {
+    setFilter('wrong');
+    const first = list.querySelector('details.acc');
+    if (first) first.open = true;
+    root.querySelector('#review-section').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+  };
+
+  // إعادة نفس النوع من الجلسة (نفس السلسلة / المحور / الامتحان)
+  const retry = root.querySelector('#retry');
+  retry.onclick = async () => {
+    retry.disabled = true;
+    try {
+      const body = { mode: attempt.mode, practice: attempt.practice };
+      if (attempt.seriesId) body.seriesId = attempt.seriesId;
+      if (attempt.categoryId) body.categoryId = attempt.categoryId;
+      const r = await api.post('/attempts', body);
+      navigate(`/quiz/${r.id}`);
+    } catch (e) { toast(e.code === 'no_questions' ? t('err.no_questions') : errorMessage(e), 'error'); retry.disabled = false; }
+  };
 
   renderReview();
 }

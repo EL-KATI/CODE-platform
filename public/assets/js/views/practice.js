@@ -53,20 +53,30 @@ export async function practiceView(root) {
 
 export async function examIntroView(root) {
   const s = await store.getSettings(true);
+  const minutes = Math.round((s.questionCount * s.secondsPerQuestion) / 60);
   root.innerHTML = html`
-    <div class="card" style="max-width:760px;margin:0 auto">
-      <span class="pill pill-info">${t('exam.badge')}</span>
-      <h1 style="margin-top:12px">${t('exam.title')}</h1>
-      <p class="muted">${t('exam.subtitle')}</p>
-      <div class="grid grid-3" style="margin:20px 0">
-        <div class="card stat"><span class="stat-value">${s.questionCount}</span><span class="stat-label">${t('exam.questions')}</span></div>
-        <div class="card stat"><span class="stat-value">${s.passMark}/${s.questionCount}</span><span class="stat-label">${t('exam.passMark')}</span></div>
-        <div class="card stat"><span class="stat-value">${s.secondsPerQuestion}s</span><span class="stat-label">${t('exam.perQuestion')}</span></div>
-      </div>
-      <h2>${t('exam.rules')}</h2>
-      <ul>${[1, 2, 3, 4, 5].map((n) => html`<li>${t(`exam.rule${n}`)}</li>`)}</ul>
-      <p class="small muted">${t('exam.keyboard')} <span class="kbd">1</span> <span class="kbd">2</span> <span class="kbd">3</span> <span class="kbd">4</span> · <span class="kbd">Enter</span></p>
-      <button class="btn btn-primary btn-lg" id="start">${t('exam.start')}</button>
+    <div class="pg pg-narrow exam-intro">
+      <section class="card exam-hero">
+        <span class="exam-hero-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2"/><path d="M9.5 2.5h5"/></svg></span>
+        <span class="dash-eyebrow">${t('exam.badge')}</span>
+        <h1>${t('exam.mockTitle')}</h1>
+        <p class="muted">${t('exam.subtitle')}</p>
+        <div class="exam-facts">
+          <div><strong>${s.questionCount}</strong><small>${t('exam.questions')}</small></div>
+          <div><strong>${s.passMark}<span>/${s.questionCount}</span></strong><small>${t('exam.passMark')}</small></div>
+          <div><strong>${s.secondsPerQuestion}<span>s</span></strong><small>${t('exam.perQuestion')}</small></div>
+          <div><strong>${minutes}<span>min</span></strong><small>${t('exam.duration')}</small></div>
+        </div>
+        <button class="btn btn-primary btn-lg exam-start" id="start">${t('exam.start')}</button>
+      </section>
+
+      <section>
+        <h2 class="dash-h">${t('exam.rules')}</h2>
+        <ol class="card dash-list exam-rules">
+          ${[1, 2, 3, 4, 5].map((n) => html`<li><span class="series-num" aria-hidden="true">${n}</span><span>${t(`exam.rule${n}`)}</span></li>`)}
+        </ol>
+        <p class="small muted exam-keys">${t('exam.keyboard')} <span class="kbd">1</span> <span class="kbd">2</span> <span class="kbd">3</span> <span class="kbd">4</span> · <span class="kbd">Enter</span></p>
+      </section>
     </div>`.s;
   const b = root.querySelector('#start');
   b.onclick = () => startAttempt({ mode: 'exam' }, b);
