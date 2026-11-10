@@ -1,5 +1,6 @@
 'use strict';
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const config = require('./config');
 const db = require('./db');
@@ -16,9 +17,26 @@ function cookieOptions() {
   };
 }
 
+/**
+ * جلسة واحدة لكل حساب: كل تسجيل دخول يولّد session_id جديداً يُخزَّن في users،
+ * فتسقط تلقائياً الجلسة على الجهاز السابق (خطأ session_replaced).
+ */
 function issueSession(res, user) {
-  const token = jwt.sign({ sub: user.id, role: user.role }, config.jwtSecret, { expiresIn: `${config.sessionDays}d` });
+  const sid = crypto.randomBytes(16).toString('hex');
+  db.get().prepare('UPDATE users SET session_id = ? WHERE id = ?').run(sid, user.id);
+  const token = jwt.sign({ sub: user.id, role: user.role, sid }, config.jwtSecret, { expiresIn: `${config.sessionDays}d` });
   res.cookie(COOKIE, token, cookieOptions());
+}
+
+/** إنهاء كل جلسات المستخدم (بعد إعادة تعيين كلمة السر مثلاً) */
+function revokeSessions(userId) {
+  db.get().prepare('UPDATE users SET session_id = ? WHERE id = ?').run(`revoked-${crypto.randomBytes(8).toString('hex')}`, userId);
+}
+
+/** الجهاز الحالي يخرج: نلغي الجلسة إذا كانت هي النشطة */
+function endSession(req) {
+  if (req.user) db.get().prepare('UPDATE users SET session_id = ? WHERE id = ? AND (session_id IS NULL OR session_id = ?)')
+    .run(`out-${crypto.randomBytes(8).toString('hex')}`, req.user.id, req.sessionSid || '');
 }
 
 function clearSession(res) {
@@ -54,7 +72,12 @@ function loadUser(req, _res, next) {
     try {
       const payload = jwt.verify(token, config.jwtSecret);
       const u = db.get().prepare('SELECT * FROM users WHERE id = ? AND active = 1').get(payload.sub);
-      if (u) {
+      // جلسة استُبدلت بتسجيل دخول من جهاز آخر (الرموز القديمة بلا sid تُقبل فقط إن لم تُنشأ جلسة جديدة بعد)
+      if (u && u.session_id && payload.sid !== u.session_id) {
+        // «revoked-» (إعادة تعيين كلمة السر) و«out-» (خروج) ليسا دخولاً من جهاز آخر
+        req.sessionReplaced = !/^(revoked|out)-/.test(u.session_id);
+      } else if (u) {
+        req.sessionSid = payload.sid || null;
         // تطبيع school_id إلى INTEGER (قد يكون TEXT في قواعد البيانات القديمة)
         if (u.school_id !== null && u.school_id !== undefined && u.school_id !== '') {
           u.school_id = Number(u.school_id);
@@ -70,14 +93,16 @@ function loadUser(req, _res, next) {
   next();
 }
 
+const unauth = (req, res) => res.status(401).json({ error: req.sessionReplaced ? 'session_replaced' : 'auth_required' });
+
 function requireAuth(req, res, next) {
-  if (!req.user) return res.status(401).json({ error: 'auth_required' });
+  if (!req.user) return unauth(req, res);
   next();
 }
 
 function requireRole(...roles) {
   return (req, res, next) => {
-    if (!req.user) return res.status(401).json({ error: 'auth_required' });
+    if (!req.user) return unauth(req, res);
     if (!roles.includes(req.user.role)) return res.status(403).json({ error: 'forbidden' });
     next();
   };
@@ -93,4 +118,4 @@ function csrfGuard(req, res, next) {
   next();
 }
 
-module.exports = { issueSession, clearSession, hashPassword, checkPassword, publicUser, loadUser, requireAuth, requireRole, csrfGuard, ROLES };
+module.exports = { issueSession, revokeSessions, endSession, clearSession, hashPassword, checkPassword, publicUser, loadUser, requireAuth, requireRole, csrfGuard, ROLES };

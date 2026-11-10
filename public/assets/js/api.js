@@ -9,7 +9,11 @@ async function request(method, url, body) {
   let res;
   try { res = await fetch(`/api${url}`, opts); } catch { throw new ApiError(0, 'network_error'); }
   const data = res.headers.get('content-type')?.includes('application/json') ? await res.json() : null;
-  if (!res.ok) throw new ApiError(res.status, data?.error || 'server_error', data?.details);
+  if (!res.ok) {
+    // الحساب فُتح من جهاز آخر: التطبيق يُخرج هذا الجهاز فوراً
+    if (res.status === 401 && data?.error === 'session_replaced') window.dispatchEvent(new CustomEvent('session-replaced'));
+    throw new ApiError(res.status, data?.error || 'server_error', data?.details);
+  }
   return data;
 }
 

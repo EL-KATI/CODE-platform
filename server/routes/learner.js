@@ -90,6 +90,7 @@ router.post('/me/reset-password', wrap(async (req, res) => {
     const again = d.prepare('SELECT pw_reset_at FROM users WHERE id = ?').get(req.user.id);
     throw new HttpError(429, 'reset_limit', { retryAt: new Date(Date.parse(again.pw_reset_at) + RESET_COOLDOWN_MS).toISOString() });
   }
+  auth.issueSession(res, req.user); // يبقى هذا الجهاز متصلاً، وتسقط الأجهزة الأخرى
   res.json({ name: u.name, email: u.email, generatedPassword: pw, nextResetAt: new Date(now.getTime() + RESET_COOLDOWN_MS).toISOString() });
 }));
 
@@ -104,6 +105,7 @@ router.post('/me/password', wrap(async (req, res) => {
   if (!ok) throw new HttpError(401, 'invalid_credentials');
   const hash = await auth.hashPassword(newPassword);
   d.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, req.user.id);
+  auth.issueSession(res, req.user); // يبقى هذا الجهاز متصلاً، وتسقط الأجهزة الأخرى
   res.json({ ok: true });
 }));
 

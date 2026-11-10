@@ -723,6 +723,7 @@ router.post('/users/:id/reset-password', schoolOrAdmin, userScope, wrap(async (r
     const again = d.prepare('SELECT pw_reset_at FROM users WHERE id = ?').get(id);
     throw limit(again.pw_reset_at || now.toISOString());
   }
+  auth.revokeSessions(id); // كلمة سر جديدة → تسقط كل الجلسات المفتوحة للحساب
   db.audit(req.user.id, 'reset_password', 'user', id);
   res.json({ id, name: u.name, email: u.email, generatedPassword: password, nextResetAt: new Date(now.getTime() + RESET_COOLDOWN_MS).toISOString() });
 }));

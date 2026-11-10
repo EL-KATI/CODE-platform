@@ -110,11 +110,12 @@ router.post('/login', limiter, wrap(async (req, res) => {
 }));
 
 router.post('/logout', (req, res) => {
+  auth.endSession(req);
   auth.clearSession(res);
   res.json({ ok: true });
 });
 
-router.get('/me', (req, res) => res.json({ user: auth.publicUser(req.user) }));
+router.get('/me', (req, res) => res.json({ user: auth.publicUser(req.user), ...(req.sessionReplaced ? { reason: 'session_replaced' } : {}) }));
 
 module.exports = router;
 module.exports.password = password;

@@ -6,8 +6,9 @@ export const store = {
   settings: null,
   categories: null,
   async loadUser() {
-    const { user } = await api.get('/auth/me');
+    const { user, reason } = await api.get('/auth/me');
     this.user = user;
+    if (reason === 'session_replaced') window.dispatchEvent(new CustomEvent('session-replaced', { detail: { boot: true } }));
     return user;
   },
   async getCategories(force = false) {

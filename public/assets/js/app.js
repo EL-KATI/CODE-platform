@@ -170,6 +170,27 @@ export function renderShell() {
   };
 }
 
+// --- جلسة واحدة لكل حساب -----------------------------------------------------------
+// إذا دخل نفس الحساب من جهاز آخر، يُخرَج هذا الجهاز مع رسالة واضحة
+let kicked = false;
+window.addEventListener('session-replaced', (e) => {
+  if (kicked) return;
+  kicked = true;
+  const wasIn = !!store.user || e.detail?.boot;
+  store.user = null;
+  if (!wasIn) { kicked = false; return; }
+  toast(t('err.session_replaced'), 'error');
+  if (!e.detail?.boot) { renderShell(); navigate('/login', { replace: true }); }
+  setTimeout(() => { kicked = false; }, 3000);
+});
+// فحص خفيف كل 30 ثانية (وعند الرجوع للتبويب) حتى يُكتشف الدخول من جهاز آخر بسرعة
+const checkSession = () => {
+  if (!store.user || document.visibilityState !== 'visible') return;
+  api.get('/auth/me').then((r) => { if (r.reason === 'session_replaced') window.dispatchEvent(new CustomEvent('session-replaced')); }).catch(() => {});
+};
+setInterval(checkSession, 30_000);
+document.addEventListener('visibilitychange', checkSession);
+
 // --- Gardes de navigation ---------------------------------------------------------
 // الوجهة الافتراضية حسب الدور
 function defaultRoute() {
