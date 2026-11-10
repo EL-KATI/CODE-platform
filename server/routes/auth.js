@@ -1,6 +1,7 @@
 'use strict';
 const express = require('express');
 const rateLimit = require('express-rate-limit');
+const https   = require('https');
 const db = require('../db');
 const auth = require('../auth');
 const { wrap, str, bad, EMAIL_RE, HttpError } = require('../http');
@@ -25,77 +26,142 @@ module.exports.generatePassword = generatePassword;
 
 const clean = (v, max) => (v === undefined || v === null ? null : (String(v).trim().slice(0, max) || null));
 
+// ── تسجيل مبسط: الاسم، النسب، email، هاتف، مدينة ──────────────────────────
 router.post('/register', limiter, wrap(async (req, res) => {
   const b = req.body || {};
   if (!b.acceptTerms) throw bad('terms_required');
 
-  // ── البريد الإلكتروني ──
   const email = str(b.email, { min: 5, max: 160, field: 'email' }).toLowerCase();
   if (!EMAIL_RE.test(email)) throw bad('invalid_email');
 
-  // ── الحقول الإلزامية ──
-  const first_name_fr = clean(b.first_name_fr, 80);
-  const last_name_fr  = clean(b.last_name_fr,  80);
-  const cin           = clean(b.cin, 20);
-  const phone         = clean(b.phone, 30);
-  if (!first_name_fr) throw bad('invalid_field', { field: 'first_name_fr' });
-  if (!last_name_fr)  throw bad('invalid_field', { field: 'last_name_fr'  });
-  if (!cin)           throw bad('invalid_field', { field: 'cin'           });
-  if (!phone)         throw bad('invalid_field', { field: 'phone'         });
-  const id_type = ['CIN', 'CD', 'CS'].includes(b.id_type) ? b.id_type : 'CIN';
-  const gender  = ['M', 'F'].includes(b.gender) ? b.gender : null;
+  const first_name = clean(b.first_name, 80);
+  const last_name  = clean(b.last_name,  80);
+  const phone      = clean(b.phone, 30);
+  if (!first_name) throw bad('invalid_field', { field: 'first_name' });
+  if (!last_name)  throw bad('invalid_field', { field: 'last_name'  });
+  if (!phone)      throw bad('invalid_field', { field: 'phone'      });
 
-  // ── الاسم المعروض ──
-  const name = `${first_name_fr} ${last_name_fr}`.trim();
-
-  // ── الحقول الاختيارية ──
-  const extra = {
-    gender, id_type, cin, phone,
-    first_name_fr, last_name_fr,
-    first_name_ar:  clean(b.first_name_ar,  80),
-    last_name_ar:   clean(b.last_name_ar,   80),
-    nationality:    clean(b.nationality,    50),
-    birth_date:     clean(b.birth_date,     10),
-    birth_place_fr: clean(b.birth_place_fr, 100),
-    birth_place_ar: clean(b.birth_place_ar, 100),
-    city:           clean(b.city,           80),
-    address_fr:     clean(b.address_fr,     200),
-    address_ar:     clean(b.address_ar,     200),
-    license_cat:    clean(b.license_cat,    20),
-    registration_center: clean(b.registration_center, 100),
-    license_num:    clean(b.license_num,    30),
-    valid_categories: clean(b.valid_categories, 100),
-  };
-
-  // ── البحث عن المؤسسة بـ narsa_num (اختياري) ──
-  const narsa_num = clean(b.school_narsa_num, 40);
-  let school_id = null;
-  if (narsa_num) {
-    const school = db.get().prepare("SELECT id FROM users WHERE role = 'school' AND narsa_num = ? AND active = 1 LIMIT 1").get(narsa_num);
-    if (!school) throw bad('school_not_found');
-    school_id = school.id;
-  }
-
+  const city   = clean(b.city, 80);
   const locale = ['fr', 'ar', 'ar-dialect'].includes(b.locale) ? b.locale : 'ar';
-  const pw   = generatePassword();
-  const hash = await auth.hashPassword(pw);
+  const name   = `${first_name} ${last_name}`.trim();
+  const pw     = generatePassword();
+  const hash   = await auth.hashPassword(pw);
 
   const d = db.get();
   if (d.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) throw new HttpError(409, 'email_taken');
 
-  const extraCols  = Object.keys(extra);
-  const extraVals  = Object.values(extra);
-  const baseCols   = ['email', 'name', 'password_hash', 'locale', 'role', ...extraCols];
-  const baseVals   = [email, name, hash, locale, 'student', ...extraVals];
-  if (school_id !== null) { baseCols.push('school_id'); baseVals.push(school_id); }
+  // إنشاء المتعلم (بدون school_id — طلب الانتساب منفصل)
+  const info = d.prepare(
+    `INSERT INTO users (email, name, password_hash, locale, role, first_name_fr, last_name_fr, phone, city)
+     VALUES (?,?,?,?,?,?,?,?,?)`
+  ).run(email, name, hash, locale, 'student', first_name, last_name, phone, city);
 
-  const info = d.prepare(`INSERT INTO users (${baseCols.join(',')}) VALUES (${baseCols.map(() => '?').join(',')})`)
-    .run(...baseVals);
   const user = d.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
   auth.issueSession(res, user);
   res.status(201).json({ user: auth.publicUser(user), generatedPassword: pw });
 }));
 
+// ── Google OAuth ──────────────────────────────────────────────────────────────
+const GOOGLE_CLIENT_ID     = process.env.GOOGLE_CLIENT_ID || '';
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
+const GOOGLE_REDIRECT_URI  = process.env.GOOGLE_REDIRECT_URI || '';
+
+function googleFetch(url, options = {}) {
+  return new Promise((resolve, reject) => {
+    const req = https.request(url, { method: 'GET', ...options }, (res) => {
+      let data = '';
+      res.on('data', (c) => { data += c; });
+      res.on('end', () => {
+        try { resolve({ status: res.statusCode, body: JSON.parse(data) }); }
+        catch { resolve({ status: res.statusCode, body: data }); }
+      });
+    });
+    req.on('error', reject);
+    if (options.body) req.write(options.body);
+    req.end();
+  });
+}
+
+// 1) إعادة التوجيه إلى Google
+router.get('/google', (req, res) => {
+  if (!GOOGLE_CLIENT_ID) return res.status(503).json({ error: 'google_not_configured' });
+  const state = crypto.randomBytes(16).toString('hex');
+  res.cookie('oauth_state', state, { httpOnly: true, sameSite: 'lax', maxAge: 300_000 });
+  const params = new URLSearchParams({
+    client_id: GOOGLE_CLIENT_ID,
+    redirect_uri: GOOGLE_REDIRECT_URI,
+    response_type: 'code',
+    scope: 'openid email profile',
+    state,
+    prompt: 'select_account',
+  });
+  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+});
+
+// 2) استقبال الـ callback من Google
+router.get('/google/callback', wrap(async (req, res) => {
+  if (!GOOGLE_CLIENT_ID) return res.redirect('/login?error=google_not_configured');
+
+  const { code, state, error } = req.query;
+  if (error) return res.redirect(`/login?error=${encodeURIComponent(error)}`);
+
+  const storedState = req.cookies?.oauth_state;
+  res.clearCookie('oauth_state');
+  if (!state || state !== storedState) return res.redirect('/login?error=invalid_state');
+
+  // تبادل الكود بـ access token
+  const tokenRes = await googleFetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      code, client_id: GOOGLE_CLIENT_ID, client_secret: GOOGLE_CLIENT_SECRET,
+      redirect_uri: GOOGLE_REDIRECT_URI, grant_type: 'authorization_code',
+    }).toString(),
+  });
+  if (tokenRes.status !== 200) return res.redirect('/login?error=token_exchange_failed');
+
+  const { access_token, id_token } = tokenRes.body;
+
+  // جلب معلومات المستخدم من Google
+  const infoRes = await googleFetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+    headers: { Authorization: `Bearer ${access_token}` },
+  });
+  if (infoRes.status !== 200) return res.redirect('/login?error=userinfo_failed');
+
+  const { id: google_id, email, name: google_name, picture } = infoRes.body;
+  if (!email || !google_id) return res.redirect('/login?error=missing_email');
+
+  const d = db.get();
+  let user = d.prepare('SELECT * FROM users WHERE google_id = ? LIMIT 1').get(google_id)
+          || d.prepare('SELECT * FROM users WHERE email = ? LIMIT 1').get(email.toLowerCase());
+
+  if (user) {
+    // ربط الحساب بـ Google إذا لم يكن مرتبطاً
+    if (!user.google_id) {
+      d.prepare('UPDATE users SET google_id=?, google_name=?, google_picture=? WHERE id=?')
+        .run(google_id, google_name, picture, user.id);
+      user = d.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
+    }
+  } else {
+    // إنشاء حساب جديد
+    const locale = 'ar';
+    const nameParts = (google_name || email).split(' ');
+    const first_name_fr = nameParts[0] || '';
+    const last_name_fr  = nameParts.slice(1).join(' ') || '';
+    const info = d.prepare(
+      `INSERT INTO users (email, name, locale, role, google_id, google_name, google_picture, first_name_fr, last_name_fr, active)
+       VALUES (?,?,?,?,?,?,?,?,?,1)`
+    ).run(email.toLowerCase(), google_name || email, locale, 'student', google_id, google_name, picture, first_name_fr, last_name_fr);
+    user = d.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
+  }
+
+  if (!user.active) return res.redirect('/login?error=account_disabled');
+  d.prepare("UPDATE users SET last_login_at = datetime('now') WHERE id = ?").run(user.id);
+  auth.issueSession(res, user);
+  res.redirect('/');
+}));
+
+// ── تسجيل الدخول ──────────────────────────────────────────────────────────────
 router.post('/login', limiter, wrap(async (req, res) => {
   const email = str(req.body.email, { max: 160, field: 'email' }).toLowerCase();
   const pw = str(req.body.password, { max: 128, field: 'password' });

@@ -87,7 +87,7 @@ const ADMIN_TABS_MANAGE = [['/admin/users', 'admin.users'], ['/admin/settings', 
 const SUPER_TABS = [['/admin/import', 'admin.import']];
 // المؤسسة: بيانات المؤسسة + طلابها + حجوزاتهم
 export function schoolTabs() {
-  return [['/admin', 'admin.stats'], ['/admin/school/students', 'school.manageStudents'], ['/admin/school/instructors', 'school.manageInstructors'], ['/admin/bookings', 'nav.bookings'], ['/admin/exams', 'nav.exams']];
+  return [['/admin', 'admin.stats'], ['/admin/school/enrollments', 'school.enrollments'], ['/admin/school/students', 'school.manageStudents'], ['/admin/school/instructors', 'school.manageInstructors'], ['/admin/bookings', 'nav.bookings'], ['/admin/exams', 'nav.exams']];
 }
 // المدرب: طلابه + حجوزاتهم
 const INSTRUCTOR_TABS = [['/admin', 'admin.stats'], ['/admin/students', 'admin.students'], ['/admin/bookings', 'nav.bookings']];

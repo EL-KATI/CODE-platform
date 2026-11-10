@@ -213,3 +213,77 @@ export async function schoolStatsView(root, days = 30) {
   root.addEventListener('mousemove', show);
   root.addEventListener('mouseleave', () => { tip.hidden = true; });
 }
+
+// ── صفحة طلبات الانتساب (school/admin) ────────────────────────────────────────
+export async function enrollmentsView(root) {
+  const { html, toast, errorMessage } = await import('../ui.js');
+  const { t } = await import('../i18n.js');
+  const { api } = await import('../api.js');
+
+  root.innerHTML = html`
+    <div style="padding:20px">
+      <h2 style="margin:0 0 4px">${t('school.enrollments')}</h2>
+      <p class="muted small" style="margin:0 0 20px">${t('auth.enrollHint')}</p>
+      <div id="enroll-list">
+        <div class="muted" style="padding:20px;text-align:center">⟳</div>
+      </div>
+    </div>`.s;
+
+  async function load() {
+    const rows = await api.get('/admin/school/enrollments');
+    const box = root.querySelector('#enroll-list');
+    if (!rows.length) {
+      box.innerHTML = `<p class="muted" style="text-align:center;padding:32px">${t('school.enrollments.empty')}</p>`;
+      return;
+    }
+    const statusColor = { pending: 'var(--orange-500)', approved: 'var(--green-600)', rejected: 'var(--red-600)' };
+    const statusLabel = { pending: t('auth.enrollPending'), approved: t('auth.enrollApproved'), rejected: t('auth.enrollRejected') };
+
+    box.innerHTML = html`
+      <table class="rtable">
+        <thead><tr>
+          <th>${t('admin.name')}</th><th>${t('auth.email')}</th>
+          <th>${t('auth.phone')}</th><th>${t('auth.city')}</th>
+          <th>الحالة</th><th>التاريخ</th><th>${t('common.actions')}</th>
+        </tr></thead>
+        <tbody>
+          ${rows.map((r) => `<tr data-id="${r.id}" data-status="${r.status}">
+            <td data-label="${t('admin.name')}">${r.name || '—'}</td>
+            <td data-label="${t('auth.email')}">${r.email || '—'}</td>
+            <td data-label="${t('auth.phone')}">${r.phone || '—'}</td>
+            <td data-label="${t('auth.city')}">${r.city || '—'}</td>
+            <td data-label="الحالة"><span style="color:${statusColor[r.status] || 'var(--muted)'}">${statusLabel[r.status] || r.status}</span></td>
+            <td data-label="التاريخ" style="font-size:.8rem">${r.created_at ? r.created_at.slice(0,10) : '—'}</td>
+            <td data-label="${t('common.actions')}">
+              ${r.status === 'pending' ? `
+                <button class="btn btn-sm btn-primary" data-action="approved">✓ قبول</button>
+                <button class="btn btn-sm" style="background:var(--red-100);color:var(--red-700);border:none;margin-inline-start:6px" data-action="rejected">✕ رفض</button>
+              ` : `<span class="small muted">—</span>`}
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`.s;
+
+    // أزرار القبول/الرفض
+    box.querySelectorAll('[data-action]').forEach((btn) => {
+      btn.onclick = async () => {
+        const row = btn.closest('tr');
+        const id = row.dataset.id;
+        const action = btn.dataset.action;
+        btn.disabled = true;
+        try {
+          await api.patch(`/admin/school/enrollments/${id}`, { action });
+          toast(action === 'approved' ? '✅ تم قبول الطلب' : '✕ تم رفض الطلب');
+          await load();
+        } catch (ex) {
+          toast(errorMessage(ex), 'error');
+          btn.disabled = false;
+        }
+      };
+    });
+  }
+
+  load().catch((ex) => {
+    root.querySelector('#enroll-list').innerHTML = `<p class="form-error" style="display:block">${errorMessage(ex)}</p>`;
+  });
+}

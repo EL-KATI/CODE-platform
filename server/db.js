@@ -390,6 +390,24 @@ function open(file = config.dbFile) {
   }
   // Migration: مكان الحصة
   if (!db.prepare('PRAGMA table_info(training_slots)').all().some((c) => c.name === 'location')) db.exec('ALTER TABLE training_slots ADD COLUMN location TEXT');
+  // Migration: Google OAuth + enrollment status
+  if (!userCols.includes('google_id'))      db.exec('ALTER TABLE users ADD COLUMN google_id TEXT');
+  if (!userCols.includes('google_name'))    db.exec('ALTER TABLE users ADD COLUMN google_name TEXT');
+  if (!userCols.includes('google_picture')) db.exec('ALTER TABLE users ADD COLUMN google_picture TEXT');
+  // جدول طلبات الانتساب لمؤسسة (pending حتى تقبل المؤسسة)
+  db.exec(`CREATE TABLE IF NOT EXISTS school_enrollments (
+    id          INTEGER PRIMARY KEY,
+    student_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    school_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status      TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
+    note        TEXT,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    reviewed_at TEXT,
+    reviewed_by INTEGER REFERENCES users(id),
+    UNIQUE(student_id, school_id)
+  )`);
+  if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type='index' AND name='ix_enrollments_school'").get())
+    db.exec('CREATE INDEX ix_enrollments_school ON school_enrollments(school_id, status)');
   db.exec("UPDATE users SET school_id = id WHERE role = 'school' AND (school_id IS NULL OR school_id = '')");
   const bkCols = db.prepare('PRAGMA table_info(training_bookings)').all().map((c) => c.name);
   if (!bkCols.includes('instructor_name')) db.exec('ALTER TABLE training_bookings ADD COLUMN instructor_name TEXT');

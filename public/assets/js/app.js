@@ -19,7 +19,7 @@ import { profileView } from './views/profile.js';
 import { privacyView, notFoundView } from './views/static.js';
 import * as admin from './views/admin.js';
 import { bookingsView, adminBookingsView } from './views/bookings.js';
-import { schoolStudentsView, schoolInstructorsView } from './views/school.js';
+import { schoolStudentsView, schoolInstructorsView, enrollmentsView } from './views/school.js';
 import { schoolExamsView, studentExamView } from './views/exams.js';
 
 const app = document.getElementById('app');
@@ -45,7 +45,7 @@ function navLinks() {
 
 // --- القائمة الجانبية لجميع الكوادر (مؤسسة، مدرب، أدمن) -------------------------
 const SIDE_ICONS = {
-  '/admin': '📊', '/admin/school/students': '🎓', '/admin/school/instructors': '🧑‍🏫',
+  '/admin': '📊', '/admin/school/enrollments': '📋', '/admin/school/students': '🎓', '/admin/school/instructors': '🧑‍🏫',
   '/admin/bookings': '📅', '/admin/exams': '📝',
   '/admin/questions': '❓', '/admin/series': '📚', '/admin/lessons': '🎓',
   '/admin/students': '👥', '/admin/users': '👤', '/admin/settings': '⚙️', '/admin/audit': '🔍',
@@ -298,6 +298,7 @@ route('/admin/import', view(admin.importView), adminOnly);
 const adminBookings = view(adminBookingsView);
 // الأدمين لا يدير حجوزات التدريب (للمؤسسة والمدرب فقط)
 route('/admin/bookings', (ctx) => (store.user?.role === 'admin' ? navigate('/admin', { replace: true }) : adminBookings(ctx)), staff);
+route('/admin/school/enrollments', view(enrollmentsView), { auth: true, roles: ['admin', 'school'] });
 route('/admin/school/students', view(schoolStudentsView), { auth: true, roles: ['admin', 'school'] });
 route('/admin/school/instructors', view(schoolInstructorsView), { auth: true, roles: ['school'] });
 route('/admin/exams', view(schoolExamsView), { auth: true, roles: ['admin', 'school'] });

@@ -41,6 +41,16 @@ function createApp() {
   api.use(auth.csrfGuard);
   api.use((req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
   api.get('/health', (req, res) => res.json({ ok: true }));
+  // بحث عن مؤسسة بـ narsa_num (عام — بدون تسجيل دخول)
+  api.get('/schools', (req, res) => {
+    const { narsa_num } = req.query;
+    const db = require('./db');
+    if (!narsa_num) return res.json([]);
+    const rows = db.get().prepare(
+      "SELECT id, school_name, city, narsa_num FROM users WHERE role='school' AND active=1 AND narsa_num=? LIMIT 5"
+    ).all(String(narsa_num).trim());
+    res.json(rows);
+  });
   api.use('/auth', require('./routes/auth'));
   api.use('/', require('./routes/content'));
   api.use('/admin', require('./routes/admin'));

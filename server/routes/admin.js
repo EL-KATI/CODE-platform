@@ -200,6 +200,85 @@ router.delete('/school/students/:id', schoolOrAdmin, wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
+// ── طلبات الانتساب (school_enrollments) ──────────────────────────────────────
+// المتعلم يطلب الانتساب لمؤسسة
+// POST /api/admin/enroll  { school_id }  (المتعلم نفسه)
+router.post('/enroll', auth.requireRole('student'), wrap(async (req, res) => {
+  const school_id = int(req.body.school_id, { min: 1 });
+  const d = db.get();
+  const school = d.prepare("SELECT id FROM users WHERE id = ? AND role = 'school' AND active = 1").get(school_id);
+  if (!school) throw notFound();
+  // طلب موجود؟
+  const existing = d.prepare('SELECT * FROM school_enrollments WHERE student_id = ? AND school_id = ?').get(req.user.id, school_id);
+  if (existing) return res.json({ status: existing.status, message: 'already_requested' });
+  d.prepare('INSERT INTO school_enrollments (student_id, school_id) VALUES (?,?)').run(req.user.id, school_id);
+  db.audit(req.user.id, 'enroll_request', 'school', school_id);
+  res.status(201).json({ ok: true, status: 'pending' });
+}));
+
+// قائمة طلبات الانتساب المعلقة (المؤسسة ترى طلباتها)
+router.get('/school/enrollments', auth.requireRole('school', 'admin'), (req, res) => {
+  const d = db.get();
+  const sid = req.user.role === 'admin' ? (req.query.school_id || null) : req.user.school_id;
+  let rows;
+  if (sid) {
+    rows = d.prepare(`
+      SELECT e.id, e.student_id, e.status, e.created_at, e.reviewed_at,
+             u.name, u.email, u.phone, u.city, u.first_name_fr, u.last_name_fr
+      FROM school_enrollments e JOIN users u ON u.id = e.student_id
+      WHERE e.school_id = ? ORDER BY e.status = 'pending' DESC, e.created_at DESC
+    `).all(sid);
+  } else {
+    rows = d.prepare(`
+      SELECT e.id, e.student_id, e.school_id, e.status, e.created_at, e.reviewed_at,
+             u.name, u.email, u.phone, s.school_name
+      FROM school_enrollments e JOIN users u ON u.id = e.student_id JOIN users s ON s.id = e.school_id
+      ORDER BY e.status = 'pending' DESC, e.created_at DESC LIMIT 500
+    `).all();
+  }
+  res.json(rows);
+});
+
+// قبول أو رفض طلب انتساب
+router.patch('/school/enrollments/:id', auth.requireRole('school', 'admin'), wrap(async (req, res) => {
+  const id = int(req.params.id, { min: 1 });
+  const action = req.body.action; // 'approved' | 'rejected'
+  if (!['approved', 'rejected'].includes(action)) throw bad('invalid_action');
+
+  const d = db.get();
+  const req_row = d.prepare('SELECT * FROM school_enrollments WHERE id = ?').get(id);
+  if (!req_row) throw notFound();
+
+  if (req.user.role !== 'admin' && req.user.school_id != req_row.school_id) {
+    return res.status(403).json({ error: 'forbidden' });
+  }
+
+  d.transaction(() => {
+    d.prepare(`UPDATE school_enrollments SET status=?, reviewed_at=datetime('now'), reviewed_by=? WHERE id=?`)
+      .run(action, req.user.id, id);
+    if (action === 'approved') {
+      // ربط المتعلم بالمؤسسة
+      d.prepare('UPDATE users SET school_id=? WHERE id=?').run(req_row.school_id, req_row.student_id);
+      // إلغاء الطلبات الأخرى لهذا المتعلم
+      d.prepare(`UPDATE school_enrollments SET status='rejected', reviewed_at=datetime('now'), reviewed_by=? WHERE student_id=? AND id!=?`)
+        .run(req.user.id, req_row.student_id, id);
+    }
+  })();
+
+  db.audit(req.user.id, `enroll_${action}`, 'student', req_row.student_id);
+  res.json({ ok: true, action });
+}));
+
+// المتعلم يرى حالة طلبه
+router.get('/enroll/status', auth.requireRole('student'), (req, res) => {
+  const rows = db.get().prepare(`
+    SELECT e.status, e.created_at, e.reviewed_at, s.school_name, s.id AS school_id
+    FROM school_enrollments e JOIN users s ON s.id = e.school_id
+    WHERE e.student_id = ? ORDER BY e.created_at DESC
+  `).all(req.user.id);
+  res.json(rows);
+});
+
 // --- Questions ----------------------------------------------------------------
 function rowToAdmin(r) {
   return {
