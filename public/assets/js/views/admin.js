@@ -1307,53 +1307,18 @@ export async function usersView(root) {
 // --- Paramètres (admin) ----------------------------------------------------------
 export async function settingsView(root) {
   await load(root, '/admin/settings', async () => {
-    const [s, cats] = await Promise.all([store.getSettings(true), store.getCategories()]);
-    shell(root, '/admin/settings', html`
-      <form class="card stack" id="s-form" style="max-width:480px">
-        <p class="muted">${t('admin.settingsHelp')}</p>
-        <label>${t('exam.questions')} <small class="muted">(${t('admin.defaultForAll')})</small><input class="input" name="exam_question_count" type="number" min="5" max="200" value="${s.questionCount}"></label>
-        <label>${t('exam.passMark')}<input class="input" name="exam_pass_mark" type="number" min="1" max="200" value="${s.passMark}"></label>
-        <label>${t('exam.perQuestion')} (s)<input class="input" name="exam_seconds_per_question" type="number" min="10" max="300" value="${s.secondsPerQuestion}"></label>
-        <label>${t('dash.readiness')}<input class="input" name="readiness_window" type="number" min="2" max="20" value="${s.readinessWindow}"></label>
-        <button class="btn btn-primary" type="submit">${t('common.save')}</button>
-      </form>
-      <div class="card" style="margin-top:16px">
-        <h3 style="margin-top:0">${t('admin.examCountPerCategory')}</h3>
-        <p class="muted small">${t('admin.examCountHelp')}</p>
-        <table class="table"><thead><tr><th>${t('admin.category')}</th><th>${t('admin.examCount')}</th></tr></thead><tbody>
-          ${cats.map((c) => html`<tr>
-            <td>${c.name_ar || c.nameAr}</td>
-            <td><input class="input" type="number" min="1" max="200" placeholder="${s.questionCount}" data-catcount="${c.id}" value="${c.exam_count ?? c.examCount ?? ''}"></td>
-          </tr>`)}
-        </tbody></table>
-        <button class="btn btn-secondary" id="btn-save-counts" style="margin-top:12px">${t('common.save')}</button>
-      </div>`);
-    const form = root.querySelector('#s-form');
-    form.onsubmit = async (e) => {
-      e.preventDefault();
-      const body = Object.fromEntries([...new FormData(form)].map(([k, v]) => [k, Number(v)]));
-      try { await api.put('/admin/settings', body); await store.getSettings(true); toast(t('common.saved')); } catch (err) { toast(errorMessage(err), 'error'); }
-    };
-    // Save per-category exam counts
-    root.querySelector('#btn-save-counts').onclick = async () => {
-      const inputs = root.querySelectorAll('[data-catcount]');
-      const saves = [...inputs].map(async (inp) => {
-        const id = inp.dataset.catcount;
-        const val = inp.value.trim();
-        const cat = cats.find((c) => String(c.id) === String(id));
-        if (!cat) return;
-        const examCount = val === '' ? null : Number(val);
-        const body = { name_ar: cat.name_ar || cat.nameAr, name_fr: cat.name_fr || cat.nameFr, icon: cat.icon || '', exam_weight: cat.exam_weight ?? cat.examWeight ?? 1, sort: cat.sort ?? 0, exam_count: examCount };
-        return api.put(`/admin/categories/${id}`, body);
-      });
-      try { await Promise.all(saves); await store.getCategories(true); toast(t('common.saved')); } catch (err) { toast(errorMessage(err), 'error'); }
-    };
-    // Monitor AI: مفاتيح API
-    const aiBox = document.createElement('div');
-    aiBox.className = 'card ai-keys';
-    aiBox.style.marginTop = '16px';
-    root.querySelector('#s-form').parentNode.appendChild(aiBox);
-    await renderAiKeys(aiBox);
+    const isSuperAdmin = store.isSuperAdmin();
+    shell(root, '/admin/settings', html`<div id="settings-wrap"></div>`);
+    const wrap = root.querySelector('#settings-wrap');
+    // Monitor AI: مفاتيح API — سوبر أدمين فقط
+    if (isSuperAdmin) {
+      const aiBox = document.createElement('div');
+      aiBox.className = 'card ai-keys';
+      wrap.appendChild(aiBox);
+      await renderAiKeys(aiBox);
+    } else {
+      wrap.innerHTML = html`<div class="card"><p class="muted" style="text-align:center;padding:32px 0">${raw('🔒')} ${t('admin.settingsNoAccess')}</p></div>`.s;
+    }
   });
 }
 
