@@ -3,20 +3,25 @@
 const Anthropic = require('@anthropic-ai/sdk');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
+/** مفتاح فعلي؟ القيم النموذجية من .env.example (sk-ant-... / AIza...) تُعتبر غير معرّفة */
+const realKey = (v) => typeof v === 'string' && v.trim().length > 20 && !v.includes('...');
+const anthropicKey = () => (realKey(process.env.ANTHROPIC_API_KEY) ? process.env.ANTHROPIC_API_KEY.trim() : null);
+const geminiKey = () => (realKey(process.env.GEMINI_API_KEY) ? process.env.GEMINI_API_KEY.trim() : null);
+
 // Initialize clients lazily (only if API keys are set)
 let anthropicClient = null;
 let geminiClient = null;
 
 function getAnthropicClient() {
-  if (!anthropicClient && process.env.ANTHROPIC_API_KEY) {
-    anthropicClient = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  if (!anthropicClient && anthropicKey()) {
+    anthropicClient = new Anthropic({ apiKey: anthropicKey() });
   }
   return anthropicClient;
 }
 
 function getGeminiClient() {
-  if (!geminiClient && process.env.GEMINI_API_KEY) {
-    geminiClient = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  if (!geminiClient && geminiKey()) {
+    geminiClient = new GoogleGenerativeAI(geminiKey());
   }
   return geminiClient;
 }
@@ -104,10 +109,10 @@ async function askGemini(question, context = '') {
 
 // Auto-select: use Claude if available, fallback to Gemini
 async function askAI(question, context = '', preferredModel = 'auto') {
-  if (preferredModel === 'claude' || (preferredModel === 'auto' && process.env.ANTHROPIC_API_KEY)) {
+  if (preferredModel === 'claude' || (preferredModel === 'auto' && anthropicKey())) {
     return askClaude(question, context);
   }
-  if (preferredModel === 'gemini' || process.env.GEMINI_API_KEY) {
+  if (preferredModel === 'gemini' || geminiKey()) {
     return askGemini(question, context);
   }
   throw new Error('No AI provider configured. Set ANTHROPIC_API_KEY or GEMINI_API_KEY');
@@ -115,8 +120,8 @@ async function askAI(question, context = '', preferredModel = 'auto') {
 
 function availableModels() {
   return {
-    claude: !!process.env.ANTHROPIC_API_KEY,
-    gemini: !!process.env.GEMINI_API_KEY,
+    claude: !!anthropicKey(),
+    gemini: !!geminiKey(),
   };
 }
 

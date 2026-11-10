@@ -38,7 +38,15 @@ router.post('/ask', requireAuth, aiLimit, wrap(async (req, res) => {
   try { refs = findReferences(question); } catch (e) { console.error('[ai] references:', e.message); }
   const fullContext = [context, refs.text].filter(Boolean).join('\n\n');
 
-  const result = await askAI(question, fullContext, model);
+  let result;
+  try {
+    result = await askAI(question, fullContext, model);
+  } catch (e) {
+    // خطأ من مزوّد الذكاء الاصطناعي (مفتاح غير صالح، نموذج غير متاح، حصة منتهية…): سطر واضح في الطرفية + رسالة مفهومة للمتعلم
+    const status = e.status || e.statusCode || (/\b(401|403)\b/.test(String(e.message)) ? 401 : undefined);
+    console.error(`[Monitor AI] ${model} → ${status || ''} ${String(e.message).split('\n')[0].slice(0, 300)}`);
+    throw new HttpError(502, status === 401 || status === 403 ? 'ai_auth' : 'ai_unavailable');
+  }
   res.json({ answer: result.answer, model: result.model, sources: refs.sources });
 }));
 

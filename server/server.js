@@ -1,4 +1,5 @@
 'use strict';
+require('./env'); // .env أولاً: مفاتيح Monitor AI، JWT_SECRET، PORT…
 const config = require('./config');
 const db = require('./db');
 const { seedContent, ensureAdmin } = require('./seed');
