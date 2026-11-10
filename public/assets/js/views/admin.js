@@ -1265,7 +1265,7 @@ async function renderAiKeys(box) {
           <input class="input" type="password" autocomplete="off" spellcheck="false" dir="ltr" name="key" placeholder="${pv.hint}">
         </label>
         <label>${t('ai.modelOpt')}
-          <input class="input" type="text" dir="ltr" name="model" placeholder="${pv.modelPh}" value="${p.model}">
+          <input class="input" type="text" dir="ltr" name="model" placeholder="${t('ai.autoPh')} (${pv.modelPh})" value="${p.model}">
         </label>
         <div class="ai-key-actions">
           <button class="btn btn-primary" type="button" data-act="save">${t('common.save')}</button>

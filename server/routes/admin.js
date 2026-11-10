@@ -765,13 +765,15 @@ router.put('/ai-keys/:provider', adminOnly, wrap(async (req, res) => {
   const b = req.body || {};
   const changed = [];
   if (b.key !== undefined && String(b.key).trim() !== '') {
-    const k = String(b.key).trim();
-    if (k.length < 20 || k.length > 400 || /\s/.test(k) || k.includes('...')) throw bad('invalid_field', { field: 'key' });
+    // تنظيف ما يُلصق عادةً مع المفتاح: مسافات/أسطر، علامات تنصيص، «GEMINI_API_KEY=»
+    const k = String(b.key).replace(/^\s*[A-Z_]+_API_KEY\s*=\s*/, '').replace(/[\s"'`]/g, '');
+    if (k.length < 20 || k.length > 400 || k.includes('...')) throw bad('invalid_ai_key');
     secrets.set(`${pre}_key`, k); changed.push('key');
   }
   if (b.model !== undefined) {
-    const m = String(b.model).trim();
-    if (m && !/^[\w.\-/:]{2,80}$/.test(m)) throw bad('invalid_field', { field: 'model' });
+    let m = String(b.model).trim().replace(/^models\//, '');
+    if (/^(تلقائي|auto|automatique|automatic|default)$/i.test(m)) m = ''; // = اختيار تلقائي
+    if (m && !/^[\w.\-/:]{2,80}$/.test(m)) throw bad('invalid_ai_model');
     if (m) secrets.set(`${pre}_model`, m); else secrets.remove(`${pre}_model`);
     changed.push('model');
   }
