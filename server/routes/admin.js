@@ -49,6 +49,7 @@ router.get('/stats', adminOnly, (req, res) => {
     users: d.prepare('SELECT role, COUNT(*) AS n FROM users GROUP BY role').all(),
     newUsers30: d.prepare("SELECT COUNT(*) AS n FROM users WHERE created_at >= datetime('now','-30 days')").get().n,
     activeUsers7: d.prepare("SELECT COUNT(DISTINCT user_id) AS n FROM attempts WHERE started_at >= strftime('%Y-%m-%dT%H:%M:%fZ','now','-7 days')").get().n,
+    activeNow: d.prepare("SELECT COUNT(*) AS n FROM users WHERE active = 1 AND session_id IS NOT NULL AND session_id NOT LIKE 'revoked-%' AND session_id NOT LIKE 'out-%'").get().n,
     attempts30: d.prepare("SELECT mode, COUNT(*) AS n FROM attempts WHERE finished_at >= strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days') GROUP BY mode").all(),
     exams: d.prepare("SELECT COUNT(*) AS total, COALESCE(SUM(passed),0) AS passed, AVG(score * 1.0 / total) AS avg FROM attempts WHERE mode = 'exam' AND finished_at IS NOT NULL").get(),
     questions: d.prepare('SELECT status, COUNT(*) AS n FROM questions GROUP BY status').all(),
@@ -137,12 +138,14 @@ router.get('/students', (req, res) => {
         AND (u.name LIKE ? OR u.email LIKE ?)
       ORDER BY last_activity DESC NULLS LAST, u.id DESC LIMIT 500`).all(viewerSchoolId, q, q);
   } else {
+    // الأدمين يرى فقط المترشحين المستقلين (بدون مدرسة)
     rows = d.prepare(`SELECT u.id, u.name, u.email, u.created_at, u.last_login_at, u.exam_date, u.active, u.archived, u.school_id,
         (SELECT COUNT(*) FROM attempts a WHERE a.user_id = u.id AND a.finished_at IS NOT NULL) AS attempts,
         (SELECT COUNT(*) FROM attempts a WHERE a.user_id = u.id AND a.mode='exam' AND a.passed = 1) AS exams_passed,
         (SELECT COUNT(*) FROM attempts a WHERE a.user_id = u.id AND a.mode='exam' AND a.finished_at IS NOT NULL) AS exams,
         (SELECT MAX(a.finished_at) FROM attempts a WHERE a.user_id = u.id) AS last_activity
-      FROM users u WHERE u.role = 'student' AND (u.name LIKE ? OR u.email LIKE ?)
+      FROM users u WHERE u.role = 'student' AND (u.school_id IS NULL OR u.school_id = '')
+        AND (u.name LIKE ? OR u.email LIKE ?)
       ORDER BY last_activity DESC NULLS LAST, u.id DESC LIMIT 500`).all(q, q);
   }
   res.json(rows.map((r) => {

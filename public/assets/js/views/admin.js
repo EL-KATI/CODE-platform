@@ -161,6 +161,7 @@ export async function statsView(root) {
     shell(root, '/admin', html`
       <div class="dash-kpis">
         ${kpiCard('👥', t('admin.users_count'), total)}
+        ${kpiCard('🟢', t('admin.activeNow'), s.activeNow ?? 0)}
         ${kpiCard('🆕', t('admin.new30'), s.newUsers30)}
         ${kpiCard('⚡', t('admin.active7'), s.activeUsers7)}
         ${kpiCard('📝', t('admin.examsPassRate'), rate + '%', s.exams.total + ' ' + t('admin.examsTotal'))}
