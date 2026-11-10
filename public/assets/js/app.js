@@ -80,8 +80,8 @@ export function renderShell() {
   const linkHtml = navLinks().map(([href, key]) => html`<a href="${href}" ${isCur(href) ? html`aria-current="page"` : ''}>${t(key)}</a>`);
   document.getElementById('main-nav').innerHTML = html`${linkHtml}`.s;
   renderStaffSide();
-  // واجهة المترشح والزائر بنمط Apple؛ لوحات الإدارة تحتفظ بتصميمها
-  document.body.classList.toggle('ui-apple', !(store.user && (store.isAdmin() || store.isSchool() || store.isInstructor())));
+  // نمط Apple للمترشح والزائر والمؤسسة والمدرب؛ لوحة الأدمين العام تحتفظ بتصميمها
+  document.body.classList.toggle('ui-apple', !(store.user && store.isAdmin()));
   const mobile = document.getElementById('mobile-nav');
   mobile.innerHTML = html`${linkHtml}${store.user ? html`<a href="/profile">${t('nav.profile')}</a>` : html`<a href="/register">${t('nav.register')}</a>`}`.s;
   mobile.classList.remove('open');

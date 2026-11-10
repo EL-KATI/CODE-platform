@@ -153,7 +153,7 @@ const secHead = (txt) => html`<h3 class="dash-h">${txt}</h3>`;
 // --- Statistiques ----------------------------------------------------------------
 export async function statsView(root) {
   if (store.isSchool()) { import('./school.js').then((m) => m.schoolStatsView(root)); return; }
-  if (store.isInstructor()) { studentsView(root); return; }
+  if (store.isInstructor()) { import('./instructor.js').then((m) => m.instructorHomeView(root)); return; }
   await load(root, '/admin', async () => {
     const s = await api.get('/admin/stats');
     const total = s.users.reduce((a, u) => a + u.n, 0);
@@ -826,12 +826,79 @@ export async function studentsView(root) {
   });
 }
 
+// حلقة جاهزية المتعلم (نفس شكل حلقة لوحة المترشح)
+function readinessRingStaff(score, tone) {
+  const R = 54; const C = 2 * Math.PI * R;
+  const v = Math.max(0, Math.min(100, Number(score) || 0));
+  return html`<div class="rd-ring rd-${tone}" role="img" aria-label="${t('dash.readiness')}: ${v}%">
+    <svg viewBox="0 0 128 128" aria-hidden="true">
+      <defs><linearGradient id="rd-grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" class="rd-stop-a"/><stop offset="1" class="rd-stop-b"/></linearGradient></defs>
+      <circle class="rd-track" cx="64" cy="64" r="${R}"/>
+      <circle class="rd-arc" cx="64" cy="64" r="${R}" stroke="url(#rd-grad)" stroke-dasharray="${C.toFixed(1)}" style="--rd-off:${(C * (1 - v / 100)).toFixed(1)};--rd-full:${C.toFixed(1)}"/>
+    </svg>
+    <div class="rd-ring-label"><strong>${v}<span>%</span></strong><small>${t('dash.readyShort')}</small></div>
+  </div>`;
+}
+
+/** متابعة تقدم متعلم واحد (المؤسسة، المدرب، الأدمين): الجاهزية، المحاور، وآخر المحاولات. */
 export async function studentView(root, { params }) {
   await load(root, '/admin/students', async () => {
     const { user, dashboard: d } = await api.get(`/admin/students/${params.id}`);
-    shell(root, '/admin/students', html`
-      <div class="card"><h2 style="margin-top:0">${user.name}</h2><p class="muted">${user.email}</p>
-        <pre class="small" style="white-space:pre-wrap;direction:ltr;text-align:left">${JSON.stringify(d.readiness ?? d, null, 2)}</pre></div>`);
+    const r = d.readiness;
+    const tone = r.ready ? 'good' : r.score >= 50 ? 'mid' : 'low';
+    const back = store.isSchool() ? '/admin/school/students' : '/admin/students';
+    // المحاور الأضعف أولاً: هي التي تحتاج متابعة
+    const cats = [...d.categories].sort((a, b) => a.mastery - b.mastery);
+    const weakest = cats.find((c) => c.total > 0);
+    const examDate = user.exam_date ? new Date(`${String(user.exam_date).slice(0, 10)}T00:00:00`).toLocaleDateString(document.documentElement.lang === 'fr' ? 'fr-MA' : 'ar-MA', { day: 'numeric', month: 'long', year: 'numeric' }) : null;
+    const modeName = (a) => (a.mode === 'exam' ? t('mode.exam') : a.mode === 'series' ? (a.series_title || t('mode.series')) : a.mode === 'category' ? t('mode.category') : a.mode === 'review' ? t('mode.review') : a.mode);
+    shell(root, back, html`
+      <div class="stu">
+        <a class="stu-back" href="${back}">‹ ${t(store.isSchool() ? 'school.manageStudents' : 'admin.students')}</a>
+        <section class="card stu-hero">
+          ${readinessRingStaff(r.score, tone)}
+          <div class="stu-id">
+            <h2>${user.name}</h2>
+            <p class="muted small">${user.email}${user.phone ? ` · ${user.phone}` : ''}</p>
+            <div class="row" style="gap:6px;flex-wrap:wrap">
+              <span class="pill ${r.ready ? 'pill-success' : tone === 'mid' ? 'pill-warning' : 'pill-danger'}">${r.ready ? t('stu.ready') : t('stu.notReady')}</span>
+              <span class="pill">${t('stu.category')} ${user.license_cat || 'B'}</span>
+              ${user.active ? '' : html`<span class="pill pill-warning">${t('stu.suspended')}</span>`}
+              ${examDate ? html`<span class="pill pill-info">📅 ${t('stu.examDate')} ${examDate}</span>` : ''}
+            </div>
+          </div>
+          <div class="res-counts stu-counts">
+            <div class="res-count ${r.examsPassed ? 'is-ok' : ''}"><strong>${r.examsPassed}/${r.examsTaken}</strong><small>${t('stu.exams')}</small></div>
+            <div class="res-count"><strong>${r.averageExamScore === null ? '—' : `${r.averageExamScore}/${d.settings.questionCount}`}</strong><small>${t('stu.avg')}</small></div>
+            <div class="res-count"><strong>${d.lessons.done}/${d.lessons.total}</strong><small>${t('dash.lessonsDone')}</small></div>
+            <div class="res-count"><strong>${d.counts.seen}/${d.counts.questions}</strong><small>${t('dash.questionsSeen')}</small></div>
+            <div class="res-count ${d.counts.mistakes ? 'is-ko' : ''}"><strong>${d.counts.mistakes}</strong><small>${t('stu.mistakes')}</small></div>
+            <div class="res-count"><strong>🔥 ${d.streak}</strong><small>${t('dash.streak')}</small></div>
+          </div>
+        </section>
+
+        <div class="grid grid-2" style="margin-top:20px">
+          <section class="card">
+            <h3 class="dash-h">📊 ${t('dash.byCategory')}</h3>
+            ${weakest && weakest.mastery < 60 ? html`<p class="small stu-hint">⚠️ ${t('stu.weakest', { name: catName(weakest), v: weakest.mastery })}</p>` : ''}
+            ${cats.map((c) => html`<div class="cat-row">
+              <span class="cat-icon" aria-hidden="true">${c.icon}</span>
+              <div class="cat-body">
+                <div class="cat-head"><strong>${catName(c)}</strong><span class="muted small">${c.mastery}%</span></div>
+                <div class="cat-bar ${c.mastery >= 70 ? 'bar-good' : c.mastery < 40 ? 'bar-low' : ''}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${c.mastery}" aria-label="${catName(c)}"><i style="width:${c.mastery}%"></i></div>
+                <span class="muted small">${c.seen}/${c.total} ${t('dash.seen')}${c.accuracy === null ? '' : ' · ' + t('dash.accuracy', { v: c.accuracy })}</span>
+              </div>
+            </div>`)}
+          </section>
+          <section class="card">
+            <h3 class="dash-h">🕘 ${t('dash.recent')}</h3>
+            ${d.recent.length ? d.recent.map((a) => html`<div class="recent-row">
+              <div><strong>${modeName(a)}</strong><span class="muted small">${a.practice ? t('mode.practice') : t('mode.examConditions')} · ${fmtDate(a.finished_at)}</span></div>
+              <span class="pill ${a.passed === 1 ? 'pill-success' : a.passed === 0 ? 'pill-danger' : 'pill-info'}">${a.score}/${a.total}</span>
+            </div>`) : html`<p class="muted small">${t('dash.noActivity')}</p>`}
+          </section>
+        </div>
+      </div>`);
   });
 }
 

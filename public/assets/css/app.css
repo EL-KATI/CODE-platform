@@ -2444,7 +2444,8 @@ body.ui-apple #app > * { animation: ui-rise .42s var(--ease) both; }
 .dash-hello { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; }
 .dash-hello h1 { margin: 0; font-size: clamp(1.7rem, 4vw, 2.5rem); }
 .dash-eyebrow { margin: 0 0 2px; font-size: .8rem; font-weight: 700; color: var(--muted); }
-.dash-h { font-size: 1.3rem; margin: 0 0 14px; }
+/* مقيّدة بصفحات المترشح: .dash-h و .dash-chips مستعملتان أيضاً في لوحات الإدارة بتنسيق آخر */
+.dash .dash-h, .pg .dash-h { font-size: 1.3rem; margin: 0 0 14px; }
 .dash-h-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .dash-link { font-weight: 700; font-size: .9rem; text-decoration: none; }
 .dash-link:hover { text-decoration: underline; }
@@ -2518,7 +2519,7 @@ body.ui-apple #app > * { animation: ui-rise .42s var(--ease) both; }
 .qa-practice .qa-icon { background: linear-gradient(145deg, #5ac8fa, #0a84ff); }
 .qa-mistakes .qa-icon { background: linear-gradient(145deg, #ff6b81, #ff375f); }
 .qa-ai .qa-icon       { background: linear-gradient(145deg, #bf5af2, #5e5ce6); }
-.dash-chips { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.dash .dash-chips { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
 .chip { font: inherit; font-weight: 700; font-size: .88rem; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 9px 16px; min-height: 42px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: background .2s ease, transform .2s ease; }
 .chip:hover:not(:disabled) { background: var(--surface-2); }
 .chip:active:not(:disabled) { transform: scale(.97); }
@@ -2708,7 +2709,7 @@ body.ui-apple .prose img { border-radius: 16px; }
 .res-actions .btn { flex: 1 1 auto; }
 .cat-bar.bar-low i { background: var(--danger); }
 .res-review-head { align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
-.res-review-head .dash-h { margin: 0; }
+.pg .res-review-head .dash-h { margin: 0; }
 @media (max-width: 560px) { .res-hero { grid-template-columns: 1fr; justify-items: center; text-align: center; } .res-counts { width: 100%; } }
 /* تحكم مقسّم (iOS segmented control) */
 .seg { display: inline-flex; padding: 3px; border-radius: 12px; background: var(--surface-3); gap: 2px; }
@@ -2802,3 +2803,59 @@ body.ui-apple #f fieldset, body.ui-apple #f > div[style*="border"] { border-radi
 .home-final p { color: #a1a1a6; margin: 0 0 18px; }
 .home-ghost { background: rgb(255 255 255 / .12); color: #fff; }
 .home-ghost:hover { background: rgb(255 255 255 / .2); }
+
+/* ══ واجهة المؤسسة والمدرب بنمط Apple (الأدمين العام خارج body.ui-apple) ══ */
+body.ui-apple .staff-side {
+  background: var(--glass); border-inline-end: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: saturate(180%) blur(24px); backdrop-filter: saturate(180%) blur(24px);
+  padding: 18px 12px;
+}
+body.ui-apple .staff-side .side-title { font-size: .78rem; margin: 0 10px 14px; }
+body.ui-apple .staff-side a { border-radius: 12px; padding: 10px 12px; font-weight: 600; transition: background .2s ease; }
+body.ui-apple .staff-side a:hover { background: var(--surface-3); }
+body.ui-apple .staff-side a[aria-current="page"] { background: var(--text); color: var(--bg); }
+body.ui-apple.has-side main { padding-top: 28px; }
+body.ui-apple .dash-kpi { border-radius: 20px; border-color: var(--border); box-shadow: var(--shadow-sm); transition: transform .3s var(--spring), box-shadow .3s ease; }
+body.ui-apple a.dash-kpi:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+body.ui-apple .dash-seg { border-radius: 12px; border: 0; background: var(--surface-3); padding: 3px; gap: 2px; }
+body.ui-apple .dash-seg button { border-radius: 9px; font-weight: 700; }
+body.ui-apple .dash-seg button.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgb(0 0 0 / .14); }
+body.ui-apple .dash-hrow { border-radius: 12px; }
+body.ui-apple .dash-hrow:hover { background: var(--surface-2); }
+body.ui-apple .dash-track { background: var(--surface-3); }
+body.ui-apple .dash-chip { border-radius: 14px; border-color: var(--border); }
+body.ui-apple .dash-lg { border-color: var(--border); }
+body.ui-apple .table th { color: var(--muted); font-size: .8rem; }
+body.ui-apple .act-btn { border-radius: 10px; }
+body.ui-apple .dash-tip { border-radius: 10px; }
+
+/* لوحة المدرب */
+.ins-hello { margin: 0 0 16px; font-weight: 700; font-size: 1.05rem; }
+.ins-slot { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.ins-slot:last-child { border-bottom: 0; }
+.ins-hour { flex: none; min-width: 58px; text-align: center; font-weight: 800; padding: 6px 8px; border-radius: 10px; background: var(--surface-2); direction: ltr; }
+.ins-slot-body { flex: 1; min-width: 0; }
+.ins-people { display: flex; flex-wrap: wrap; gap: 6px; }
+.ins-seats { flex: none; font-weight: 700; font-size: .9rem; color: var(--muted); direction: ltr; }
+.ins-seats.is-full { color: var(--danger); }
+.ins-day { margin-top: 12px; } .ins-day:first-of-type { margin-top: 0; }
+.ins-name { width: 150px; flex: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: .92rem; }
+.ins-meta { flex: none; width: 240px; text-align: end; white-space: nowrap; }
+@media (max-width: 720px) { .ins-meta { display: none; } .ins-name { width: 110px; } }
+
+/* متابعة متعلم */
+.stu-back { display: inline-block; margin-bottom: 12px; font-weight: 700; text-decoration: none; }
+.stu-hero { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 20px 26px; }
+.stu-id h2 { margin: 0 0 2px; font-size: 1.5rem; }
+.stu-id p { margin: 0 0 10px; overflow-wrap: anywhere; }
+.stu-counts { grid-template-columns: repeat(6, 1fr); }
+.stu-hint { margin: -4px 0 8px; color: var(--warning, #b45309); font-weight: 600; }
+.stu .recent-row > div { flex: 1; min-width: 0; display: grid; }
+@media (max-width: 900px) { .stu-counts { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 560px) { .stu-hero { grid-template-columns: 1fr; justify-items: center; text-align: center; } .stu-counts { grid-template-columns: repeat(2, 1fr); width: 100%; } .stu-id .row { justify-content: center; } }
+/* عناصر الشبكة تتقلص تحت عرض محتواها (المخططات العريضة تتمرر داخل بطاقتها بدل دفع الصفحة) */
+body.ui-apple .grid > * { min-width: 0; }
+body.ui-apple .card:has(> .table) { padding: 8px 16px; }
+body.ui-apple .table th { background: transparent; }
+body.ui-apple .list-table td:first-child a { white-space: nowrap; font-weight: 700; text-decoration: none; cursor: pointer; }
+body.ui-apple .list-table td:first-child a:hover { text-decoration: underline; }
