@@ -57,7 +57,7 @@ export function loginView(root, { query }) {
     </div>`.s;
 
   root.querySelector('#btn-google').onclick = () => {
-    window.location.href = '/auth/google';
+    window.location.href = '/api/auth/google';
   };
 
   const f = root.querySelector('#f');
@@ -182,7 +182,7 @@ export function registerView(root, { query }) {
 
   // Google button
   root.querySelector('#btn-google').onclick = () => {
-    window.location.href = '/auth/google';
+    window.location.href = '/api/auth/google';
   };
 
   const f = root.querySelector('#f');
