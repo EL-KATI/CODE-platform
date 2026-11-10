@@ -95,11 +95,11 @@ export async function quizView(appRoot, { params }) {
 
             </div>
 
-            <!-- كولومن المعلومات (info sub-column) -->
-            <div class="nrs-info-col">
-              <div class="nrs-info-school">${esc(store.user?.school_name || '')}</div>
+            <!-- صندوق معلومات المترشح تحت اللوحة البنفسجية -->
+            <div class="nrs-info-box">
+              <div class="nrs-info-school">${esc(store.user?.school_name || store.user?.name || '')}</div>
               <div class="nrs-info-cat">${a.licenseCategory || store.user?.license_cat || 'B'}</div>
-              <div class="nrs-info-num" id="nrs-info-num">1/${a.questions.length}</div>
+              <div class="nrs-info-num" id="nrs-info-num">#${a.questions[0]?.id || 1}</div>
             </div>
 
             <!-- زر إغلاق خفي -->
@@ -382,7 +382,7 @@ export async function quizView(appRoot, { params }) {
     const tc = overlay.querySelector('#tb-counter');
     if (tc) tc.textContent = `${idx + 1}/${a.questions.length}`;
     const infoNum = overlay.querySelector('#nrs-info-num');
-    if (infoNum) infoNum.textContent = `${idx + 1}/${a.questions.length}`;
+    if (infoNum) infoNum.textContent = `#${q()?.id || (idx + 1)}`;
     const pg = overlay.querySelector('#tb-progress');
     if (pg) pg.style.width = `${(100 * (idx + 1)) / a.questions.length}%`;
   }
