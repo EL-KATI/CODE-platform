@@ -92,20 +92,47 @@ async function askGemini(question, context = '') {
   const googleAI = getGeminiClient();
   if (!googleAI) throw new Error('GEMINI_API_KEY not configured');
 
-  // «gemini-pro» لم يعد متاحاً؛ النموذج قابل للتغيير من .env دون تعديل الكود
-  const model = googleAI.getGenerativeModel({ model: process.env.GEMINI_MODEL || 'gemini-2.5-flash' });
-
   const prompt = `${DRIVING_SYSTEM_PROMPT}\n\n${buildUserContent(question, context)}`;
 
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-
-  return {
-    answer: response.text(),
-    model: 'gemini',
-    usage: null,
-  };
+  // Google يسحب النماذج بانتظام (gemini-pro ثم gemini-2.5-flash...).
+  // نجرب: النموذج المحفوظ ← GEMINI_MODEL ← النموذج الذي يقترحه خطأ 404 ← قائمة احتياطية
+  const queue = [workingGeminiModel, (process.env.GEMINI_MODEL || '').trim(), ...GEMINI_CANDIDATES]
+    .filter(Boolean);
+  const tried = new Set();
+  let lastErr = null;
+  while (queue.length) {
+    const name = queue.shift();
+    if (tried.has(name)) continue;
+    tried.add(name);
+    try {
+      const model = googleAI.getGenerativeModel({ model: name });
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      if (workingGeminiModel !== name) {
+        workingGeminiModel = name;
+        console.log(`[Monitor AI] Gemini model in use: ${name}`);
+      }
+      return { answer: response.text(), model: 'gemini', usage: null };
+    } catch (e) {
+      lastErr = e;
+      if (!isModelGone(e)) throw e; // مفتاح خاطئ/حصة/شبكة: لا فائدة من تجريب نموذج آخر
+      if (workingGeminiModel === name) workingGeminiModel = null;
+      const suggested = String(e.message || '').match(/models\/(gemini-[\w.-]+)/g) || [];
+      suggested.map((s) => s.replace('models/', '')).reverse().forEach((s) => queue.unshift(s));
+      console.warn(`[Monitor AI] Gemini model "${name}" unavailable, trying next…`);
+    }
+  }
+  throw lastErr || new Error('No Gemini model available');
 }
+
+// النماذج الاحتياطية بالترتيب (نونبر 2026). يمكن تجاوزها بـ GEMINI_MODEL في .env
+const GEMINI_CANDIDATES = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite'];
+let workingGeminiModel = null;
+const isModelGone = (e) => {
+  const msg = String(e && e.message || '');
+  const status = e && (e.status || e.statusCode);
+  return status === 404 || /\b404\b|not found|no longer available|is not supported for generateContent/i.test(msg);
+};
 
 // Auto-select: use Claude if available, fallback to Gemini
 async function askAI(question, context = '', preferredModel = 'auto') {
