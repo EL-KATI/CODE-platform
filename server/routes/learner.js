@@ -109,21 +109,7 @@ router.post('/me/password', wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
-// Portabilité des données (loi 09-08 / RGPD).
-router.get('/me/export', (req, res) => {
-  const d = db.get();
-  const u = req.user.id;
-  const data = {
-    exportedAt: new Date().toISOString(),
-    user: auth.publicUser(req.user),
-    lessons: d.prepare('SELECT lesson_id, completed_at FROM lesson_progress WHERE user_id = ?').all(u),
-    attempts: d.prepare('SELECT * FROM attempts WHERE user_id = ?').all(u),
-    answers: d.prepare('SELECT aa.* FROM attempt_answers aa JOIN attempts a ON a.id = aa.attempt_id WHERE a.user_id = ?').all(u),
-    questions: d.prepare('SELECT * FROM user_questions WHERE user_id = ?').all(u),
-  };
-  res.setHeader('Content-Disposition', 'attachment; filename="my-data.json"');
-  res.json(data);
-});
+// تنزيل البيانات (/me/export) أُزيل بقرار من الإدارة: لا يصل إليه أي مستخدم.
 
 // Droit à l'effacement.
 router.delete('/me', wrap(async (req, res) => {

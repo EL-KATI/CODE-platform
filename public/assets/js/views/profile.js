@@ -47,8 +47,7 @@ export function profileView(root) {
         <section class="card">
           <h2>${t('profile.data')}</h2>
           <p class="muted small">${t('profile.dataHelp')}</p>
-          <div class="row"><a class="btn btn-secondary" href="/api/me/export" download>⬇️ ${t('profile.export')}</a>
-          <button class="btn btn-danger" id="del" type="button">${t('profile.delete')}</button></div>
+          <div class="row"><button class="btn btn-danger" id="del" type="button">${t('profile.delete')}</button></div>
         </section>
       </div>`.s;
 
