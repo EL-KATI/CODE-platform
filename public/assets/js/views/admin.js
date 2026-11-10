@@ -84,7 +84,7 @@ const ADMIN_TABS_CONTENT = [
 ];
 const ADMIN_TABS_MANAGE = [['/admin/users', 'admin.users'], ['/admin/settings', 'admin.settings'], ['/admin/audit', 'admin.audit']];
 // تبويبات السوبر أدمين الإضافية
-const SUPER_TABS = [['/admin/import', 'admin.import']];
+const SUPER_TABS = [['/admin/import', 'admin.import'], ['/admin/storage', 'admin.storage']];
 // المؤسسة: بيانات المؤسسة + طلابها + حجوزاتهم
 export function schoolTabs() {
   return [['/admin', 'admin.stats'], ['/admin/school/enrollments', 'school.enrollments'], ['/admin/school/students', 'school.manageStudents'], ['/admin/school/instructors', 'school.manageInstructors'], ['/admin/bookings', 'nav.bookings'], ['/admin/exams', 'nav.exams']];
@@ -433,6 +433,19 @@ function renderForm(root, cats, q, catId, startDouble, isNew, params, { onSaved 
         <hr style="width:100%;opacity:.3">
         <label>${t('admin.audioText')}<textarea class="input" name="audioText" rows="3" placeholder="${t('admin.audioHelp')}">${q.audio_text || ''}</textarea></label>
         <div><button class="btn btn-secondary" type="button" id="audio-test">🔊 ${t('admin.audioTest')}</button></div>
+        <hr style="width:100%;opacity:.3">
+        <!-- ملف صوتي مرفق بالسؤال -->
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <span style="font-weight:600;font-size:.85rem">🎵 ملف صوتي (mp3 / ogg / wav)</span>
+          ${q.audio_file ? html`<div id="audio-file-current" style="display:flex;align-items:center;gap:8px">
+            <audio controls src="${q.audio_file}" style="flex:1;min-width:0;height:36px"></audio>
+            <button class="btn btn-ghost" type="button" id="audio-file-del" style="color:#c62828">🗑 حذف</button>
+          </div>` : html`<div id="audio-file-current" style="color:#888;font-size:.82rem">لا يوجد ملف صوتي</div>`}
+          ${isNew ? html`<div style="color:#888;font-size:.82rem">احفظ السؤال أولاً ثم أضف الملف الصوتي</div>` : html`<label class="btn btn-secondary" style="cursor:pointer;width:fit-content">
+            📁 رفع ملف صوتي
+            <input type="file" id="audio-file-input" accept="audio/mp3,audio/mpeg,audio/ogg,audio/wav,audio/webm" style="display:none">
+          </label>`}
+        </div>
       </fieldset>
 
       <!-- الصعوبة + نوع المهارة فقط (بدون الحالة) -->
@@ -484,6 +497,50 @@ function renderForm(root, cats, q, catId, startDouble, isNew, params, { onSaved 
   form.elements.image.addEventListener('change', showMedia);
   form.elements.video.addEventListener('change', showMedia);
   root.querySelector('#audio-test').onclick = () => speak(val(form, 'audioText') || val(form, 'text'));
+
+  // ── ملف صوتي: رفع وحذف ──
+  const qid = params?.id;
+  if (!isNew && qid) {
+    const afInput = root.querySelector('#audio-file-input');
+    const afDel = root.querySelector('#audio-file-del');
+    const afCurrent = root.querySelector('#audio-file-current');
+
+    if (afInput) afInput.onchange = async () => {
+      const file = afInput.files[0];
+      if (!file) return;
+      try {
+        afInput.disabled = true;
+        const res = await fetch(`/api/admin/uploads-audio/${qid}`, {
+          method: 'POST',
+          headers: { 'Content-Type': file.type },
+          body: file,
+          credentials: 'include',
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const { url } = await res.json();
+        afCurrent.innerHTML = `<audio controls src="${url}" style="flex:1;min-width:0;height:36px"></audio>
+          <button class="btn btn-ghost" type="button" id="audio-file-del" style="color:#c62828">🗑 حذف</button>`;
+        afCurrent.style.display = 'flex';
+        afCurrent.style.alignItems = 'center';
+        afCurrent.style.gap = '8px';
+        // rebind del button
+        afCurrent.querySelector('#audio-file-del')?.addEventListener('click', doDelAudio);
+        toast('تم رفع الملف الصوتي ✅', 'success');
+      } catch (err) { toast(errorMessage(err), 'error'); }
+      finally { afInput.disabled = false; afInput.value = ''; }
+    };
+
+    async function doDelAudio() {
+      try {
+        await api.delete(`/admin/uploads-audio/${qid}`);
+        afCurrent.innerHTML = '<span style="color:#888;font-size:.82rem">لا يوجد ملف صوتي</span>';
+        afCurrent.style.display = '';
+        toast('تم حذف الملف الصوتي', 'info');
+      } catch (err) { toast(errorMessage(err), 'error'); }
+    }
+
+    if (afDel) afDel.addEventListener('click', doDelAudio);
+  }
 
   // toggle بين منفرد ومزدوج
   const singleFields = root.querySelector('#single-fields');
@@ -1520,6 +1577,80 @@ export async function importView(root) {
       } finally {
         impBtn.disabled = false;
         impBtn.textContent = '📤 استيراد الآن';
+      }
+    };
+  });
+}
+
+// ══ Super Admin: إعدادات التخزين السحابي ════════════════════════════════════
+export async function storageView(root) {
+  if (!store.isSuperAdmin()) { navigate('/admin/settings'); return; }
+  await load(root, '/admin/storage', async () => {
+    let st = {};
+    try { st = await api.get('/admin/super/storage'); } catch { st = {}; }
+
+    shell(root, '/admin/storage', html`
+      <div class="card" style="max-width:640px">
+        <h3 style="margin-top:0">☁️ إعدادات التخزين السحابي</h3>
+        <p class="muted small">اختر من أين تُحمَّل الصور والملفات الصوتية للأسئلة. الإعداد الحالي يؤثر على جميع روابط الملفات في المنصة.</p>
+        <form id="storage-form" style="display:flex;flex-direction:column;gap:14px">
+
+          <label style="font-weight:600">مزود التخزين
+            <select class="input" name="storage_provider" id="storage_provider">
+              <option value="local" ${(st.storage_provider || 'local') === 'local' ? 'selected' : ''}>💾 محلي (الخادم)</option>
+              <option value="gdrive" ${st.storage_provider === 'gdrive' ? 'selected' : ''}>📁 Google Drive</option>
+              <option value="onedrive" ${st.storage_provider === 'onedrive' ? 'selected' : ''}>📁 Microsoft OneDrive</option>
+            </select>
+          </label>
+
+          <div id="cloud-fields" style="${(st.storage_provider || 'local') === 'local' ? 'display:none' : ''}">
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <label>رابط مجلد الصور
+                <input class="input" name="storage_images_folder" dir="ltr" value="${st.storage_images_folder || ''}"
+                  placeholder="https://drive.google.com/drive/folders/…">
+                <span class="muted small">مجلد يحتوي على صور الأسئلة (عام أو مشترك)</span>
+              </label>
+              <label>رابط مجلد الملفات الصوتية
+                <input class="input" name="storage_audio_folder" dir="ltr" value="${st.storage_audio_folder || ''}"
+                  placeholder="https://drive.google.com/drive/folders/…">
+                <span class="muted small">مجلد يحتوي على ملفات mp3 / ogg للأسئلة</span>
+              </label>
+              <div class="card" style="background:var(--warning-bg,#fff8e1);border:1px solid var(--warning,#f9a825);padding:10px 14px;border-radius:8px;font-size:.82rem">
+                <strong>ملاحظة:</strong> تأكد أن المجلدات مشتركة للعموم (Anyone with the link → Viewer).
+                الصور والملفات الصوتية يجب أن تكون بنفس اسم رقم السؤال (مثال: <code>1.mp3</code>، <code>1.jpg</code>).
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary" type="submit">💾 حفظ</button>
+          </div>
+          <div id="storage-result" style="display:none"></div>
+        </form>
+      </div>`);
+
+    // show/hide cloud fields
+    root.querySelector('#storage_provider').onchange = (e) => {
+      root.querySelector('#cloud-fields').style.display = e.target.value === 'local' ? 'none' : '';
+    };
+
+    root.querySelector('#storage-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const result = root.querySelector('#storage-result');
+      try {
+        await api.put('/admin/super/storage', {
+          storage_provider: form.storage_provider.value,
+          storage_images_folder: form.storage_images_folder?.value.trim() || '',
+          storage_audio_folder: form.storage_audio_folder?.value.trim() || '',
+        });
+        result.innerHTML = '<span style="color:var(--success,#2e7d32)">✅ تم الحفظ</span>';
+        result.style.display = '';
+        toast('تم حفظ إعدادات التخزين ✅', 'success');
+      } catch (err) {
+        result.innerHTML = `<span style="color:var(--danger)">${errorMessage(err)}</span>`;
+        result.style.display = '';
+        toast(errorMessage(err), 'error');
       }
     };
   });

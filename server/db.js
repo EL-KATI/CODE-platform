@@ -342,6 +342,7 @@ function open(file = config.dbFile) {
   const cols = db.prepare('PRAGMA table_info(questions)').all().map((c) => c.name);
   if (!cols.includes('video')) db.exec('ALTER TABLE questions ADD COLUMN video TEXT');
   if (!cols.includes('audio_text')) db.exec("ALTER TABLE questions ADD COLUMN audio_text TEXT NOT NULL DEFAULT ''");
+  if (!cols.includes('audio_file')) db.exec("ALTER TABLE questions ADD COLUMN audio_file TEXT");
   // Migration: add exam_count to categories (NULL = use global setting)
   const catCols = db.prepare('PRAGMA table_info(categories)').all().map((c) => c.name);
   if (!catCols.includes('exam_count')) db.exec('ALTER TABLE categories ADD COLUMN exam_count INTEGER');

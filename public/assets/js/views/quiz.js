@@ -154,7 +154,7 @@ export async function quizView(appRoot, { params }) {
       autoRead.set(reading);
       e.currentTarget.innerHTML = reading ? IC.vol : IC.mute;
       e.currentTarget.setAttribute('aria-pressed', String(reading));
-      if (reading) speak(speechText(q(), idx + 1), { silent: true }); else stopSpeaking();
+      if (reading) playQuestion(q()); else stopAudio();
     };
     // زر "تصحيح ✕" : مسح الاختيار (قبل التأكيد)
     overlay.querySelector('#btn-clear').onclick = () => {
@@ -188,7 +188,7 @@ export async function quizView(appRoot, { params }) {
         b.textContent = '●'; b.classList.add('on');
         const v = Number(b.dataset.v);
         sound.setVolume?.(v / 2);
-        if (v > 0 && reading) speak(speechText(q(), idx + 1), { silent: true });
+        if (v > 0 && reading) playQuestion(q());
       };
     });
   }
@@ -424,7 +424,27 @@ export async function quizView(appRoot, { params }) {
 
     shownAt = Date.now();
     if (exam && !ans) startTimer();
-    if (reading && !ans) speak(speechText(cur, idx + 1), { silent: true });
+    if (reading && !ans) playQuestion(cur);
+  }
+
+  // ── تشغيل الصوت ──────────────────────────────────────────────────
+  let _audioEl = null;
+  function stopAudio() {
+    if (_audioEl) { _audioEl.pause(); _audioEl.currentTime = 0; }
+    stopAudio();
+  }
+  function playQuestion(cur) {
+    stopAudio();
+    const af = cur?.audio_file || cur?.audioFile;
+    if (af) {
+      // ملف صوتي مرفق بالسؤال — نشغله مباشرة
+      if (!_audioEl) { _audioEl = new Audio(); _audioEl.preload = 'auto'; }
+      _audioEl.src = af;
+      _audioEl.play().catch(() => {});
+    } else {
+      // fallback: Web Speech API
+      speak(speechText(cur, idx + 1), { silent: true });
+    }
   }
 
   // ── مساعدات ──────────────────────────────────────────────────────
@@ -458,7 +478,7 @@ export async function quizView(appRoot, { params }) {
     if (!hasAnswer && !timeout && !reveal && !exam) { toast(t('quiz.pickOne')); return; }
     busy = true;
     stopTimer();
-    stopSpeaking();
+    stopAudio();
     try {
       const payload = isDouble
         ? { questionId: cur.id, selected: [], selected_double: { a: [...selected.a], b: [...selected.b] }, timeMs: Date.now() - shownAt }
@@ -501,7 +521,7 @@ export async function quizView(appRoot, { params }) {
     if (exam && i < idx) return;
     if (exam && i !== idx && !q().answer) { toast(t('quiz.mustAnswer'), 'warning'); return; }
     stopTimer();
-    stopSpeaking();
+    stopAudio();
     idx = i;
     renderQuestion();
   }
@@ -566,6 +586,6 @@ export async function quizView(appRoot, { params }) {
     document.body.style.overflow = prevOverflow;
     document.removeEventListener('keydown', onKey);
     window.removeEventListener('beforeunload', beforeUnload);
-    stopSpeaking();
+    stopAudio();
   };
 }

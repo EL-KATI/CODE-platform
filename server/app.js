@@ -66,6 +66,7 @@ function createApp() {
 
   const pub = path.join(config.ROOT, 'public');
   app.use('/uploads', express.static(config.uploadsDir, { maxAge: '30d', immutable: true }));
+  app.use('/audio', express.static(path.join(config.ROOT, 'public', 'audio'), { maxAge: '30d' }));
   app.use(express.static(pub, { maxAge: config.isProd ? '1h' : 0, index: 'index.html' }));
   // Application monopage : toutes les autres URL renvoient index.html (routage côté client).
   app.get(/^\/(?!api\/|uploads\/|assets\/).*/, (req, res) => res.sendFile(path.join(pub, 'index.html')));

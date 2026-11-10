@@ -487,6 +487,44 @@ router.post('/uploads-video', instructorReadOnly, express.raw({ type: ['video/mp
   res.status(201).json({ url: `/uploads/${name}` });
 }));
 
+// Téléversement audio (mp3/ogg/wav, 10 Mo max) -> /audio/<id>.<ext>
+router.post('/uploads-audio/:id', instructorReadOnly, express.raw({ type: ['audio/mpeg', 'audio/mp3', 'audio/ogg', 'audio/wav', 'audio/webm'], limit: '10mb' }), wrap(async (req, res) => {
+  const id = int(req.params.id, { min: 1, field: 'id' });
+  const buf = req.body;
+  if (!Buffer.isBuffer(buf) || !buf.length) throw bad('invalid_audio');
+  const ct = req.headers['content-type'] || '';
+  let ext = 'mp3';
+  if (ct.includes('ogg')) ext = 'ogg';
+  else if (ct.includes('wav')) ext = 'wav';
+  else if (ct.includes('webm')) ext = 'webm';
+  const audioDir = path.join(__dirname, '../../public/audio');
+  fs.mkdirSync(audioDir, { recursive: true });
+  // احذف الملفات القديمة لنفس السؤال
+  for (const e of ['mp3', 'ogg', 'wav', 'webm']) {
+    const old = path.join(audioDir, `${id}.${e}`);
+    if (fs.existsSync(old)) fs.unlinkSync(old);
+  }
+  const filename = `${id}.${ext}`;
+  fs.writeFileSync(path.join(audioDir, filename), buf);
+  const url = `/audio/${filename}`;
+  db.get().prepare('UPDATE questions SET audio_file = ? WHERE id = ?').run(url, id);
+  db.audit(req.user.id, 'upload', 'audio', id, { filename });
+  res.status(201).json({ url });
+}));
+
+// حذف ملف صوتي لسؤال
+router.delete('/uploads-audio/:id', instructorReadOnly, wrap(async (req, res) => {
+  const id = int(req.params.id, { min: 1, field: 'id' });
+  const audioDir = path.join(__dirname, '../../public/audio');
+  for (const e of ['mp3', 'ogg', 'wav', 'webm']) {
+    const f = path.join(audioDir, `${id}.${e}`);
+    if (fs.existsSync(f)) fs.unlinkSync(f);
+  }
+  db.get().prepare('UPDATE questions SET audio_file = NULL WHERE id = ?').run(id);
+  db.audit(req.user.id, 'delete', 'audio', id);
+  res.json({ ok: true });
+}));
+
 // --- Séries -------------------------------------------------------------------
 router.get('/series', (req, res) => {
   const d = db.get();
@@ -836,6 +874,38 @@ router.put('/settings', adminOnly, wrap(async (req, res) => {
   for (const [k, val] of Object.entries(v)) up.run(k, String(val));
   db.audit(req.user.id, 'update', 'settings', null, v);
   res.json(db.getSettings());
+}));
+
+// --- Super Admin: إعدادات التخزين السحابي (Google Drive / OneDrive) -------------------
+const superAdminOnly = (req, res, next) => {
+  if (!req.user?.is_super_admin) return res.status(403).json({ error: 'forbidden' });
+  next();
+};
+
+router.get('/super/storage', superAdminOnly, (req, res) => {
+  const s = db.getSettings();
+  res.json({
+    storage_provider: s.storage_provider || 'local',
+    storage_folder_url: s.storage_folder_url || '',
+    storage_images_folder: s.storage_images_folder || '',
+    storage_audio_folder: s.storage_audio_folder || '',
+  });
+});
+
+router.put('/super/storage', superAdminOnly, wrap(async (req, res) => {
+  const b = req.body || {};
+  const provider = ['local', 'gdrive', 'onedrive'].includes(b.storage_provider) ? b.storage_provider : 'local';
+  const urlPat = /^(https:\/\/[^\s"'<>]{5,500})?$/;
+  if (b.storage_folder_url && !urlPat.test(b.storage_folder_url)) throw bad('invalid_field', { field: 'storage_folder_url' });
+  if (b.storage_images_folder && !urlPat.test(b.storage_images_folder)) throw bad('invalid_field', { field: 'storage_images_folder' });
+  if (b.storage_audio_folder && !urlPat.test(b.storage_audio_folder)) throw bad('invalid_field', { field: 'storage_audio_folder' });
+  const up = db.get().prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
+  up.run('storage_provider', provider);
+  up.run('storage_folder_url', b.storage_folder_url || '');
+  up.run('storage_images_folder', b.storage_images_folder || '');
+  up.run('storage_audio_folder', b.storage_audio_folder || '');
+  db.audit(req.user.id, 'update', 'storage_settings', null, { provider });
+  res.json({ ok: true, storage_provider: provider });
 }));
 
 // --- Monitor AI: مفاتيح API (أدمين فقط، لا تُعاد القيمة الكاملة أبداً) -----------------

@@ -49,7 +49,7 @@ const SIDE_ICONS = {
   '/admin/bookings': '📅', '/admin/exams': '📝',
   '/admin/questions': '❓', '/admin/series': '📚', '/admin/lessons': '🎓',
   '/admin/students': '👥', '/admin/users': '👤', '/admin/settings': '⚙️', '/admin/audit': '🔍',
-  '/admin/import': '📥',
+  '/admin/import': '📥', '/admin/storage': '☁️',
 };
 // أيقونة لكل رابط؛ Monitor AI بارز بتنسيق خاص
 const NAV_ICON = { '/': 'home', '/dashboard': 'dashboard', '/lessons': 'book-open', '/practice': 'layers', '/exam': 'clock', '/mistakes': 'restore', '/assistant': 'sparkles', '/bookings': 'calendar', '/login': 'log-in', '/admin': 'bar-chart', '/profile': 'user', '/register': 'user-plus' };
@@ -297,6 +297,7 @@ route('/admin/users', view(admin.usersView), adminOnly);
 route('/admin/settings', view(admin.settingsView), adminOnly);
 route('/admin/audit', view(admin.auditView), adminOnly);
 route('/admin/import', view(admin.importView), adminOnly);
+route('/admin/storage', view(admin.storageView), adminOnly);
 const adminBookings = view(adminBookingsView);
 // الأدمين لا يدير حجوزات التدريب (للمؤسسة والمدرب فقط)
 route('/admin/bookings', (ctx) => (store.user?.role === 'admin' ? navigate('/admin', { replace: true }) : adminBookings(ctx)), staff);
