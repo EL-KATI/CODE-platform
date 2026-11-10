@@ -148,10 +148,12 @@ router.get('/google/callback', wrap(async (req, res) => {
     const nameParts = (google_name || email).split(' ');
     const first_name_fr = nameParts[0] || '';
     const last_name_fr  = nameParts.slice(1).join(' ') || '';
+    // password_hash مطلوب فـ schema — نحطو قيمة random لأن Google users ما عندهمش password
+    const fakeHash = '$google$' + crypto.randomBytes(32).toString('hex');
     const info = d.prepare(
-      `INSERT INTO users (email, name, locale, role, google_id, google_name, google_picture, first_name_fr, last_name_fr, active)
-       VALUES (?,?,?,?,?,?,?,?,?,1)`
-    ).run(email.toLowerCase(), google_name || email, locale, 'student', google_id, google_name, picture, first_name_fr, last_name_fr);
+      `INSERT INTO users (email, name, locale, role, google_id, google_name, google_picture, first_name_fr, last_name_fr, active, password_hash)
+       VALUES (?,?,?,?,?,?,?,?,?,1,?)`
+    ).run(email.toLowerCase(), google_name || email, locale, 'student', google_id, google_name, picture, first_name_fr, last_name_fr, fakeHash);
     user = d.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
   }
 
