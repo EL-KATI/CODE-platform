@@ -61,6 +61,9 @@ function createApp() {
   api.use((req, res) => res.status(404).json({ error: 'not_found' }));
   app.use('/api', api);
 
+  // alias: Google OAuth callback يوصل بدون /api/ prefix
+  app.use('/auth', require('./routes/auth'));
+
   const pub = path.join(config.ROOT, 'public');
   app.use('/uploads', express.static(config.uploadsDir, { maxAge: '30d', immutable: true }));
   app.use(express.static(pub, { maxAge: config.isProd ? '1h' : 0, index: 'index.html' }));
