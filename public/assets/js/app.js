@@ -1,10 +1,10 @@
 // Point d'entrée : en-tête/navigation, thème, langue, déclaration des routes.
 import { route, startRouter, setNavigateHook, navigate, render } from './router.js';
 import { store } from './store.js';
-import { watchIcons } from './icons.js';
+import { watchIcons, iconSvg } from './icons.js';
 import { api } from './api.js';
 import { t, setLocale, getLocale, applyStaticTranslations } from './i18n.js';
-import { html, esc, toast, sound } from './ui.js';
+import { html, raw, esc, toast, sound } from './ui.js';
 
 import { homeView } from './views/home.js';
 import { loginView, registerView } from './views/auth.js';
@@ -78,13 +78,16 @@ function renderStaffSide() {
 export function renderShell() {
   const path = location.pathname;
   const isCur = (href) => (href === '/' ? path === '/' : path === href || path.startsWith(href + '/'));
-  const linkHtml = navLinks().map(([href, key]) => html`<a href="${href}" ${isCur(href) ? html`aria-current="page"` : ''}>${t(key)}</a>`);
+  // أيقونة لكل رابط؛ Monitor AI بارز بتنسيق خاص
+  const NAV_ICON = { '/': 'home', '/dashboard': 'dashboard', '/lessons': 'book-open', '/practice': 'layers', '/exam': 'clock', '/mistakes': 'restore', '/assistant': 'sparkles', '/bookings': 'calendar', '/login': 'log-in', '/admin': 'bar-chart', '/profile': 'user', '/register': 'user-plus' };
+  const navA = (href, key) => html`<a href="${href}" class="nav-link ${href === '/assistant' ? 'nav-ai' : ''}" ${isCur(href) ? html`aria-current="page"` : ''} title="${t(key)}"><span class="nav-ic" aria-hidden="true">${raw(iconSvg(NAV_ICON[href] || 'file'))}</span><span class="nav-lbl">${t(key)}</span></a>`;
+  const linkHtml = navLinks().map(([href, key]) => navA(href, key));
   document.getElementById('main-nav').innerHTML = html`${linkHtml}`.s;
   renderStaffSide();
   // نمط موحّد لكل الواجهات (المترشح، الزائر، المؤسسة، المدرب، الأدمين)
   document.body.classList.add('ui-apple');
   const mobile = document.getElementById('mobile-nav');
-  mobile.innerHTML = html`${linkHtml}${store.user ? html`<a href="/profile">${t('nav.profile')}</a>` : html`<a href="/register">${t('nav.register')}</a>`}`.s;
+  mobile.innerHTML = html`${linkHtml}${store.user ? navA('/profile', 'nav.profile') : navA('/register', 'nav.register')}`.s;
   mobile.classList.remove('open');
 
   const theme = getTheme() || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
@@ -92,6 +95,7 @@ export function renderShell() {
     <button class="icon-btn" id="lang-btn" type="button" lang="${getLocale() === 'ar' ? 'fr' : 'ar'}" aria-label="${t('a11y.language')}">${getLocale() === 'ar' ? 'FR' : 'ع'}</button>
     <button class="icon-btn" id="theme-btn" type="button" aria-label="${t('a11y.theme')}" aria-pressed="${theme === 'dark'}">${theme === 'dark' ? '☀️' : '🌙'}</button>
     <button class="icon-btn" id="sound-btn" type="button" aria-label="${t('a11y.sound')}" aria-pressed="${sound.enabled}">${sound.enabled ? '🔊' : '🔇'}</button>
+    ${store.user && !store.isStaff() ? html`<a class="icon-btn ai-quick" href="/assistant" title="${t('nav.ai')}" ${location.pathname === '/assistant' ? html`aria-current="page"` : ''}>${raw(iconSvg('sparkles'))}<span class="sr-only">${t('nav.ai')}</span></a>` : ''}
     ${store.user
       ? html`<a class="icon-btn" href="/profile" title="${store.user.name}"><span aria-hidden="true">👤</span><span class="sr-only">${t('nav.profile')}</span></a>
              <button class="icon-btn" id="logout-btn" type="button">${t('nav.logout')}</button>`

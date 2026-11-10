@@ -2900,3 +2900,36 @@ a:hover > .ic, button:hover > .ic, a:hover > span > .ic, button:hover > span > .
   body.ui-apple .brand small { display: none; }
   body.ui-apple .header-actions { gap: 4px; }
 }
+
+/* ══ قائمة المتعلم: أيقونة لكل رابط + Monitor AI بارز ══ */
+.nav-link { display: inline-flex; align-items: center; gap: 7px; }
+.nav-ic { display: inline-grid; place-items: center; }
+.nav-ic .ic { width: 18px; height: 18px; vertical-align: 0; transition: transform .25s cubic-bezier(.34, 1.3, .64, 1); }
+.nav-link:hover .nav-ic .ic { transform: translateY(-1px) scale(1.12); }
+.nav-link[aria-current="page"] .nav-ic .ic { transform: none; }
+/* Monitor AI: كبسولة متدرجة مع لمعة خفيفة */
+body.ui-apple .main-nav a.nav-ai, body.ui-apple .mobile-nav a.nav-ai {
+  color: #fff; font-weight: 800; margin-inline-start: 4px;
+  background: linear-gradient(135deg, #bf5af2 0%, #7c5cff 55%, #4f7cff 100%);
+  box-shadow: 0 6px 18px rgb(124 92 255 / .35);
+  position: relative; overflow: hidden;
+}
+body.ui-apple .main-nav a.nav-ai:hover, body.ui-apple .mobile-nav a.nav-ai:hover { color: #fff; background: linear-gradient(135deg, #c86af7 0%, #8a6cff 55%, #5d88ff 100%); box-shadow: 0 8px 22px rgb(124 92 255 / .45); }
+body.ui-apple .main-nav a.nav-ai[aria-current="page"], body.ui-apple .mobile-nav a.nav-ai[aria-current="page"] { color: #fff; background: linear-gradient(135deg, #a83fe0 0%, #6a48f5 55%, #3d68f0 100%); box-shadow: 0 0 0 3px rgb(124 92 255 / .28), 0 6px 18px rgb(124 92 255 / .4); }
+.nav-ai::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 35%, rgb(255 255 255 / .38) 50%, transparent 65%); transform: translateX(-120%); animation: nav-ai-shine 5s ease-in-out 1.2s infinite; pointer-events: none; }
+@keyframes nav-ai-shine { 0%, 70% { transform: translateX(-120%); } 85%, 100% { transform: translateX(120%); } }
+.nav-ai .nav-ic .ic { animation: nav-ai-twinkle 2.8s ease-in-out infinite; }
+@keyframes nav-ai-twinkle { 0%, 100% { transform: scale(1) rotate(0); } 50% { transform: scale(1.15) rotate(8deg); } }
+/* زر Monitor AI السريع في الهيدر: يظهر على الهاتف والتابلت (القائمة مخفية في ☰) */
+.ai-quick { display: none; }
+@media (max-width: 960px) {
+  body.ui-apple .ai-quick { display: inline-grid; place-items: center; color: #fff; border: 0; background: linear-gradient(135deg, #bf5af2, #5e5ce6); box-shadow: 0 4px 14px rgb(124 92 255 / .4); }
+  body.ui-apple .ai-quick .ic { width: 1.2em; height: 1.2em; }
+  body.ui-apple .mobile-nav a.nav-link { display: flex; }
+}
+/* حاسوب صغير / تابلت أفقي: أيقونات فقط (الاسم في التلميح)، إلا الصفحة الحالية و Monitor AI */
+@media (min-width: 961px) and (max-width: 1180px) {
+  body.ui-apple .main-nav a.nav-link:not(.nav-ai):not([aria-current="page"]) .nav-lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  body.ui-apple .main-nav a.nav-link:not(.nav-ai):not([aria-current="page"]) { padding-inline: 10px; }
+}
+@media (prefers-reduced-motion: reduce) { .nav-ai::after, .nav-ai .nav-ic .ic { animation: none; } .nav-link .ic { transition: none; } }
