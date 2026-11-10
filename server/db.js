@@ -55,6 +55,13 @@ CREATE TABLE IF NOT EXISTS settings (
   value TEXT NOT NULL
 );
 
+-- أسرار التطبيق (مفاتيح API) — مشفّرة، منفصلة عن settings حتى لا تُعرض أبداً عبر /api/settings
+CREATE TABLE IF NOT EXISTS app_secrets (
+  key        TEXT PRIMARY KEY,
+  value      TEXT NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS categories (
   id          INTEGER PRIMARY KEY,
   slug        TEXT NOT NULL UNIQUE,

@@ -3,26 +3,33 @@
 const Anthropic = require('@anthropic-ai/sdk');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
+const secrets = require('./secrets');
+
 /** مفتاح فعلي؟ القيم النموذجية من .env.example (sk-ant-... / AIza...) تُعتبر غير معرّفة */
 const realKey = (v) => typeof v === 'string' && v.trim().length > 20 && !v.includes('...');
-const anthropicKey = () => (realKey(process.env.ANTHROPIC_API_KEY) ? process.env.ANTHROPIC_API_KEY.trim() : null);
-const geminiKey = () => (realKey(process.env.GEMINI_API_KEY) ? process.env.GEMINI_API_KEY.trim() : null);
+const pick = (dbVal, envVal) => (realKey(dbVal) ? dbVal.trim() : realKey(envVal) ? envVal.trim() : null);
+// الأولوية: المفتاح المحفوظ من واجهة الأدمين ← ثم .env
+const anthropicKey = () => pick(secrets.get('anthropic_key'), process.env.ANTHROPIC_API_KEY);
+const geminiKey = () => pick(secrets.get('gemini_key'), process.env.GEMINI_API_KEY);
+const keySource = (dbName, envName) => (realKey(secrets.get(dbName)) ? 'admin' : realKey(process.env[envName]) ? 'env' : null);
+const anthropicModel = () => (secrets.get('anthropic_model') || process.env.ANTHROPIC_MODEL || 'claude-opus-5-5').trim();
+const geminiModelSetting = () => (secrets.get('gemini_model') || process.env.GEMINI_MODEL || '').trim();
 
-// Initialize clients lazily (only if API keys are set)
-let anthropicClient = null;
-let geminiClient = null;
+// العملاء يُعاد إنشاؤهم تلقائياً إذا تغيّر المفتاح من لوحة الأدمين
+let anthropicClient = null; let anthropicClientKey = null;
+let geminiClient = null; let geminiClientKey = null;
 
 function getAnthropicClient() {
-  if (!anthropicClient && anthropicKey()) {
-    anthropicClient = new Anthropic({ apiKey: anthropicKey() });
-  }
+  const k = anthropicKey();
+  if (!k) return null;
+  if (!anthropicClient || anthropicClientKey !== k) { anthropicClient = new Anthropic({ apiKey: k }); anthropicClientKey = k; }
   return anthropicClient;
 }
 
 function getGeminiClient() {
-  if (!geminiClient && geminiKey()) {
-    geminiClient = new GoogleGenerativeAI(geminiKey());
-  }
+  const k = geminiKey();
+  if (!k) return null;
+  if (!geminiClient || geminiClientKey !== k) { geminiClient = new GoogleGenerativeAI(k); geminiClientKey = k; workingGeminiModel = null; }
   return geminiClient;
 }
 
@@ -74,7 +81,7 @@ async function askClaude(question, context = '') {
   const userContent = buildUserContent(question, context);
 
   const response = await client.messages.create({
-    model: process.env.ANTHROPIC_MODEL || 'claude-opus-5-5',
+    model: anthropicModel(),
     max_tokens: 1024,
     system: DRIVING_SYSTEM_PROMPT,
     messages: [{ role: 'user', content: userContent }],
@@ -96,7 +103,9 @@ async function askGemini(question, context = '') {
 
   // Google يسحب النماذج بانتظام (gemini-pro ثم gemini-2.5-flash...).
   // نجرب: النموذج المحفوظ ← GEMINI_MODEL ← النموذج الذي يقترحه خطأ 404 ← قائمة احتياطية
-  const queue = [workingGeminiModel, (process.env.GEMINI_MODEL || '').trim(), ...GEMINI_CANDIDATES]
+  const configured = geminiModelSetting();
+  if (configured !== workingFor) { workingGeminiModel = null; workingFor = configured; }
+  const queue = [workingGeminiModel, configured, ...GEMINI_CANDIDATES]
     .filter(Boolean);
   const tried = new Set();
   let lastErr = null;
@@ -128,6 +137,7 @@ async function askGemini(question, context = '') {
 // النماذج الاحتياطية بالترتيب (نونبر 2026). يمكن تجاوزها بـ GEMINI_MODEL في .env
 const GEMINI_CANDIDATES = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite'];
 let workingGeminiModel = null;
+let workingFor = null;
 const isModelGone = (e) => {
   const msg = String(e && e.message || '');
   const status = e && (e.status || e.statusCode);
@@ -136,12 +146,16 @@ const isModelGone = (e) => {
 
 // Auto-select: use Claude if available, fallback to Gemini
 async function askAI(question, context = '', preferredModel = 'auto') {
-  if (preferredModel === 'claude' || (preferredModel === 'auto' && anthropicKey())) {
-    return askClaude(question, context);
+  if (preferredModel === 'claude') return askClaude(question, context);
+  if (preferredModel === 'gemini') return askGemini(question, context);
+  // تلقائي: Claude أولاً، وإذا فشل وGemini مفعّل ننتقل إليه
+  if (anthropicKey()) {
+    try { return await askClaude(question, context); } catch (e) {
+      if (!geminiKey()) throw e;
+      console.warn(`[Monitor AI] Claude failed (${String(e.message).split('\n')[0].slice(0, 120)}), falling back to Gemini`);
+    }
   }
-  if (preferredModel === 'gemini' || geminiKey()) {
-    return askGemini(question, context);
-  }
+  if (geminiKey()) return askGemini(question, context);
   throw new Error('No AI provider configured. Set ANTHROPIC_API_KEY or GEMINI_API_KEY');
 }
 
@@ -152,4 +166,34 @@ function availableModels() {
   };
 }
 
-module.exports = { askClaude, askGemini, askAI, availableModels, buildUserContent, DRIVING_SYSTEM_PROMPT };
+/** حالة المزوّدين للوحة الأدمين — بدون كشف المفاتيح */
+function providerStatus() {
+  return {
+    claude: {
+      configured: !!anthropicKey(),
+      source: keySource('anthropic_key', 'ANTHROPIC_API_KEY'),
+      masked: secrets.mask(anthropicKey()),
+      model: secrets.get('anthropic_model') || '',
+      effectiveModel: anthropicModel(),
+      updatedAt: (secrets.meta('anthropic_key') || {}).updatedAt || null,
+    },
+    gemini: {
+      configured: !!geminiKey(),
+      source: keySource('gemini_key', 'GEMINI_API_KEY'),
+      masked: secrets.mask(geminiKey()),
+      model: secrets.get('gemini_model') || '',
+      effectiveModel: workingGeminiModel || geminiModelSetting() || GEMINI_CANDIDATES[0],
+      updatedAt: (secrets.meta('gemini_key') || {}).updatedAt || null,
+    },
+  };
+}
+
+/** اختبار سريع لمزوّد واحد: سؤال قصير جداً */
+async function testProvider(provider) {
+  const q = 'أجب بكلمة واحدة: ما لون إشارة التوقف؟';
+  const t0 = Date.now();
+  const r = provider === 'claude' ? await askClaude(q) : await askGemini(q);
+  return { ok: true, ms: Date.now() - t0, model: provider === 'claude' ? anthropicModel() : workingGeminiModel, sample: String(r.answer || '').slice(0, 120) };
+}
+
+module.exports = { askClaude, askGemini, askAI, availableModels, providerStatus, testProvider, buildUserContent, DRIVING_SYSTEM_PROMPT };

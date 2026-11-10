@@ -751,6 +751,51 @@ router.put('/settings', adminOnly, wrap(async (req, res) => {
   res.json(db.getSettings());
 }));
 
+// --- Monitor AI: مفاتيح API (أدمين فقط، لا تُعاد القيمة الكاملة أبداً) -----------------
+const secrets = require('../services/secrets');
+const ai = require('../services/ai');
+const AI_PROVIDERS = { claude: 'anthropic', gemini: 'gemini' };
+const aiProvider = (p) => { if (!AI_PROVIDERS[p]) throw bad('invalid_field', { field: 'provider' }); return AI_PROVIDERS[p]; };
+
+router.get('/ai-keys', adminOnly, (req, res) => res.json(ai.providerStatus()));
+
+router.put('/ai-keys/:provider', adminOnly, wrap(async (req, res) => {
+  const pre = aiProvider(req.params.provider);
+  const b = req.body || {};
+  const changed = [];
+  if (b.key !== undefined && String(b.key).trim() !== '') {
+    const k = String(b.key).trim();
+    if (k.length < 20 || k.length > 400 || /\s/.test(k) || k.includes('...')) throw bad('invalid_field', { field: 'key' });
+    secrets.set(`${pre}_key`, k); changed.push('key');
+  }
+  if (b.model !== undefined) {
+    const m = String(b.model).trim();
+    if (m && !/^[\w.\-/:]{2,80}$/.test(m)) throw bad('invalid_field', { field: 'model' });
+    if (m) secrets.set(`${pre}_model`, m); else secrets.remove(`${pre}_model`);
+    changed.push('model');
+  }
+  db.audit(req.user.id, 'update', 'ai_keys', null, { provider: req.params.provider, changed }); // بدون قيمة المفتاح
+  res.json(ai.providerStatus());
+}));
+
+router.delete('/ai-keys/:provider', adminOnly, wrap(async (req, res) => {
+  const pre = aiProvider(req.params.provider);
+  secrets.remove(`${pre}_key`);
+  db.audit(req.user.id, 'delete', 'ai_keys', null, { provider: req.params.provider });
+  res.json(ai.providerStatus());
+}));
+
+router.post('/ai-keys/:provider/test', adminOnly, wrap(async (req, res) => {
+  aiProvider(req.params.provider);
+  try {
+    res.json(await ai.testProvider(req.params.provider));
+  } catch (e) {
+    const msg = String(e.message || e).split('\n')[0]
+      .replace(/(key=)[^&\s]+/gi, '$1***').replace(/\b(sk-ant-|AIza|AQ\.)[\w.-]+/g, '***').slice(0, 300);
+    res.json({ ok: false, status: e.status || e.statusCode || null, error: msg });
+  }
+}));
+
 router.get('/audit', adminOnly, (req, res) => {
   res.json(db.get().prepare(`SELECT a.*, u.name AS user_name FROM audit_log a LEFT JOIN users u ON u.id = a.user_id ORDER BY a.id DESC LIMIT 200`).all());
 });

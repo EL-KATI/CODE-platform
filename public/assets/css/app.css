@@ -2949,3 +2949,20 @@ body.ui-apple .staff-side a.side-ai[aria-current="page"] { background: linear-gr
   .staff-side.learner { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .staff-side a.side-ai > span:first-child .ic, .staff-side a > span:first-child .ic { animation: none; transition: none; } }
+
+/* ══ v57: مفاتيح Monitor AI في الإعدادات ══ */
+.ai-keys { max-width: 720px; }
+.ai-key-row { display: grid; gap: 10px; padding: 16px 0; border-top: 1px solid var(--border); }
+.ai-key-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ai-key-badge { font-size: .78rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
+.ai-key-badge.on { background: rgb(52 199 89 / .15); color: #248a3d; }
+.ai-key-badge.off { background: var(--surface-3, #eee); color: var(--muted); }
+[data-theme="dark"] .ai-key-badge.on { color: #30d158; }
+.ai-key-meta { font-size: .85rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.ai-key-meta code { background: var(--surface-3, #f2f2f7); padding: 1px 6px; border-radius: 6px; }
+.ai-key-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ai-key-actions a { margin-inline-start: auto; }
+.ai-key-result:empty { display: none; }
+.ai-key-result { padding: 8px 12px; border-radius: 10px; background: var(--surface-3, #f2f2f7); overflow-wrap: anywhere; }
+.ai-key-result.ok { background: rgb(52 199 89 / .14); }
+.ai-key-result.err { background: rgb(255 59 48 / .12); }

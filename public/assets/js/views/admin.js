@@ -1233,6 +1233,79 @@ export async function settingsView(root) {
       });
       try { await Promise.all(saves); await store.getCategories(true); toast(t('common.saved')); } catch (err) { toast(errorMessage(err), 'error'); }
     };
+    // Monitor AI: مفاتيح API
+    const aiBox = document.createElement('div');
+    aiBox.className = 'card ai-keys';
+    aiBox.style.marginTop = '16px';
+    root.querySelector('#s-form').parentNode.appendChild(aiBox);
+    await renderAiKeys(aiBox);
+  });
+}
+
+const AI_PROV = [
+  { id: 'claude', name: 'Claude (Anthropic)', hint: 'sk-ant-…', url: 'https://console.anthropic.com/settings/keys', modelPh: 'claude-opus-5-5' },
+  { id: 'gemini', name: 'Gemini (Google)', hint: 'AIza… / AQ.…', url: 'https://aistudio.google.com/apikey', modelPh: 'gemini-3.8-flash' },
+];
+
+async function renderAiKeys(box) {
+  let st;
+  try { st = await api.get('/admin/ai-keys'); } catch (err) { box.innerHTML = html`<p class="muted">${errorMessage(err)}</p>`.s; return; }
+  const srcLabel = (p) => (p.source === 'admin' ? t('ai.keySrcAdmin') : p.source === 'env' ? t('ai.keySrcEnv') : t('ai.keyNone'));
+  box.innerHTML = html`
+    <h3 style="margin-top:0">${raw('🔑')} ${t('ai.keysTitle')}</h3>
+    <p class="muted small">${t('ai.keysHelp')}</p>
+    ${AI_PROV.map((pv) => { const p = st[pv.id]; return html`
+      <div class="ai-key-row" data-prov="${pv.id}">
+        <div class="ai-key-head">
+          <strong>${pv.name}</strong>
+          <span class="ai-key-badge ${p.configured ? 'on' : 'off'}">${p.configured ? t('ai.keyActive') : t('ai.keyNone')}</span>
+        </div>
+        ${p.configured ? html`<div class="ai-key-meta"><code dir="ltr">${p.masked}</code> · <span>${srcLabel(p)}</span>${p.updatedAt ? html` · <span>${fmtDate(p.updatedAt)}</span>` : ''} · <span>${t('ai.model')}: <code dir="ltr">${p.effectiveModel}</code></span></div>` : ''}
+        <label>${p.configured ? t('ai.keyReplace') : t('ai.keyNew')}
+          <input class="input" type="password" autocomplete="off" spellcheck="false" dir="ltr" name="key" placeholder="${pv.hint}">
+        </label>
+        <label>${t('ai.modelOpt')}
+          <input class="input" type="text" dir="ltr" name="model" placeholder="${pv.modelPh}" value="${p.model}">
+        </label>
+        <div class="ai-key-actions">
+          <button class="btn btn-primary" type="button" data-act="save">${t('common.save')}</button>
+          ${p.configured ? html`<button class="btn btn-secondary" type="button" data-act="test">${t('ai.keyTest')}</button>` : ''}
+          ${p.source === 'admin' ? html`<button class="btn btn-danger" type="button" data-act="del">${t('common.delete')}</button>` : ''}
+          <a class="small" href="${pv.url}" target="_blank" rel="noopener noreferrer">${t('ai.getKey')}</a>
+        </div>
+        <div class="ai-key-result small" aria-live="polite"></div>
+      </div>`; })}
+    <p class="muted small">${t('ai.keysNote')}</p>`.s;
+
+  box.querySelectorAll('.ai-key-row').forEach((row) => {
+    const prov = row.dataset.prov;
+    const out = row.querySelector('.ai-key-result');
+    const btns = () => row.querySelectorAll('button');
+    const busy = (on) => btns().forEach((b) => { b.disabled = on; });
+    row.querySelector('[data-act="save"]').onclick = async () => {
+      const key = row.querySelector('[name="key"]').value.trim();
+      const model = row.querySelector('[name="model"]').value.trim();
+      busy(true);
+      try { await api.put(`/admin/ai-keys/${prov}`, key ? { key, model } : { model }); toast(t('common.saved')); await renderAiKeys(box); }
+      catch (err) { toast(errorMessage(err), 'error'); busy(false); }
+    };
+    const del = row.querySelector('[data-act="del"]');
+    if (del) del.onclick = async () => {
+      if (!(await confirmDialog(t('ai.keyDelConfirm'), { danger: true }))) return;
+      busy(true);
+      try { await api.del(`/admin/ai-keys/${prov}`); toast(t('common.saved')); await renderAiKeys(box); }
+      catch (err) { toast(errorMessage(err), 'error'); busy(false); }
+    };
+    const test = row.querySelector('[data-act="test"]');
+    if (test) test.onclick = async () => {
+      busy(true); out.className = 'ai-key-result small'; out.textContent = t('ai.keyTesting');
+      try {
+        const r = await api.post(`/admin/ai-keys/${prov}/test`, {});
+        out.classList.add(r.ok ? 'ok' : 'err');
+        out.textContent = r.ok ? `✓ ${t('ai.keyOk')} — ${r.model || ''} (${r.ms} ms)` : `✗ ${r.status ? `[${r.status}] ` : ''}${r.error}`;
+      } catch (err) { out.classList.add('err'); out.textContent = errorMessage(err); }
+      busy(false);
+    };
   });
 }
 
