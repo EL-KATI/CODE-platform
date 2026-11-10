@@ -124,7 +124,12 @@ async function askGemini(question, context = '') {
       return { answer: response.text(), model: 'gemini', usage: null };
     } catch (e) {
       lastErr = e;
-      if (!isModelGone(e)) throw e; // مفتاح خاطئ/حصة/شبكة: لا فائدة من تجريب نموذج آخر
+      const busy = isOverloaded(e);
+      if (!busy && !isModelGone(e)) throw e; // مفتاح خاطئ/شبكة: لا فائدة من تجريب نموذج آخر
+      if (busy) { // ضغط مؤقت (503) على هذا النموذج: ننتقل للنموذج التالي لهذا الطلب فقط
+        console.warn(`[Monitor AI] Gemini model "${name}" overloaded (503), trying next…`);
+        continue;
+      }
       if (workingGeminiModel === name) workingGeminiModel = null;
       const suggested = String(e.message || '').match(/models\/(gemini-[\w.-]+)/g) || [];
       suggested.map((s) => s.replace('models/', '')).reverse().forEach((s) => queue.unshift(s));
@@ -138,6 +143,10 @@ async function askGemini(question, context = '') {
 const GEMINI_CANDIDATES = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite'];
 let workingGeminiModel = null;
 let workingFor = null;
+const isOverloaded = (e) => {
+  const status = e && (e.status || e.statusCode);
+  return status === 503 || /\b503\b|high demand|overloaded|UNAVAILABLE/i.test(String(e && e.message || ''));
+};
 const isModelGone = (e) => {
   const msg = String(e && e.message || '');
   const status = e && (e.status || e.statusCode);
