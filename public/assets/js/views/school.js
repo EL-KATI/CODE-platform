@@ -166,6 +166,7 @@ export async function schoolStatsView(root, days = 30) {
       ${kpi('🧑‍🏫', 'المدربون', s.instructors.active, `${s.instructors.total} إجمالاً`, '/admin/school/instructors')}
       ${kpi('📈', 'متوسط التقدم', `${s.avgProgress}%`, `${s.ready} جاهز للامتحان`, '/admin/school/students')}
       ${kpi('📝', 'نجاح الامتحانات', `${rate}%`, `${s.exams.passed}/${s.exams.total}`, '/admin/exams')}
+      ${kpi('🟢', 'متعلمون الآن', s.activeNow ?? 0, `${s.activeNowPct ?? 0}% من إجمالي المتعلمين`, '/admin/school/students')}
       ${kpi('📅', 'حصص قادمة مقبولة', s.upcoming, '', '/admin/bookings')}
       ${kpi('⏳', 'طلبات معلقة', bk.pending || 0, 'تحتاج قراراً', '/admin/bookings')}
     </div>

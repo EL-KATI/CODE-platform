@@ -112,9 +112,13 @@ router.get('/school/stats', auth.requireRole('school'), (req, res) => {
   }
   const buckets = [0, 0, 0, 0];
   for (const r of prog) buckets[Math.min(3, Math.floor(r.progress / 25))] += 1;
+  const activeNow = one(`SELECT COUNT(*) AS n FROM users WHERE role = 'student' AND school_id = ?
+    AND active = 1 AND session_id IS NOT NULL AND session_id NOT LIKE 'revoked-%' AND session_id NOT LIKE 'out-%'`, sid).n;
+  const activeNowPct = students.total > 0 ? Math.round((100 * activeNow) / students.total) : 0;
   res.json({
     days, students, instructors, new30, active7, exams, bookings, upcoming, avgProgress, ready,
     examsSeries, slots, instructorLoad: [...load.values()], buckets,
+    activeNow, activeNowPct,
     top: [...prog].sort((a, b) => b.progress - a.progress).slice(0, 5),
     lagging: [...prog].sort((a, b) => a.progress - b.progress).slice(0, 5),
   });
