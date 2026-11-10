@@ -182,6 +182,20 @@ CREATE TABLE IF NOT EXISTS audit_log (
   at        TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+/* ── رموز التحقق بخطوتين (2FA OTP) للأدمن ───────────────────────────────
+   - يُنشأ سجل واحد لكل محاولة دخول أدمن
+   - expires_at: صلاحية 10 دقائق
+   - used: 1 بعد الاستخدام
+   ─────────────────────────────────────────────────────────────────────── */
+CREATE TABLE IF NOT EXISTS otp_codes (
+  id         INTEGER PRIMARY KEY,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  code       TEXT    NOT NULL,
+  expires_at TEXT    NOT NULL,
+  used       INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
 /* ── مؤسسات تعليم السياقة ────────────────────────────────────────────────
    يقوم الأدمين بإضافة المؤسسات، وتستخدم school_id في جدول users للربط.
    school_id في users = id من هذا الجدول (INTEGER, وليس TEXT).
@@ -394,6 +408,15 @@ function open(file = config.dbFile) {
   if (!userCols.includes('google_id'))      db.exec('ALTER TABLE users ADD COLUMN google_id TEXT');
   if (!userCols.includes('google_name'))    db.exec('ALTER TABLE users ADD COLUMN google_name TEXT');
   if (!userCols.includes('google_picture')) db.exec('ALTER TABLE users ADD COLUMN google_picture TEXT');
+  // Migration: 2FA OTP للأدمن
+  db.exec(`CREATE TABLE IF NOT EXISTS otp_codes (
+    id         INTEGER PRIMARY KEY,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    code       TEXT    NOT NULL,
+    expires_at TEXT    NOT NULL,
+    used       INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+  )`);
   // جدول طلبات الانتساب لمؤسسة (pending حتى تقبل المؤسسة)
   db.exec(`CREATE TABLE IF NOT EXISTS school_enrollments (
     id          INTEGER PRIMARY KEY,

@@ -69,10 +69,15 @@ export function loginView(root, { query }) {
     btn.disabled = true;
     btn.textContent = '…';
     try {
-      const { user } = await api.post('/auth/login', { email: f.email.value, password: f.password.value });
-      store.user = user;
-      setLocale(user.locale || getLocale());
-      toast(t('auth.welcome', { name: user.name }));
+      const result = await api.post('/auth/login', { email: f.email.value, password: f.password.value });
+      // 2FA للأدمن: نعيد توجيهه لصفحة OTP
+      if (result.requiresOtp) {
+        navigate(`/verify-otp?email=${encodeURIComponent(result.email)}`, { replace: true });
+        return;
+      }
+      store.user = result.user;
+      setLocale(result.user.locale || getLocale());
+      toast(t('auth.welcome', { name: result.user.name }));
       navigate(safeNext(query), { replace: true });
     } catch (ex) {
       err.textContent = errorMessage(ex);
@@ -214,6 +219,113 @@ export function registerView(root, { query }) {
       err.hidden = false;
       btn.disabled = false;
       btn.textContent = t('auth.createAccount');
+    }
+  };
+}
+
+// ── صفحة التحقق بالرمز السري (2FA OTP) للأدمن ───────────────────────────────
+export function verifyOtpView(root, { query }) {
+  const email = decodeURIComponent(query.email || '');
+  const via   = query.via || 'password'; // google | password
+
+  root.innerHTML = html`
+    <div style="max-width:420px;margin:40px auto">
+      <!-- Brand mark -->
+      <div style="text-align:center;margin-bottom:28px">
+        <div style="width:52px;height:52px;background:linear-gradient(145deg,var(--orange-500),var(--orange-700));border-radius:14px;display:grid;place-items:center;margin:0 auto 14px;box-shadow:0 4px 16px rgb(234 88 12 / .3)">
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </div>
+        <h1 style="margin-bottom:4px">${t('auth.otpTitle')}</h1>
+        <p class="muted" style="margin:0;font-size:.9rem">${t('auth.otpSubtitle', { email })}</p>
+      </div>
+
+      <div class="card" style="padding:28px">
+        <div id="err" class="form-error" role="alert" hidden></div>
+
+        <form id="f" novalidate>
+          <div class="field" style="margin-bottom:20px">
+            <label for="code" style="font-size:1rem;font-weight:600">${t('auth.otpCode')}</label>
+            <input id="code" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}"
+              maxlength="6" autocomplete="one-time-code" required dir="ltr"
+              placeholder="● ● ● ● ● ●"
+              style="text-align:center;font-size:2rem;font-weight:800;letter-spacing:8px;padding:16px;border-radius:10px">
+          </div>
+          <button class="btn btn-primary btn-lg" style="width:100%" type="submit">${t('auth.otpVerify')}</button>
+        </form>
+
+        <div style="margin-top:16px;text-align:center">
+          <button id="btn-resend" class="btn btn-ghost btn-sm" type="button">${t('auth.otpResend')}</button>
+        </div>
+        <p id="timer" class="small muted" style="text-align:center;margin-top:8px"></p>
+      </div>
+    </div>`.s;
+
+  const f       = root.querySelector('#f');
+  const err     = root.querySelector('#err');
+  const timer   = root.querySelector('#timer');
+  const btnSend = root.querySelector('#btn-resend');
+  const codeIn  = root.querySelector('#code');
+
+  // تركيز تلقائي على حقل الرمز
+  codeIn.focus();
+
+  // عداد تنازلي 10 دقائق
+  let seconds = 10 * 60;
+  const tick = setInterval(() => {
+    seconds--;
+    if (seconds <= 0) {
+      clearInterval(tick);
+      timer.textContent = t('auth.otpExpired');
+      f.querySelector('button[type=submit]').disabled = true;
+    } else {
+      const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+      const s = String(seconds % 60).padStart(2, '0');
+      timer.textContent = t('auth.otpTimer', { time: `${m}:${s}` });
+    }
+  }, 1000);
+
+  // تنسيق الحقل (أرقام فقط)
+  codeIn.oninput = () => { codeIn.value = codeIn.value.replace(/\D/g, '').slice(0, 6); };
+
+  // إرسال الرمز
+  f.onsubmit = async (e) => {
+    e.preventDefault();
+    err.hidden = true;
+    const btn = f.querySelector('button[type=submit]');
+    btn.disabled = true;
+    btn.textContent = '…';
+    try {
+      const { user } = await api.post('/auth/verify-otp', { email, code: codeIn.value.trim() });
+      clearInterval(tick);
+      store.user = user;
+      setLocale(user.locale || getLocale());
+      toast(t('auth.welcome', { name: user.name }));
+      navigate('/admin', { replace: true });
+    } catch (ex) {
+      err.textContent = errorMessage(ex);
+      err.hidden = false;
+      btn.disabled = false;
+      btn.textContent = t('auth.otpVerify');
+      codeIn.value = '';
+      codeIn.focus();
+    }
+  };
+
+  // إعادة الإرسال
+  btnSend.onclick = async () => {
+    btnSend.disabled = true;
+    btnSend.textContent = '…';
+    try {
+      await api.post('/auth/send-otp', { email });
+      toast(t('auth.otpResent'));
+      seconds = 10 * 60;
+    } catch (ex) {
+      toast(errorMessage(ex));
+    } finally {
+      btnSend.disabled = false;
+      btnSend.textContent = t('auth.otpResend');
     }
   };
 }

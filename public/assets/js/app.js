@@ -7,7 +7,7 @@ import { t, setLocale, getLocale, applyStaticTranslations } from './i18n.js';
 import { html, raw, esc, toast, sound } from './ui.js';
 
 import { homeView } from './views/home.js';
-import { loginView, registerView } from './views/auth.js';
+import { loginView, registerView, verifyOtpView } from './views/auth.js';
 import { dashboardView } from './views/dashboard.js';
 import { lessonsView, lessonView } from './views/lessons.js';
 import { practiceView, examIntroView } from './views/practice.js';
@@ -264,6 +264,7 @@ const learner  = { auth: true, roles: ['student'] };
 route('/', view(homeView));
 route('/login', view(loginView), { guest: true });
 route('/register', view(registerView), { guest: true });
+route('/verify-otp', view(verifyOtpView));
 route('/dashboard', view(dashboardView), learner);
 route('/lessons', view(lessonsView));
 route('/lessons/:slug', view(lessonView));

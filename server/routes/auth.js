@@ -4,6 +4,7 @@ const rateLimit = require('express-rate-limit');
 const https   = require('https');
 const db = require('../db');
 const auth = require('../auth');
+const mailer = require('../services/mailer');
 const { wrap, str, bad, EMAIL_RE, HttpError } = require('../http');
 
 const router = express.Router();
@@ -23,6 +24,19 @@ function generatePassword(len = 12) {
   return out;
 }
 module.exports.generatePassword = generatePassword;
+
+// ── مساعد 2FA: إنشاء وإرسال OTP للأدمن ──────────────────────────────────────
+async function issueAdminOtp(user) {
+  const d = db.get();
+  // إلغاء كل الرموز القديمة لهذا المستخدم
+  d.prepare('DELETE FROM otp_codes WHERE user_id = ?').run(user.id);
+  // رمز 6 أرقام
+  const code = String(crypto.randomInt(100000, 999999));
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+  d.prepare('INSERT INTO otp_codes (user_id, code, expires_at) VALUES (?,?,?)').run(user.id, code, expiresAt);
+  await mailer.sendOtp(user.email, code);
+  return code; // للتسجيل فقط في وضع التطوير
+}
 
 const clean = (v, max) => (v === undefined || v === null ? null : (String(v).trim().slice(0, max) || null));
 
@@ -158,6 +172,22 @@ router.get('/google/callback', wrap(async (req, res) => {
   }
 
   if (!user.active) return res.redirect('/login?error=account_disabled');
+
+  // 2FA للأدمن: إذا كان admin نعيد توجيهه لصفحة OTP
+  if (user.role === 'admin') {
+    if (mailer.isConfigured()) {
+      try {
+        await issueAdminOtp(user);
+        return res.redirect(`/verify-otp?email=${encodeURIComponent(user.email)}&via=google`);
+      } catch (e) {
+        console.error('[2FA] فشل إرسال OTP:', e.message);
+        return res.redirect('/login?error=otp_send_failed');
+      }
+    } else {
+      console.warn('[2FA] SMTP غير مُعدّ — تخطي 2FA للأدمن Google', user.email);
+    }
+  }
+
   d.prepare("UPDATE users SET last_login_at = datetime('now') WHERE id = ?").run(user.id);
   auth.issueSession(res, user);
   res.redirect('/');
@@ -172,7 +202,52 @@ router.post('/login', limiter, wrap(async (req, res) => {
   if (!user || !user.active || !(await auth.checkPassword(pw, user.password_hash))) {
     throw new HttpError(401, 'invalid_credentials');
   }
+  // 2FA للأدمن: نرسل OTP ولا نفتح الجلسة مباشرة
+  if (user.role === 'admin') {
+    if (!mailer.isConfigured()) {
+      // SMTP غير مُعدّ — نسجّل الدخول بدون 2FA مع تحذير
+      console.warn('[2FA] SMTP غير مُعدّ — تخطي 2FA للأدمن', user.email);
+    } else {
+      await issueAdminOtp(user);
+      return res.json({ requiresOtp: true, email: user.email });
+    }
+  }
   d.prepare("UPDATE users SET last_login_at = datetime('now') WHERE id = ?").run(user.id);
+  auth.issueSession(res, user);
+  res.json({ user: auth.publicUser(user) });
+}));
+
+// ── إرسال OTP للأدمن (endpoint مستقل) ──────────────────────────────────────
+router.post('/send-otp', limiter, wrap(async (req, res) => {
+  const email = str(req.body.email, { max: 160, field: 'email' }).toLowerCase();
+  const d = db.get();
+  const user = d.prepare('SELECT * FROM users WHERE email = ? AND role = ? AND active = 1').get(email, 'admin');
+  if (!user) throw new HttpError(404, 'not_found');
+  if (!mailer.isConfigured()) throw new HttpError(503, 'smtp_not_configured');
+  await issueAdminOtp(user);
+  res.json({ ok: true });
+}));
+
+// ── التحقق من OTP ─────────────────────────────────────────────────────────────
+router.post('/verify-otp', limiter, wrap(async (req, res) => {
+  const email = str(req.body.email, { max: 160, field: 'email' }).toLowerCase();
+  const code  = str(req.body.code,  { max: 10,  field: 'code'  }).trim();
+  const d = db.get();
+  const user = d.prepare('SELECT * FROM users WHERE email = ? AND role = ? AND active = 1').get(email, 'admin');
+  if (!user) throw new HttpError(401, 'invalid_otp');
+
+  const otp = d.prepare(
+    `SELECT * FROM otp_codes
+     WHERE user_id = ? AND used = 0 AND expires_at > datetime('now')
+     ORDER BY created_at DESC LIMIT 1`
+  ).get(user.id);
+
+  if (!otp || otp.code !== code) throw new HttpError(401, 'invalid_otp');
+
+  // إلغاء الرمز بعد الاستخدام
+  d.prepare('UPDATE otp_codes SET used = 1 WHERE id = ?').run(otp.id);
+  d.prepare("UPDATE users SET last_login_at = datetime('now') WHERE id = ?").run(user.id);
+
   auth.issueSession(res, user);
   res.json({ user: auth.publicUser(user) });
 }));
