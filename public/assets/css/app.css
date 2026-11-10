@@ -2473,7 +2473,7 @@ body.has-side .site-footer { margin-inline-start:230px; }
 }
 .nrs-choice-btn:hover:not(:disabled) { background: rgb(0,0,0); box-shadow: rgba(0,0,0,0.2) 0px 2px 4px -1px,rgba(0,0,0,0.14) 0px 4px 5px 0px,rgba(0,0,0,0.12) 0px 1px 10px 0px; }
 .nrs-choice-btn:disabled { cursor: default; }
-.nrs-choice-sq { width: 13px; height: 13px; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.4); display: grid; place-items: center; font: 700 11px/1 var(--nrs-ui); color: #fff; border-radius: 2px; }
+.nrs-choice-sq { display: none; }
 .nrs-choice-btn.choice-on { background: rgb(55,48,210); }
 .nrs-choice-btn.choice-on .nrs-choice-sq::after { content: "✓"; }
 .nrs-choice-btn.choice-correct { background: #1f9a3c; }
