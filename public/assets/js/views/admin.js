@@ -187,11 +187,12 @@ export async function statsView(root) {
 const actBtn = (act, id, icon, label, cls = '') => html`<button class="act-btn ${cls}" type="button" data-act="${act}" data-id="${id}" title="${label}" aria-label="${label}"><span aria-hidden="true">${icon}</span><span class="act-lbl">${label}</span></button>`;
 const actLink = (href, icon, label) => html`<a class="act-btn" href="${href}" title="${label}" aria-label="${label}"><span aria-hidden="true">${icon}</span><span class="act-lbl">${label}</span></a>`;
 // Même jeu de boutons partout : عرض · معاينة · تعديل · إخفاء/إظهار · حذف
-export function rowActions({ id, viewHref, editHref, preview, hidden, hide = true, del = true, extra = '', hideLabel, showLabel }) {
+export function rowActions({ id, viewHref, editHref, edit, preview, hidden, hide = true, del = true, extra = '', hideLabel, showLabel }) {
   return html`<div class="act-row">
     ${viewHref ? actLink(viewHref, '📄', t('admin.view')) : ''}
     ${preview ? actBtn('preview', id, '👁', t('admin.preview')) : ''}
     ${editHref ? actLink(editHref, '✏️', t('common.edit')) : ''}
+    ${edit ? actBtn('edit', id, '✏️', t('common.edit')) : ''}
     ${hide ? actBtn(hidden ? 'show' : 'hide', id, hidden ? '👁️' : '🚫', hidden ? (showLabel || t('admin.show')) : (hideLabel || t('admin.hide'))) : ''}
     ${extra}
     ${del ? actBtn('delete', id, '🗑', t('common.delete'), 'act-danger') : ''}
@@ -252,7 +253,7 @@ export async function questionsView(root, { query }) {
             <td class="small">${c ? `${c.icon || ''} ${catName(c)}` : '—'}</td>
             <td>${statusPill(!hidden)}</td>
             <td>${r.success ?? '—'}${r.success != null ? '%' : ''}</td>
-            <td>${rowActions({ id: r.id, editHref: `/admin/questions/${r.id}`, preview: true, hidden })}</td>
+            <td>${rowActions({ id: r.id, edit: true, preview: true, hidden })}</td>
           </tr>`;
         }) : html`<tr><td colspan="6" class="muted">${t('common.none')}</td></tr>`}
       </tbody></table></div>
@@ -277,6 +278,7 @@ export async function questionsView(root, { query }) {
     };
     bindActions(root, {
       preview: async (id) => { try { showQuestionPreview(await api.get(`/admin/questions/${id}`)); } catch (err) { toast(errorMessage(err), 'error'); } },
+      edit: (id) => openQuestionEditModal(id, back),
       hide: async (id) => { try { await setStatus(id, 'draft'); toast(t('common.saved')); back(); } catch (err) { toast(errorMessage(err), 'error'); } },
       show: async (id) => { try { await setStatus(id, 'published'); toast(t('common.saved')); back(); } catch (err) { toast(errorMessage(err), 'error'); } },
       delete: async (id) => {
@@ -365,7 +367,7 @@ export async function questionEditView(root, { params }) {
   });
 }
 
-function renderForm(root, cats, q, catId, startDouble, isNew, params) {
+function renderForm(root, cats, q, catId, startDouble, isNew, params, { onSaved } = {}) {
   const isDouble = startDouble;
   shell(root, '/admin/questions', html`
     <form class="card stack" id="q-form" style="max-width:760px">
@@ -523,7 +525,8 @@ function renderForm(root, cats, q, catId, startDouble, isNew, params) {
     };
     try {
       if (isNew) await api.post('/admin/questions', body); else await api.put(`/admin/questions/${params.id}`, body);
-      toast(t('common.saved')); navigate('/admin/questions');
+      toast(t('common.saved'));
+      if (onSaved) { onSaved(); } else { navigate('/admin/questions'); }
     } catch (err) {
       toast(errorMessage(err), 'error');
       highlightField(form, err);
@@ -547,6 +550,36 @@ function renderForm(root, cats, q, catId, startDouble, isNew, params) {
     if (!(await confirmDialog(t('admin.confirmDelete'), { danger: true }))) return;
     try { await api.del(`/admin/questions/${params.id}`); navigate('/admin/questions'); } catch (err) { toast(errorMessage(err), 'error'); }
   };
+}
+
+// --- Modal تعديل السؤال (بدون مغادرة الصفحة) ------------------------------------
+async function openQuestionEditModal(id, onDone) {
+  const existing = document.getElementById('q-edit-modal');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'q-edit-modal';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:8000;display:flex;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto';
+  overlay.innerHTML = `<div id="q-edit-modal-inner" style="background:var(--surface,#fff);border-radius:14px;width:100%;max-width:800px;padding:24px;position:relative;margin:auto">
+    <button id="q-edit-close" style="position:absolute;top:12px;left:12px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--text-muted)">✕</button>
+    <div id="q-edit-body" style="margin-top:8px"></div>
+  </div>`;
+  document.body.appendChild(overlay);
+
+  const close = () => overlay.remove();
+  overlay.querySelector('#q-edit-close').onclick = close;
+  overlay.onclick = (e) => { if (e.target === overlay) close(); };
+
+  const inner = overlay.querySelector('#q-edit-body');
+  try {
+    const [cats, q] = await Promise.all([store.getCategories(), api.get(`/admin/questions/${id}`)]);
+    const catId = q.category_id ?? q.categoryId;
+    renderForm(inner, cats, q, catId, !!q.is_double, false, { id }, {
+      onSaved: () => { close(); if (onDone) onDone(); },
+    });
+  } catch (err) {
+    inner.innerHTML = `<p style="color:red">${errorMessage(err)}</p>`;
+  }
 }
 
 // --- Séries ----------------------------------------------------------------------

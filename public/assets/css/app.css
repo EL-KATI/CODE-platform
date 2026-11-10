@@ -2294,10 +2294,10 @@ body.has-side .site-footer { margin-inline-start:230px; }
 .nrs-opts-list { display: flex; flex-direction: column; }
 .nrs-opts-row { display: grid; grid-template-columns: 1fr 1fr; column-gap: 12%; }
 /* سطر اختيار: -النص (أزرق) ......... الرقم (أبيض) */
-.nrs-opt { display: flex; align-items: baseline; font-size: clamp(1.2rem, 2.2vw, 1.7rem); line-height: 1.5; color: #fff; }
+.nrs-opt { display: flex; align-items: baseline; font-size: clamp(1.2rem, 2.2vw, 1.7rem); line-height: 1.5; color: #fff; direction: rtl; }
 .nrs-opt-text { color: #6b9bff; }
 .nrs-opt-dots { flex: 1; min-width: 28px; margin: 0 1px; border-bottom: 2px dotted #fff; transform: translateY(-.28em); }
-.nrs-opt-n { color: #fff; font-family: 'Times New Roman', serif; font-size: 1em; font-weight: 700; min-width: .8em; text-align: left; }
+.nrs-opt-n { color: #fff; font-family: 'Times New Roman', serif; font-size: 1em; font-weight: 700; min-width: .8em; text-align: right; }
 .nrs-opt.sub-ok .nrs-opt-text { color: #4ade6e; }
 .nrs-opt.sub-wrong .nrs-opt-text { color: #ff7a70; }
 /* السؤال المزدوج: عنوان كل جزء بالأبيض */

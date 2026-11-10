@@ -326,7 +326,7 @@ export async function quizView(appRoot, { params }) {
 
   // سطر اختيار: -النص (أزرق) ......... الرقم
   function optHtml(n, text, state) {
-    return `<div class="nrs-opt ${state}"><span class="nrs-opt-text">-${esc(text)}</span><span class="nrs-opt-dots" aria-hidden="true"></span><span class="nrs-opt-n">${n}</span></div>`;
+    return `<div class="nrs-opt ${state}"><span class="nrs-opt-n">${n}</span><span class="nrs-opt-dots" aria-hidden="true"></span><span class="nrs-opt-text">${esc(text)}-</span></div>`;
   }
   const optText = (o) => ((o && typeof o === 'object') ? (o.text || '') : String(o ?? ''));
 
