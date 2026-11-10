@@ -160,6 +160,16 @@ export async function dashboardView(root) {
           : html`<div class="empty"><div class="big">🚦</div><p>${t('dash.noActivity')}</p></div>`}
         </div>
       </section>
+
+      ${!u.schoolId ? html`
+      <section>
+        <div class="card" style="text-align:center;padding:28px 24px">
+          <div style="font-size:2rem;margin-bottom:8px">🏫</div>
+          <h3 style="margin:0 0 8px">${t('auth.enrollTitle')}</h3>
+          <p class="muted" style="margin:0 0 20px;font-size:.9rem">${t('auth.enrollHint')}</p>
+          <a href="/enroll" class="btn btn-primary">${t('auth.requestEnroll')}</a>
+        </div>
+      </section>` : html``}
     </div>`.s;
 
   root.querySelectorAll('[data-cat]').forEach((b) => (b.onclick = () => startAttempt({ mode: 'category', categoryId: Number(b.dataset.cat), practice: true }, b)));
