@@ -3251,20 +3251,18 @@ body.ui-apple .staff-side a.side-ai[aria-current="page"] { background: linear-gr
   .nrs-tb-pills { justify-content: center; gap: 14px; }
   .nrs-tb-title { flex: 0 1 auto; }
 }
-/* الشاشة بالعرض (هاتف أو لوحة): الصورة | السؤال وأجوبته 1→4 عمودياً | الأزرار 1→4 عمودياً */
+/* الشاشة بالعرض (هاتف أو لوحة): الصورة وتحتها السؤال وأجوبته 1→4 | الأزرار 1→4 عمودياً في الجانب */
 @media (max-width: 1024px) and (orientation: landscape) {
   .nrs-overlay .nrs-window {
     grid-template-columns: minmax(0, 1fr) clamp(150px, 19vw, 210px);
     grid-template-rows: auto minmax(0, 1fr); grid-template-areas: "top top" "main side";
   }
-  .nrs-overlay .nrs-main { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); overflow: hidden; }
-  .nrs-overlay .nrs-media { height: 100%; min-height: 0; display: flex; align-items: center; justify-content: center; background: #000; }
-  .nrs-overlay .nrs-media img, .nrs-overlay .nrs-media video, .nrs-overlay .nrs-img-wrap { max-height: 100%; max-width: 100%; object-fit: contain; }
-  .nrs-overlay .nrs-text-panel, .nrs-overlay .nrs-text-panel.has-result {
-    height: 100%; overflow-y: auto; overscroll-behavior: contain; padding: 14px 16px; display: flex; flex-direction: column; justify-content: center;
-    border-inline-start: 1px solid rgb(255 255 255 / .08);
-  }
-  .nrs-overlay .nrs-text-panel.has-result { justify-content: flex-start; }
+  /* السؤال دائماً أسفل الصورة، والأزرار في الجانب */
+  .nrs-overlay .nrs-main { display: flex; flex-direction: column; overflow-y: auto; overscroll-behavior: contain; }
+  .nrs-overlay .nrs-media { flex: none; height: auto; max-height: 58%; display: flex; align-items: center; justify-content: center; background: #000; overflow: hidden; }
+  .nrs-overlay .nrs-media img, .nrs-overlay .nrs-media video { max-height: 100%; max-width: 100%; object-fit: contain; }
+  .nrs-overlay .nrs-img-wrap { max-width: 100%; }
+  .nrs-overlay .nrs-text-panel, .nrs-overlay .nrs-text-panel.has-result { flex: 1 0 auto; overflow: visible; padding: 10px 16px 14px; }
   .nrs-overlay .nrs-opts-row { display: flex; flex-direction: column; row-gap: 6px; }
   .nrs-overlay .nrs-side { border-top: 0; border-inline-start: 1px solid rgb(255 255 255 / .06); padding: 8px; }
   .nrs-overlay .nrs-panel {
