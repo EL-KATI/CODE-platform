@@ -2966,3 +2966,31 @@ body.ui-apple .staff-side a.side-ai[aria-current="page"] { background: linear-gr
 .ai-key-result { padding: 8px 12px; border-radius: 10px; background: var(--surface-3, #f2f2f7); overflow-wrap: anywhere; }
 .ai-key-result.ok { background: rgb(52 199 89 / .14); }
 .ai-key-result.err { background: rgb(255 59 48 / .12); }
+
+/* ══ v66: الشريط الجانبي عمودي على الهاتف أيضاً (لكل الأدوار) ══ */
+.side-toggle { display: none; }
+@media (max-width: 900px) {
+  body.ui-apple .staff-side, .staff-side, .staff-side.learner {
+    display: block; position: fixed; top: var(--hdr-h, 64px); bottom: 0; inset-inline-start: 0;
+    width: 60px; padding: 10px 6px; overflow-y: auto; overflow-x: hidden; white-space: nowrap;
+    border-bottom: 0; border-inline-end: 1px solid var(--glass-border, var(--border)); z-index: 300;
+    transition: width .25s cubic-bezier(.25, .1, .25, 1), box-shadow .25s ease;
+  }
+  .staff-side nav { flex-direction: column; overflow-x: visible; gap: 4px; }
+  body.ui-apple .staff-side a, .staff-side a { justify-content: center; padding: 10px 8px; gap: 12px; }
+  .staff-side .side-title, .staff-side a > span:last-child { display: none; }
+  .side-toggle {
+    display: grid; place-items: center; width: 44px; height: 40px; margin: 0 auto 8px; border: 0; border-radius: 12px;
+    background: var(--surface-3, #f2f2f7); color: var(--text); cursor: pointer;
+  }
+  .side-toggle .ic { width: 20px; height: 20px; }
+  body .staff-side.open, body.ui-apple .staff-side.open { width: 248px; box-shadow: 0 20px 44px rgb(0 0 0 / .3); }
+  .staff-side.open .side-toggle { margin-inline: 4px; }
+  .staff-side.open .side-title { display: block; margin: 4px 10px 10px; }
+  body .staff-side.open a, body.ui-apple .staff-side.open a { justify-content: flex-start; padding-inline: 12px; }
+  .staff-side.open a > span:last-child { display: inline; }
+  body.has-side main, body.has-side .site-footer { margin-inline-start: 60px !important; }
+  body.has-side .menu-toggle { display: none !important; }
+  body.has-side .mobile-nav { display: none !important; }
+}
+@media (prefers-reduced-motion: reduce) { .staff-side { transition: none; } }

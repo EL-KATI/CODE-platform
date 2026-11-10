@@ -83,8 +83,9 @@ function renderStaffSide() {
     const isCur = (href) => (href === '/' ? path === '/' : path === href || path.startsWith(href + '/'));
     const items = [...navLinks(), u ? ['/profile', 'nav.profile'] : ['/register', 'nav.register']];
     side.setAttribute('aria-label', t('a11y.menu'));
-    side.innerHTML = html`<div class="side-title">${u ? (u.name || '') : t('brand.name')}</div>
+    side.innerHTML = html`<button class="side-toggle" type="button" aria-expanded="false" aria-label="${t('a11y.menu')}">${raw(iconSvg('menu'))}</button><div class="side-title">${u ? (u.name || '') : t('brand.name')}</div>
       <nav>${items.map(([href, key]) => html`<a href="${href}" class="${href === '/assistant' ? 'side-ai' : ''}" title="${t(key)}" ${isCur(href) ? html`aria-current="page"` : ''}><span aria-hidden="true">${raw(iconSvg(NAV_ICON[href] || 'file'))}</span><span>${t(key)}</span></a>`)}</nav>`.s;
+    wireSide(side);
     const hdr0 = document.querySelector('.site-header');
     if (hdr0) document.documentElement.style.setProperty('--hdr-h', `${hdr0.offsetHeight}px`);
     return;
@@ -94,11 +95,28 @@ function renderStaffSide() {
   const cur = (href) => (href === '/admin' ? path === '/admin' : path === href || path.startsWith(href + '/') || (href === '/admin/school/students' && path.startsWith('/admin/students/')));
   const roleLabel = u.role === 'school' ? (u.school_name || u.name) : u.role === 'instructor' ? t('role.instructor') : t('admin.title');
   side.setAttribute('aria-label', t('admin.title'));
-  side.innerHTML = html`<div class="side-title">${roleLabel}</div>
+  side.innerHTML = html`<button class="side-toggle" type="button" aria-expanded="false" aria-label="${t('a11y.menu')}">${raw(iconSvg('menu'))}</button><div class="side-title">${roleLabel}</div>
     <nav>${tabs.map(([href, key]) => html`<a href="${href}" ${cur(href) ? html`aria-current="page"` : ''}><span aria-hidden="true">${SIDE_ICONS[href] || '•'}</span><span>${t(key)}</span></a>`)}</nav>`.s;
+  wireSide(side);
   const hdr = document.querySelector('.site-header');
   if (hdr) document.documentElement.style.setProperty('--hdr-h', `${hdr.offsetHeight}px`);
 }
+
+// على الهاتف: شريط أيقونات عمودي ضيق، وزر ☰ أعلاه يفتحه بالأسماء (بدل الشريط الأفقي)
+function wireSide(side) {
+  side.classList.remove('open');
+  const btn = side.querySelector('.side-toggle');
+  if (btn) btn.onclick = (e) => {
+    e.stopPropagation();
+    const open = side.classList.toggle('open');
+    btn.setAttribute('aria-expanded', String(open));
+  };
+}
+document.addEventListener('click', (e) => {
+  const side = document.getElementById('staff-side');
+  if (side && side.classList.contains('open') && (!side.contains(e.target) || e.target.closest('a'))) side.classList.remove('open');
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') document.getElementById('staff-side')?.classList.remove('open'); });
 
 export function renderShell() {
   const path = location.pathname;
