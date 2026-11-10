@@ -108,11 +108,11 @@ export async function quizView(appRoot, { params }) {
 
           <!-- ══ الشاشة الرئيسية (يمين) ══ -->
           <div class="nrs-main">
-            <!-- منطقة الوسائط: صورة بخلفية بيضاء (white Paper card) -->
-            <div class="nrs-media" id="nrs-media"></div>
-
-            <!-- شريط النص الأسود (السؤال والخيارات) -->
+            <!-- شريط النص الأسود (السؤال والخيارات) — فوق -->
             <div class="nrs-text-panel" id="nrs-text-panel"></div>
+
+            <!-- منطقة الوسائط: صورة بخلفية بيضاء — تحت -->
+            <div class="nrs-media" id="nrs-media"></div>
           </div>
 
         </div><!-- /.nrs-content-row -->
