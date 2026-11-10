@@ -102,6 +102,29 @@ function renderStaffSide() {
   if (hdr) document.documentElement.style.setProperty('--hdr-h', `${hdr.offsetHeight}px`);
 }
 
+// الجداول على الهاتف تتحول إلى بطاقات: كل خانة تحمل اسم عمودها (data-label) ليظهر بجانبها
+function labelTables(root = document) {
+  root.querySelectorAll('#app table').forEach((tb) => {
+    if (tb.closest('.prose, .nrs-overlay, .no-rtable')) return;
+    const heads = [...tb.querySelectorAll('thead th')].map((th) => th.textContent.trim());
+    if (!heads.length) return;
+    tb.classList.add('rtable');
+    tb.querySelectorAll('tbody tr').forEach((tr) => {
+      [...tr.children].forEach((td, i) => {
+        if (td.tagName !== 'TD') return;
+        if (!td.hasAttribute('data-label')) td.setAttribute('data-label', td.colSpan > 1 ? '' : (heads[i] || ''));
+        td.classList.toggle('td-empty', !td.textContent.trim() && !td.querySelector('button,a,input,select,img,svg'));
+      });
+    });
+  });
+}
+let ltPending = false;
+new MutationObserver(() => {
+  if (ltPending) return;
+  ltPending = true;
+  requestAnimationFrame(() => { ltPending = false; labelTables(); });
+}).observe(document.body, { childList: true, subtree: true });
+
 // على الهاتف: شريط أيقونات عمودي ضيق، وزر ☰ أعلاه يفتحه بالأسماء (بدل الشريط الأفقي)
 function wireSide(side) {
   side.classList.remove('open');
