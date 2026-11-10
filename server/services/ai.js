@@ -101,64 +101,84 @@ async function askGemini(question, context = '', { raw = false } = {}) {
 
   const prompt = raw ? question : `${DRIVING_SYSTEM_PROMPT}\n\n${buildUserContent(question, context)}`;
 
-  // Google يسحب النماذج بانتظام (gemini-pro ثم gemini-2.5-flash...).
-  // نجرب: النموذج المحفوظ ← GEMINI_MODEL ← النموذج الذي يقترحه خطأ 404 ← قائمة احتياطية
+  // Google يسحب النماذج بانتظام، وأحياناً تكون بطيئة جداً (8 ث وأكثر حتى لسؤال قصير).
+  // سباق متدرّج: نبدأ بالنموذج المفضّل، وإن لم يُجب خلال GEMINI_STAGGER_MS نطلق التالي بالتوازي
+  // (ونطلقه فوراً إن فشل السابق). أول جواب ناجح يربح.
   const configured = geminiModelSetting();
   if (configured !== workingFor) { workingGeminiModel = null; workingFor = configured; }
-  const queue = [workingGeminiModel, configured, ...GEMINI_CANDIDATES]
-    .filter(Boolean);
-  const tried = new Set();
-  let lastErr = null;
+  const queue = [...new Set([workingGeminiModel, configured, ...GEMINI_CANDIDATES].filter(Boolean))];
   const deadline = Date.now() + GEMINI_TOTAL_MS;
-  while (queue.length) {
-    if (Date.now() > deadline) break; // لا نترك المستخدم ينتظر أكثر من الحد الإجمالي
-    const name = queue.shift();
-    if (tried.has(name)) continue;
-    tried.add(name);
+
+  const callModel = async (name) => {
+    const left = Math.max(5000, deadline - Date.now());
+    // نماذج Gemini 3 «تفكر» بمستوى medium افتراضياً → بطء. low كافٍ لأسئلة السياقة وأسرع بكثير
+    const gen = { maxOutputTokens: 2048 };
+    if (/^gemini-3/.test(name) && !noThinkingCfg.has(name)) gen.thinkingConfig = { thinkingLevel: 'low' };
     try {
-      const left = Math.max(5000, Math.min(GEMINI_MODEL_MS, deadline - Date.now()));
-      // نماذج Gemini 3 «تفكر» بمستوى medium افتراضياً → بطء. low كافٍ لأسئلة السياقة وأسرع بكثير
-      const gen = { maxOutputTokens: 2048 };
-      if (/^gemini-3/.test(name) && !noThinkingCfg.has(name)) gen.thinkingConfig = { thinkingLevel: 'low' };
-      let result;
-      try {
-        const model = googleAI.getGenerativeModel({ model: name, generationConfig: gen }, { timeout: left });
-        result = await withTimeout(model.generateContent(prompt), left, name);
-      } catch (e2) {
-        if (!gen.thinkingConfig || !/thinking/i.test(String(e2.message))) throw e2;
-        noThinkingCfg.add(name); // النموذج لا يقبل thinkingLevel → نعيد بدونه
-        const model = googleAI.getGenerativeModel({ model: name, generationConfig: { maxOutputTokens: 2048 } }, { timeout: left });
-        result = await withTimeout(model.generateContent(prompt), left, name);
-      }
-      const response = await result.response;
-      if (workingGeminiModel !== name) {
-        workingGeminiModel = name;
-        console.log(`[Monitor AI] Gemini model in use: ${name}`);
-      }
-      return { answer: response.text(), model: 'gemini', usage: null };
-    } catch (e) {
-      lastErr = e;
-      const busy = isOverloaded(e);
-      if (!busy && !isModelGone(e)) throw e; // مفتاح خاطئ/شبكة: لا فائدة من تجريب نموذج آخر
-      if (busy) { // ضغط مؤقت (503) على هذا النموذج: ننتقل للنموذج التالي لهذا الطلب فقط
-        console.warn(`[Monitor AI] Gemini model "${name}" busy or slow (${e.status || "timeout"}), trying next…`);
-        continue;
-      }
-      if (workingGeminiModel === name) workingGeminiModel = null;
-      const suggested = String(e.message || '').match(/models\/(gemini-[\w.-]+)/g) || [];
-      suggested.map((s) => s.replace('models/', '')).reverse().forEach((s) => queue.unshift(s));
-      console.warn(`[Monitor AI] Gemini model "${name}" unavailable, trying next…`);
+      const model = googleAI.getGenerativeModel({ model: name, generationConfig: gen }, { timeout: left });
+      const r = await withTimeout(model.generateContent(prompt), left, name);
+      return (await r.response).text();
+    } catch (e2) {
+      if (!gen.thinkingConfig || !/thinking/i.test(String(e2.message))) throw e2;
+      noThinkingCfg.add(name); // النموذج لا يقبل thinkingLevel → نعيد بدونه
+      const model = googleAI.getGenerativeModel({ model: name, generationConfig: { maxOutputTokens: 2048 } }, { timeout: left });
+      const r = await withTimeout(model.generateContent(prompt), left, name);
+      return (await r.response).text();
     }
-  }
-  throw lastErr || new Error('No Gemini model available');
+  };
+
+  return new Promise((resolve, reject) => {
+    const started = new Set();
+    let running = 0; let done = false; let lastErr = null; let fatal = null; let timer = null;
+    const finish = () => {
+      if (done || running > 0) return;
+      if (queue.some((n) => !started.has(n)) && !fatal && Date.now() < deadline) return launch();
+      done = true; clearTimeout(timer);
+      reject(fatal || lastErr || new Error('No Gemini model available'));
+    };
+    const launch = () => {
+      if (done) return;
+      clearTimeout(timer);
+      const name = queue.find((n) => !started.has(n));
+      if (!name || Date.now() >= deadline) return finish();
+      started.add(name); running += 1;
+      callModel(name).then((text) => {
+        running -= 1;
+        if (done) return;
+        done = true; clearTimeout(timer);
+        if (workingGeminiModel !== name) { workingGeminiModel = name; console.log(`[Monitor AI] Gemini model in use: ${name}`); }
+        resolve({ answer: text, model: 'gemini', usage: null, modelName: name });
+      }, (e) => {
+        running -= 1;
+        if (done) return;
+        lastErr = e;
+        if (isOverloaded(e)) {
+          console.warn(`[Monitor AI] Gemini model "${name}" busy or slow (${e.status || 'timeout'}), trying next…`);
+        } else if (isModelGone(e)) {
+          if (workingGeminiModel === name) workingGeminiModel = null;
+          // النموذج الذي يقترحه خطأ 404 يُجرَّب مباشرة بعده
+          const sug = (String(e.message || '').match(/models\/(gemini-[\w.-]+)/g) || []).map((x) => x.replace('models/', '')).filter((x) => !started.has(x) && !queue.includes(x));
+          queue.splice(queue.indexOf(name) + 1, 0, ...sug);
+          console.warn(`[Monitor AI] Gemini model "${name}" unavailable, trying next…`);
+        } else {
+          fatal = e; // مفتاح خاطئ/طلب مرفوض: لا فائدة من نموذج آخر
+        }
+        if (fatal) { if (running === 0) finish(); return; }
+        launch(); // فشل → التالي فوراً
+      });
+      // لم يُجب بعد؟ نطلق التالي بالتوازي بعد مهلة قصيرة
+      timer = setTimeout(launch, GEMINI_STAGGER_MS);
+    };
+    launch();
+  });
 }
 
 // النماذج الاحتياطية بالترتيب (نونبر 2026). يمكن تجاوزها بـ GEMINI_MODEL في .env
-const GEMINI_CANDIDATES = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite'];
+const GEMINI_CANDIDATES = ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-3.6-flash', 'gemini-3.5-flash'];
 let workingGeminiModel = null;
 let workingFor = null;
-// حدود الانتظار: نموذج واحد 22 ث، والمجموع 50 ث (وإلا يبقى «جارٍ الاختبار…» معلقاً)
-const GEMINI_MODEL_MS = 22_000;
+// حدود الانتظار: المجموع 50 ث (وإلا يبقى «جارٍ الاختبار…» معلقاً)
+const GEMINI_STAGGER_MS = 8_000; // بعد 8 ث بدون جواب نطلق النموذج التالي بالتوازي
 const GEMINI_TOTAL_MS = 50_000;
 const noThinkingCfg = new Set();
 function withTimeout(promise, ms, name) {
@@ -225,7 +245,7 @@ async function testProvider(provider) {
   const q = 'أجب بكلمة واحدة: ما لون إشارة التوقف؟';
   const t0 = Date.now();
   const r = provider === 'claude' ? await askClaude(q) : await askGemini(q, '', { raw: true }); // سؤال خفيف بدون التوجيهات الطويلة
-  return { ok: true, ms: Date.now() - t0, model: provider === 'claude' ? anthropicModel() : workingGeminiModel, sample: String(r.answer || '').slice(0, 120) };
+  return { ok: true, ms: Date.now() - t0, model: provider === 'claude' ? anthropicModel() : (r.modelName || workingGeminiModel), sample: String(r.answer || '').slice(0, 120) };
 }
 
 module.exports = { askClaude, askGemini, askAI, availableModels, providerStatus, testProvider, buildUserContent, DRIVING_SYSTEM_PROMPT };
