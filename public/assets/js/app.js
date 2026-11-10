@@ -1,6 +1,7 @@
 // Point d'entrée : en-tête/navigation, thème, langue, déclaration des routes.
 import { route, startRouter, setNavigateHook, navigate, render } from './router.js';
 import { store } from './store.js';
+import { watchIcons } from './icons.js';
 import { api } from './api.js';
 import { t, setLocale, getLocale, applyStaticTranslations } from './i18n.js';
 import { html, esc, toast, sound } from './ui.js';
@@ -80,8 +81,8 @@ export function renderShell() {
   const linkHtml = navLinks().map(([href, key]) => html`<a href="${href}" ${isCur(href) ? html`aria-current="page"` : ''}>${t(key)}</a>`);
   document.getElementById('main-nav').innerHTML = html`${linkHtml}`.s;
   renderStaffSide();
-  // نمط Apple للمترشح والزائر والمؤسسة والمدرب؛ لوحة الأدمين العام تحتفظ بتصميمها
-  document.body.classList.toggle('ui-apple', !(store.user && store.isAdmin()));
+  // نمط موحّد لكل الواجهات (المترشح، الزائر، المؤسسة، المدرب، الأدمين)
+  document.body.classList.add('ui-apple');
   const mobile = document.getElementById('mobile-nav');
   mobile.innerHTML = html`${linkHtml}${store.user ? html`<a href="/profile">${t('nav.profile')}</a>` : html`<a href="/register">${t('nav.register')}</a>`}`.s;
   mobile.classList.remove('open');
@@ -219,6 +220,7 @@ route('*', view(notFoundView));
   try { await store.loadUser(); } catch { store.user = null; }
   setLocale(saved || store.user?.locale || 'ar');
   applyStaticTranslations();
+  watchIcons(document.body); // أيقونات خطية بدل الإيموجي في كل الواجهات
   await startRouter();
 })().catch((e) => {
   console.error(e);
