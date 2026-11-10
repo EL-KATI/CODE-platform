@@ -150,14 +150,12 @@ router.get('/google/callback', wrap(async (req, res) => {
           || d.prepare('SELECT * FROM users WHERE email = ? LIMIT 1').get(email.toLowerCase());
 
   if (user) {
-    // ربط الحساب بـ Google إذا لم يكن مرتبطاً
-    if (!user.google_id) {
-      d.prepare('UPDATE users SET google_id=?, google_name=?, google_picture=? WHERE id=?')
-        .run(google_id, google_name, picture, user.id);
-      user = d.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
-    }
+    // ربط الحساب بـ Google + تفعيل تلقائي (Google OAuth = تأكيد هوية كافٍ)
+    d.prepare('UPDATE users SET google_id=?, google_name=?, google_picture=?, active=1 WHERE id=?')
+      .run(google_id, google_name, picture, user.id);
+    user = d.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
   } else {
-    // إنشاء حساب جديد
+    // إنشاء حساب جديد مع وصول فوري (active=1)
     const locale = 'ar';
     const nameParts = (google_name || email).split(' ');
     const first_name_fr = nameParts[0] || '';
@@ -170,8 +168,6 @@ router.get('/google/callback', wrap(async (req, res) => {
     ).run(email.toLowerCase(), google_name || email, locale, 'student', google_id, google_name, picture, first_name_fr, last_name_fr, fakeHash);
     user = d.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
   }
-
-  if (!user.active) return res.redirect('/login?error=account_disabled');
 
   // 2FA للأدمن: إذا كان admin نعيد توجيهه لصفحة OTP
   if (user.role === 'admin') {
@@ -190,7 +186,9 @@ router.get('/google/callback', wrap(async (req, res) => {
 
   d.prepare("UPDATE users SET last_login_at = datetime('now') WHERE id = ?").run(user.id);
   auth.issueSession(res, user);
-  res.redirect('/');
+  // توجيه مباشر للوحة التحكم بعد المصادقة بجوجل
+  const dest = user.role === 'admin' || user.role === 'instructor' ? '/admin' : '/dashboard';
+  res.redirect(dest);
 }));
 
 // ── تسجيل الدخول ──────────────────────────────────────────────────────────────
