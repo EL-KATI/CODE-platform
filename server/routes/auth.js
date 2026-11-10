@@ -260,59 +260,6 @@ router.post('/logout', (req, res) => {
 
 router.get('/me', (req, res) => res.json({ user: auth.publicUser(req.user), ...(req.sessionReplaced ? { reason: 'session_replaced' } : {}) }));
 
-// ── إعادة تعيين كلمة السر ────────────────────────────────────────────────────
-
-// الخطوة 1: طلب رابط إعادة التعيين (يُرسَل للإيميل)
-router.post('/forgot-password', limiter, wrap(async (req, res) => {
-  const email = str(req.body.email, { max: 160, field: 'email' }).toLowerCase();
-  if (!EMAIL_RE.test(email)) throw bad('invalid_email');
-
-  const d = db.get();
-  const user = d.prepare('SELECT * FROM users WHERE email = ? AND active = 1').get(email);
-
-  // دائماً نرجع success حتى لا نكشف وجود الإيميل (security)
-  if (!user) return res.json({ ok: true });
-
-  if (!mailer.isConfigured()) throw new HttpError(503, 'smtp_not_configured');
-
-  // إلغاء كل الرموز القديمة لهذا المستخدم
-  d.prepare('DELETE FROM pw_reset_tokens WHERE user_id = ?').run(user.id);
-
-  // إنشاء token فريد (64 hex)
-  const token = crypto.randomBytes(32).toString('hex');
-  const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
-  d.prepare('INSERT INTO pw_reset_tokens (user_id, token, expires_at) VALUES (?,?,?)').run(user.id, token, expiresAt);
-
-  const appUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 3000}`;
-  const resetUrl = `${appUrl}/reset-password?token=${token}`;
-
-  await mailer.sendPasswordReset(user.email, user.name || user.email, resetUrl);
-  res.json({ ok: true });
-}));
-
-// الخطوة 2: تعيين كلمة سر جديدة باستخدام الـ token
-router.post('/reset-password', limiter, wrap(async (req, res) => {
-  const token = str(req.body.token, { max: 128, field: 'token' }).trim();
-  const newPw  = password(req.body.password); // يتحقق من القوة
-
-  const d = db.get();
-  const row = d.prepare(
-    `SELECT rt.*, u.id AS uid, u.email, u.name, u.active
-     FROM pw_reset_tokens rt JOIN users u ON u.id = rt.user_id
-     WHERE rt.token = ? AND rt.used = 0 AND rt.expires_at > datetime('now')`
-  ).get(token);
-
-  if (!row || !row.active) throw new HttpError(400, 'invalid_reset_token');
-
-  const hash = await auth.hashPassword(newPw);
-  d.prepare('UPDATE users SET password_hash = ?, pw_reset_at = datetime(\'now\') WHERE id = ?').run(hash, row.uid);
-  d.prepare('UPDATE pw_reset_tokens SET used = 1 WHERE id = ?').run(row.id);
-
-  // إنهاء كل الجلسات الحالية للمستخدم (أمان)
-  d.prepare('UPDATE users SET session_id = NULL WHERE id = ?').run(row.uid);
-
-  res.json({ ok: true });
-}));
 
 module.exports = router;
 module.exports.password = password;
