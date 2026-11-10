@@ -53,7 +53,8 @@ const SIDE_ICONS = {
 };
 // أيقونة لكل رابط؛ Monitor AI بارز بتنسيق خاص
 const NAV_ICON = { '/': 'home', '/dashboard': 'dashboard', '/lessons': 'book-open', '/practice': 'layers', '/exam': 'clock', '/mistakes': 'restore', '/assistant': 'sparkles', '/bookings': 'calendar', '/login': 'log-in', '/admin': 'bar-chart', '/profile': 'user', '/register': 'user-plus' };
-const isLearnerSide = () => !!store.user && !(store.isAdmin() || store.isSchool() || store.isInstructor());
+// المتعلم والزائر (الرئيسية، الدروس، الدخول، التسجيل): نفس الشريط الجانبي التفاعلي
+const isLearnerSide = () => !(store.isAdmin() || store.isSchool() || store.isInstructor());
 
 function renderStaffSide() {
   const u = store.user;
@@ -79,10 +80,10 @@ function renderStaffSide() {
       document.getElementById('app').before(side);
     }
     side.className = 'staff-side learner';
-    const isCur = (href) => path === href || path.startsWith(href + '/');
-    const items = [...navLinks(), ['/profile', 'nav.profile']];
-    side.setAttribute('aria-label', t('nav.dashboard'));
-    side.innerHTML = html`<div class="side-title">${u.name || ''}</div>
+    const isCur = (href) => (href === '/' ? path === '/' : path === href || path.startsWith(href + '/'));
+    const items = [...navLinks(), u ? ['/profile', 'nav.profile'] : ['/register', 'nav.register']];
+    side.setAttribute('aria-label', t('a11y.menu'));
+    side.innerHTML = html`<div class="side-title">${u ? (u.name || '') : t('brand.name')}</div>
       <nav>${items.map(([href, key]) => html`<a href="${href}" class="${href === '/assistant' ? 'side-ai' : ''}" title="${t(key)}" ${isCur(href) ? html`aria-current="page"` : ''}><span aria-hidden="true">${raw(iconSvg(NAV_ICON[href] || 'file'))}</span><span>${t(key)}</span></a>`)}</nav>`.s;
     const hdr0 = document.querySelector('.site-header');
     if (hdr0) document.documentElement.style.setProperty('--hdr-h', `${hdr0.offsetHeight}px`);
