@@ -8,7 +8,7 @@ async function request(method, url, body) {
   if (body !== undefined) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
   // لا يبقى أي طلب معلقاً إلى الأبد (Monitor AI قد ينتظر حتى ~45 ث في الخادم)
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 60_000);
+  const timer = setTimeout(() => ctrl.abort(), 65_000);
   opts.signal = ctrl.signal;
   let res;
   try { res = await fetch(`/api${url}`, opts); } catch { throw new ApiError(0, ctrl.signal.aborted ? 'timeout' : 'network_error'); } finally { clearTimeout(timer); }

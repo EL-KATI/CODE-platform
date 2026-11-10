@@ -95,11 +95,11 @@ async function askClaude(question, context = '') {
   };
 }
 
-async function askGemini(question, context = '') {
+async function askGemini(question, context = '', { raw = false } = {}) {
   const googleAI = getGeminiClient();
   if (!googleAI) throw new Error('GEMINI_API_KEY not configured');
 
-  const prompt = `${DRIVING_SYSTEM_PROMPT}\n\n${buildUserContent(question, context)}`;
+  const prompt = raw ? question : `${DRIVING_SYSTEM_PROMPT}\n\n${buildUserContent(question, context)}`;
 
   // Google يسحب النماذج بانتظام (gemini-pro ثم gemini-2.5-flash...).
   // نجرب: النموذج المحفوظ ← GEMINI_MODEL ← النموذج الذي يقترحه خطأ 404 ← قائمة احتياطية
@@ -116,9 +116,20 @@ async function askGemini(question, context = '') {
     if (tried.has(name)) continue;
     tried.add(name);
     try {
-      const model = googleAI.getGenerativeModel({ model: name }, { timeout: GEMINI_MODEL_MS });
-      const left = Math.max(3000, Math.min(GEMINI_MODEL_MS, deadline - Date.now()));
-      const result = await withTimeout(model.generateContent(prompt), left, name);
+      const left = Math.max(5000, Math.min(GEMINI_MODEL_MS, deadline - Date.now()));
+      // نماذج Gemini 3 «تفكر» بمستوى medium افتراضياً → بطء. low كافٍ لأسئلة السياقة وأسرع بكثير
+      const gen = { maxOutputTokens: 2048 };
+      if (/^gemini-3/.test(name) && !noThinkingCfg.has(name)) gen.thinkingConfig = { thinkingLevel: 'low' };
+      let result;
+      try {
+        const model = googleAI.getGenerativeModel({ model: name, generationConfig: gen }, { timeout: left });
+        result = await withTimeout(model.generateContent(prompt), left, name);
+      } catch (e2) {
+        if (!gen.thinkingConfig || !/thinking/i.test(String(e2.message))) throw e2;
+        noThinkingCfg.add(name); // النموذج لا يقبل thinkingLevel → نعيد بدونه
+        const model = googleAI.getGenerativeModel({ model: name, generationConfig: { maxOutputTokens: 2048 } }, { timeout: left });
+        result = await withTimeout(model.generateContent(prompt), left, name);
+      }
       const response = await result.response;
       if (workingGeminiModel !== name) {
         workingGeminiModel = name;
@@ -146,9 +157,10 @@ async function askGemini(question, context = '') {
 const GEMINI_CANDIDATES = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite'];
 let workingGeminiModel = null;
 let workingFor = null;
-// حدود الانتظار: نموذج واحد 20 ث، والمجموع 45 ث (وإلا يبقى «جارٍ الاختبار…» معلقاً)
-const GEMINI_MODEL_MS = 20_000;
-const GEMINI_TOTAL_MS = 45_000;
+// حدود الانتظار: نموذج واحد 22 ث، والمجموع 50 ث (وإلا يبقى «جارٍ الاختبار…» معلقاً)
+const GEMINI_MODEL_MS = 22_000;
+const GEMINI_TOTAL_MS = 50_000;
+const noThinkingCfg = new Set();
 function withTimeout(promise, ms, name) {
   let t;
   const timer = new Promise((_, rej) => { t = setTimeout(() => { const e = new Error(`timeout: ${name} did not answer in ${Math.round(ms / 1000)}s`); e.status = 504; rej(e); }, ms); });
@@ -212,7 +224,7 @@ function providerStatus() {
 async function testProvider(provider) {
   const q = 'أجب بكلمة واحدة: ما لون إشارة التوقف؟';
   const t0 = Date.now();
-  const r = provider === 'claude' ? await askClaude(q) : await askGemini(q);
+  const r = provider === 'claude' ? await askClaude(q) : await askGemini(q, '', { raw: true }); // سؤال خفيف بدون التوجيهات الطويلة
   return { ok: true, ms: Date.now() - t0, model: provider === 'claude' ? anthropicModel() : workingGeminiModel, sample: String(r.answer || '').slice(0, 120) };
 }
 
