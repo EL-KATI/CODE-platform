@@ -58,6 +58,7 @@ export async function quizView(appRoot, { params }) {
 
         <!-- ══ الشريط العلوي (الهاتف واللوحة فقط) ══ -->
         <header class="nrs-topbar">
+
           <button class="nrs-tb-btn" id="tb-home" type="button" aria-label="${t('quiz.close')}">${IC.home}</button>
           <div class="nrs-tb-pills">
             <span class="nrs-tb-pill nrs-tb-timer" id="tb-timer" ${exam ? '' : 'hidden'}>${a.secondsPerQuestion || 30}<small>s</small></span>
@@ -68,32 +69,53 @@ export async function quizView(appRoot, { params }) {
           <div class="nrs-tb-progress" aria-hidden="true"><i id="tb-progress"></i></div>
         </header>
 
-        <!-- ══ الشاشة الرئيسية (يمين/فوق) ══ -->
-        <div class="nrs-main">
-          <!-- منطقة الوسائط: صورة أو فيديو -->
-          <div class="nrs-media" id="nrs-media"></div>
+        <!-- ══ الصف الرئيسي: اللوحة اليسرى + الشاشة اليمنى ══ -->
+        <div class="nrs-content-row">
 
-          <!-- شريط النص الأسود (السؤال والخيارات) -->
-          <div class="nrs-text-panel" id="nrs-text-panel"></div>
-        </div>
+          <!-- ══ اللوحة الجانبية (يسار): كولومنين كما في lcode.ma ══ -->
+          <aside class="nrs-side">
 
-        <!-- ══ اللوحة الجانبية الزرقاء (يسار) ══ -->
-        <aside class="nrs-side">
+            <!-- كولومن التحكم (control sub-column) -->
+            <div class="nrs-ctrl-col">
 
-          <!-- مؤشرات الإجابات: 4 خانات -->
-          <div class="nrs-indicators" id="nrs-indicators" aria-hidden="true"></div>
+              <!-- زر STOP الأحمر فوق المؤشرات -->
+              <button class="nrs-btn-stop" id="btn-correct" type="button">
+                ${exam ? 'إيقاف' : 'تصحيح'}
+              </button>
 
-          <!-- اللوحة البنفسجية: تصحيح + أزرار 1-4 + موافق -->
-          <div class="nrs-panel">
-            <button class="nrs-btn-clear" id="btn-clear" type="button" aria-label="مسح الاختيار">${IC.x}</button>
-            <button class="nrs-btn-correct" id="btn-correct" type="button">تصحيح</button>
-            <div class="nrs-choices" id="nrs-choices"></div>
-            <button class="nrs-btn-ok" id="btn-ok" type="button"><span class="ok-ic" aria-hidden="true">${IC.check}</span><span class="ok-lbl">موافق</span></button>
+              <!-- مؤشرات الإجابات: 4 خانات -->
+              <div class="nrs-indicators" id="nrs-indicators" aria-hidden="true"></div>
+
+              <!-- اللوحة البنفسجية: أزرار 1-4 + موافق + مسح -->
+              <div class="nrs-panel">
+                <button class="nrs-btn-correct" id="btn-clear" type="button" aria-label="مسح الاختيار">تصحيح ✕</button>
+                <div class="nrs-choices" id="nrs-choices"></div>
+                <button class="nrs-btn-ok" id="btn-ok" type="button"><span class="ok-ic" aria-hidden="true">${IC.check}</span><span class="ok-lbl">موافق</span></button>
+              </div>
+
+            </div>
+
+            <!-- كولومن المعلومات (info sub-column) -->
+            <div class="nrs-info-col">
+              <div class="nrs-info-school">${esc(store.user?.school_name || '')}</div>
+              <div class="nrs-info-cat">${a.licenseCategory || store.user?.license_cat || 'B'}</div>
+              <div class="nrs-info-num" id="nrs-info-num">1/${a.questions.length}</div>
+            </div>
+
+            <!-- زر إغلاق خفي -->
+            <button class="nrs-btn-close" id="nrs-close" type="button" title="${t('quiz.close')}">✕</button>
+          </aside>
+
+          <!-- ══ الشاشة الرئيسية (يمين) ══ -->
+          <div class="nrs-main">
+            <!-- منطقة الوسائط: صورة بخلفية بيضاء (white Paper card) -->
+            <div class="nrs-media" id="nrs-media"></div>
+
+            <!-- شريط النص الأسود (السؤال والخيارات) -->
+            <div class="nrs-text-panel" id="nrs-text-panel"></div>
           </div>
 
-          <!-- زر إغلاق خفي -->
-          <button class="nrs-btn-close" id="nrs-close" type="button" title="${t('quiz.close')}">✕</button>
-        </aside>
+        </div><!-- /.nrs-content-row -->
 
         <!-- ══ الشريط السفلي ══ -->
         <footer class="nrs-footer">
@@ -134,7 +156,7 @@ export async function quizView(appRoot, { params }) {
       e.currentTarget.setAttribute('aria-pressed', String(reading));
       if (reading) speak(speechText(q(), idx + 1), { silent: true }); else stopSpeaking();
     };
-    // ✕ : مسح الاختيار الحالي (قبل التأكيد)
+    // زر "تصحيح ✕" : مسح الاختيار (قبل التأكيد)
     overlay.querySelector('#btn-clear').onclick = () => {
       const cur = q();
       if (cur.answer) return;
@@ -147,6 +169,7 @@ export async function quizView(appRoot, { params }) {
       if (q().answer) next(); else validate();
     };
 
+    // زر STOP (إيقاف / تصحيح) في الامتحان → إنهاء | في التمرين → كشف الجواب
     overlay.querySelector('#btn-correct').onclick = async () => {
       if (exam) {
         const left = a.questions.length - answeredCount();
@@ -358,6 +381,8 @@ export async function quizView(appRoot, { params }) {
     if (ctr) ctr.textContent = `${idx + 1}/${a.questions.length}`;
     const tc = overlay.querySelector('#tb-counter');
     if (tc) tc.textContent = `${idx + 1}/${a.questions.length}`;
+    const infoNum = overlay.querySelector('#nrs-info-num');
+    if (infoNum) infoNum.textContent = `${idx + 1}/${a.questions.length}`;
     const pg = overlay.querySelector('#tb-progress');
     if (pg) pg.style.width = `${(100 * (idx + 1)) / a.questions.length}%`;
   }
@@ -393,8 +418,9 @@ export async function quizView(appRoot, { params }) {
 
     // بعد التصحيح: ننزلو فاللوحة السوداء باش يبان الشرح بلا تمرير يدوي
     if (!exam && ans) { const panel = overlay.querySelector('#nrs-text-panel'); const fb = overlay.querySelector('.nrs-fb'); if (panel && fb) panel.scrollTop = Math.max(0, fb.offsetTop - panel.offsetTop - 8); }
-    const corrBtn = overlay.querySelector('#btn-correct');
-    if (corrBtn && !exam) corrBtn.disabled = !!ans;
+    // زر STOP (btn-correct) — في التمرين: disabled بعد الكشف
+    const stopBtn = overlay.querySelector('#btn-correct');
+    if (stopBtn && !exam) stopBtn.disabled = !!ans;
 
     shownAt = Date.now();
     if (exam && !ans) startTimer();

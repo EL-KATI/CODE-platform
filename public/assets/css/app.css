@@ -2226,28 +2226,49 @@ body.has-side .site-footer { margin-inline-start:230px; }
    ══════════════════════════════════════════════════════════════════════════ */
 .nrs-overlay {
   position: fixed; inset: 0; z-index: 950;
-  background: rgb(166,166,190);
-  display: flex; align-items: stretch; justify-content: center;
+  /* apprtl-18kvqo4: outer wrapper */
+  display: flex;
+  min-height: 100vh;
+  max-height: 100vh;
+  align-items: center;
+  flex-direction: row;
+  justify-content: center;
   box-shadow: rgba(44,44,44,0.78) 0px 0px 17px 11px inset;
+  background-color: rgb(166,166,190);
+  padding: 1rem;
   --nrs-serif: 'Traditional Arabic', 'Amiri', 'Scheherazade New', 'Noto Naskh Arabic', 'Times New Roman', serif;
   --nrs-ui: Tahoma, 'Segoe UI', Arial, sans-serif;
 }
 .nrs-window {
-  direction: ltr;                       /* اللوحة الجانبية على اليسار كما في الأصل */
-  width: 100%; max-width: 1180px;
-  display: grid;
-  grid-template-columns: clamp(190px, 25%, 260px) 1fr;
-  grid-template-rows: 1fr auto;
-  grid-template-areas: "side main" "foot foot";
-  background: rgb(166,166,190);
-  overflow: hidden;
+  direction: ltr;                        /* اللوحة الجانبية على اليسار كما في lcode.ma */
+  display: flex;
+  flex-flow: column wrap;
+  flex: 1 1 0%;
+  height: calc(-2rem + 100vh);
+  max-height: 100%;
+  justify-content: center;
+  width: 100%;
+  background-color: rgb(144,145,176);
+  box-shadow: rgb(59,59,86) 0px 0px 8px 3px inset;
   border-radius: 0.6rem;
-  margin: 1rem auto;
-  box-shadow: rgb(49,49,49) 0px 0px 17px 1px inset;
+  overflow: hidden;
 }
 
-/* ── الشاشة الرئيسية: الصورة ثم الصندوق الأسود ── */
-.nrs-main { grid-area: main; display: flex; flex-direction: column; overflow: hidden; background: #000; min-width: 0; border-radius: 0.4rem; box-shadow: rgba(49,49,49,0.78) 0px 0px 17px 1px inset; }
+/* الصف الرئيسي: اللوحة اليسرى + الشاشة اليمنى (apprtl-182y7uk) */
+.nrs-content-row {
+  display: flex;
+  flex-direction: row;
+  gap: 0.2rem;
+  align-items: center;
+  flex: 1 1 0%;
+  height: 100%;
+  min-height: 0;
+  padding: 0.4rem;
+  overflow: hidden;
+}
+
+/* ── الشاشة الرئيسية: الصورة ثم الصندوق الأسود (apprtl-1sy9eh5) ── */
+.nrs-main { display: flex; flex-direction: column; flex: 1 1 auto; height: 100%; overflow: hidden; background: #000; min-width: 0; border-radius: 0.4rem; box-shadow: rgba(49,49,49,0.78) 0px 0px 17px 1px inset; }
 .nrs-media { flex: 1; min-height: 0; display: flex; align-items: stretch; justify-content: center; overflow: hidden; background: #fff; }
 .nrs-media img, .nrs-media video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .nrs-media.has-video > * { width: 100%; height: 100%; margin: 0 !important; max-height: none !important; }
@@ -2291,29 +2312,157 @@ body.has-side .site-footer { margin-inline-start:230px; }
 @media (prefers-reduced-motion: reduce) { .nrs-fb, .nrs-fb-text { animation: none; } }
 .nrs-fb-text { color: #f2f2f2; font-size: clamp(1rem, 1.7vw, 1.2rem); line-height: 1.6; text-align: right; }
 
-/* ── اللوحة الجانبية — نفس ألوان lcode.ma ── */
-.nrs-side { grid-area: side; position: relative; display: flex; flex-direction: column; align-items: center; gap: 28px; padding: 12px 14px; background: rgb(144,145,176); box-shadow: rgba(59,59,86,0.68) 0px 0px 3px 2px inset; border-radius: 0.6rem; }
-/* مؤشرات الإجابات — gradient كيف lcode.ma */
-.nrs-indicators { display: flex; gap: 2px; padding: 5px 9px; background: rgb(166,166,190); box-shadow: rgba(49,49,49,0.78) 0px 0px 17px 1px inset; border-radius: 0.4rem; }
-.nrs-ind { position: relative; width: 22px; height: 24px; background-image: linear-gradient(90deg,rgb(77,76,92) 0%,rgb(210,209,215) 30%,rgb(210,209,215) 70%,rgb(77,76,92) 100%); background-color: rgb(77,76,92); display: grid; place-items: center; font: 700 14px/1 var(--nrs-ui); color: #000; padding: 0.4rem; flex: 1 1 0%; }
-.nrs-ind:not(.nrs-ind-on):not(.nrs-ind-ok)::after { content: ""; position: absolute; left: 4px; right: 4px; bottom: 6px; height: 2px; background: #e02020; }
+/* ══ اللوحة الجانبية: wrapper رئيسي (apprtl-7qjdom) — عرض 20%, max 16rem ══ */
+.nrs-side {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  box-shadow: rgba(49,49,49,0.78) 0px 0px 17px 1px inset;
+  background-color: rgb(166,166,190);
+  border-radius: 0.4rem;
+  padding: 0.4rem;
+  height: 100%;
+  gap: 0.4rem;
+  width: 20%;
+  flex: 0 0 auto;
+  max-width: 16rem;
+}
+
+/* كولومن التحكم (apprtl-edzif3) */
+.nrs-ctrl-col {
+  display: flex;
+  flex-flow: column wrap;
+  flex: 1 1 0%;
+  max-height: 100%;
+  width: 100%;
+  background-color: rgb(162,163,195);
+  box-shadow: rgba(59,59,86,0.68) 0px 0px 3px 2px inset;
+  border-radius: 0.6rem;
+  padding: 1rem 0.6rem;
+  font-weight: 800;
+  font-size: 1.2rem;
+  gap: 0.6rem;
+}
+
+/* كولومن المعلومات (apprtl-i1gamx) */
+.nrs-info-col {
+  display: flex;
+  flex-direction: column;
+  box-shadow: rgba(49,49,49,0.78) 0px 0px 17px 1px inset;
+  background-color: rgb(166,166,190);
+  border-radius: 0.4rem;
+  padding: 0.4rem;
+  height: 100%;
+  flex: 0 1 auto;
+  min-width: 2.5rem;
+  text-align: center;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  overflow: hidden;
+}
+.nrs-info-school { font-size: 0.65rem; font-weight: 800; color: #333; word-break: break-word; text-align: center; }
+.nrs-info-cat { font-size: 1rem; font-weight: 800; color: rgb(211,47,47); background: none; border-radius: 50%; padding: 0.2rem; }
+.nrs-info-num { font-size: 0.7rem; font-weight: 800; color: #111; }
+
+/* زر STOP الأحمر فوق المؤشرات (apprtl-1wrav6z) */
+.nrs-btn-stop {
+  background-color: rgb(239,83,80);
+  color: rgb(0,0,0);
+  font-size: 2vh;
+  font-weight: 800;
+  margin-top: -0.6rem;
+  margin-bottom: -0.6rem;
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  width: 100%;
+  border: none;
+  cursor: pointer;
+  padding: 0.4rem 0.2rem;
+  border-radius: 50px;
+  line-height: 1.4;
+}
+.nrs-btn-stop:hover:not(:disabled) { background-color: rgb(211,47,47); }
+.nrs-btn-stop:disabled { background: rgba(0,0,0,0.12); color: rgba(0,0,0,0.26); cursor: default; }
+
+/* مؤشرات الإجابات (apprtl-bq4e1v) */
+.nrs-indicators {
+  display: flex;
+  flex-direction: row;
+  box-shadow: rgba(49,49,49,0.78) 0px 0px 17px 1px inset;
+  background-color: rgb(166,166,190);
+  border-radius: 0.4rem;
+  padding: 1rem 0.4rem;
+  gap: 2px;
+}
+.nrs-ind {
+  position: relative;
+  flex: 1 1 0%;
+  height: 100%;
+  min-height: 2rem;
+  background-image: linear-gradient(90deg,rgb(77,76,92) 0%,rgb(210,209,215) 30%,rgb(210,209,215) 70%,rgb(77,76,92) 100%);
+  background-color: rgb(77,76,92);
+  display: grid;
+  place-items: center;
+  font: 700 14px/1 var(--nrs-ui);
+  color: #000;
+  padding: 0.4rem;
+}
+.nrs-ind:not(.nrs-ind-on):not(.nrs-ind-ok)::after { content: ""; position: absolute; left: 4px; right: 4px; bottom: 4px; height: 2px; background: #e02020; }
 .nrs-ind-ok { background: #2fbf4a; background-image: none; color: #fff; }
 .nrs-ind-wrong { background: #e02020; background-image: none; color: #fff; }
 .nrs-ind-on { background-image: linear-gradient(90deg,rgb(77,76,92) 0%,rgb(210,209,215) 30%,rgb(210,209,215) 70%,rgb(77,76,92) 100%); color: #111; }
-/* اللوحة البنفسجية — نفس rgb(95,87,229) ديال lcode.ma */
-.nrs-panel { width: 100%; max-width: 200px; display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 1rem; border-radius: 1.5rem; background: rgb(95,87,229); box-shadow: rgba(0,0,0,0.94) 1px 1px 9px 0px inset; }
-.nrs-btn-correct, .nrs-btn-ok { width: 46%; min-width: 86px; height: 30px; padding: 0 6px; font: 700 12px/1 var(--nrs-ui); color: #fff; cursor: pointer; border: none; }
-/* زر "تصحيح" = MuiButton-containedError من lcode.ma */
-.nrs-btn-correct { background: rgb(239,83,80); border-radius: 9px; }
-.nrs-btn-correct:hover:not(:disabled) { background: rgb(211,47,47); }
-.nrs-btn-correct:disabled { background: rgba(0,0,0,0.12); color: rgba(0,0,0,0.26); cursor: default; }
-/* زر "موافق" = أخضر */
-.nrs-btn-ok { background: #2ed22e; border: 1.5px solid #c9f7c9; border-radius: 6px; }
-.nrs-btn-ok:hover { background: #25bd25; }
-.nrs-choices { display: flex; flex-direction: column; align-items: center; gap: 16px; }
-/* أزرار 1-4 = secondary أسود كيف lcode.ma */
-.nrs-choice-btn { width: 80px; height: 31px; display: flex; align-items: center; justify-content: center; gap: 7px; background: #111827; border: 0; border-radius: 4px; color: #fff; cursor: pointer; font: 700 15px/1 var(--nrs-ui); box-shadow: rgba(0,0,0,0.3) 0px 2px 4px; }
-.nrs-choice-btn:hover:not(:disabled) { background: #000; box-shadow: rgba(0,0,0,0.5) 0px 4px 8px; }
+
+/* اللوحة البنفسجية (apprtl-lsf638) */
+.nrs-panel {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0%;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1rem 0.6rem;
+  border-radius: 1.5rem;
+  background: rgb(95,87,229);
+  box-shadow: rgba(0,0,0,0.94) 1px 1px 9px 0px inset;
+}
+
+/* زر "تصحيح ✕" = تصحيح الخطأ (MuiButton-containedError) داخل اللوحة البنفسجية */
+.nrs-btn-correct {
+  width: 100%;
+  padding: 0.6rem 1.2rem;
+  font: 900 2vh/1.75 var(--nrs-ui);
+  color: #fff;
+  background-color: rgb(211,47,47);
+  border: 2px solid white;
+  border-radius: 50px;
+  cursor: pointer;
+  text-align: center;
+  box-shadow: rgba(0,0,0,0.2) 0px 3px 1px -2px,rgba(0,0,0,0.14) 0px 2px 2px 0px,rgba(0,0,0,0.12) 0px 1px 5px 0px;
+}
+.nrs-btn-correct:hover:not(:disabled) { background-color: rgb(198,40,40); }
+.nrs-btn-correct:disabled { background: rgba(0,0,0,0.12); color: rgba(0,0,0,0.26); cursor: default; border-color: transparent; }
+
+/* أزرار 1-4 — apprtl-rl7n89 + apprtl-fo9ed3 */
+.nrs-choices { display: flex; flex-direction: column; flex: 1 1 auto; gap: 0.5rem; justify-content: center; align-items: center; width: 100%; padding: 0.3rem 0; }
+.nrs-choice-btn {
+  width: 100%;
+  min-height: 2.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  background: rgb(0,0,0);
+  color: rgb(255,255,255);
+  border: 2px solid white;
+  border-radius: 50px;
+  cursor: pointer;
+  font: 900 3vh/1.75 var(--nrs-ui);
+  box-shadow: rgba(0,0,0,0.2) 0px 3px 1px -2px,rgba(0,0,0,0.14) 0px 2px 2px 0px,rgba(0,0,0,0.12) 0px 1px 5px 0px;
+  padding: 0 0.5rem;
+}
+.nrs-choice-btn:hover:not(:disabled) { background: rgb(0,0,0); box-shadow: rgba(0,0,0,0.2) 0px 2px 4px -1px,rgba(0,0,0,0.14) 0px 4px 5px 0px,rgba(0,0,0,0.12) 0px 1px 10px 0px; }
 .nrs-choice-btn:disabled { cursor: default; }
 .nrs-choice-sq { width: 13px; height: 13px; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.4); display: grid; place-items: center; font: 700 11px/1 var(--nrs-ui); color: #fff; border-radius: 2px; }
 .nrs-choice-btn.choice-on { background: rgb(55,48,210); }
@@ -2325,8 +2474,25 @@ body.has-side .site-footer { margin-inline-start:230px; }
 .nrs-choice-btn.choice-wrong .nrs-choice-sq { color: #c62f2f; }
 .nrs-choice-btn.choice-wrong .nrs-choice-sq::after { content: "✗"; }
 .nrs-choice-sep { margin-top: 0; }
-/* زر الخروج: صغير وباهت في الزاوية (غير موجود في الأصل لكنه ضروري للخروج) */
-.nrs-btn-close { position: absolute; top: 6px; left: 6px; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: rgb(0 0 0 / .18); color: #fff; font-size: 10px; line-height: 1; cursor: pointer; opacity: .6; }
+
+/* زر "موافق" (apprtl-52vy0z) */
+.nrs-btn-ok {
+  width: 100%;
+  padding: 0.6rem 1.2rem;
+  font: 900 2vh/1.75 var(--nrs-ui);
+  color: #fff;
+  background: #2ed22e;
+  border: 2px solid white;
+  border-radius: 50px;
+  cursor: pointer;
+  text-align: center;
+  box-shadow: rgba(0,0,0,0.2) 0px 3px 1px -2px;
+}
+.nrs-btn-ok:hover { background: rgb(27,94,32); }
+.nrs-btn-ok.is-next { background: rgb(55,48,210); }
+
+/* زر الخروج — صغير وباهت في الزاوية */
+.nrs-btn-close { position: absolute; top: 6px; right: 6px; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: rgb(0 0 0 / .18); color: #fff; font-size: 10px; line-height: 1; cursor: pointer; opacity: .6; z-index: 2; }
 .nrs-btn-close:hover { opacity: 1; background: rgb(0 0 0 / .4); }
 
 /* ── الشريط السفلي — نفس lcode.ma ── */
@@ -2342,16 +2508,24 @@ body.has-side .site-footer { margin-inline-start:230px; }
 .nrs-vol-dot.on { border-color: #1a6fe0; }
 .nrs-vol-dot.on::after { content: ""; width: 9px; height: 9px; border-radius: 50%; background: #1a6fe0; }
 
-/* ── الهاتف: نفس العناصر، اللوحة الجانبية تصبح شريطاً أفقياً ── */
+/* ── الهاتف: اللوحة الجانبية تصبح شريطاً أفقياً ── */
 @media (max-width: 760px) {
-  .nrs-window { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; grid-template-areas: "side" "main" "foot"; }
-  .nrs-side { flex-direction: row; align-items: center; gap: 8px; padding: 6px 8px 6px 30px; }
-  .nrs-indicators { flex: none; padding: 4px 5px; }
-  .nrs-ind { width: 17px; height: 20px; font-size: 12px; }
-  .nrs-panel { flex: 1; max-width: none; flex-direction: row; justify-content: center; gap: 6px; padding: 6px 8px; border-radius: 12px; }
-  .nrs-choices { flex-direction: row; gap: 5px; }
-  .nrs-choice-btn { width: 44px; height: 34px; gap: 4px; }
-  .nrs-btn-correct, .nrs-btn-ok { width: auto; min-width: 52px; height: 34px; padding: 0 8px; }
+  .nrs-window { flex-flow: column nowrap; height: calc(-2rem + 100vh); }
+  .nrs-content-row { flex-direction: column; gap: 0; padding: 0; height: auto; flex: 1 1 0%; }
+  .nrs-side { width: 100%; max-width: none; height: auto; flex-direction: row; align-items: stretch; gap: 4px; padding: 4px; }
+  .nrs-ctrl-col { flex-direction: row; flex-flow: row; padding: 4px 6px; gap: 4px; border-radius: 8px; align-items: center; }
+  .nrs-info-col { flex-direction: row; min-width: auto; flex: 0 0 auto; padding: 4px; gap: 4px; border-radius: 6px; }
+  .nrs-info-school { font-size: 0.55rem; }
+  .nrs-info-cat { font-size: 0.75rem; }
+  .nrs-info-num { font-size: 0.6rem; }
+  .nrs-btn-stop { margin: 0; font-size: 1.2vh; padding: 0.3rem 0.5rem; border-radius: 20px; white-space: nowrap; flex: 0 0 auto; }
+  .nrs-indicators { flex: none; padding: 3px 4px; flex-direction: row; }
+  .nrs-ind { min-height: 1.4rem; font-size: 11px; }
+  .nrs-panel { flex: 1; flex-direction: row; justify-content: center; gap: 4px; padding: 4px 6px; border-radius: 10px; align-items: center; }
+  .nrs-choices { flex-direction: row; gap: 4px; flex: 1 1 auto; padding: 0; }
+  .nrs-choice-btn { min-height: 1.8rem; font-size: 2vh; padding: 0 0.3rem; border-radius: 20px; }
+  .nrs-btn-correct, .nrs-btn-ok { width: auto; padding: 0.3rem 0.6rem; font-size: 1.5vh; border-radius: 20px; flex: 0 0 auto; }
+  .nrs-main { flex: 1 1 0%; height: auto; border-radius: 0; }
   .nrs-text-panel { flex-basis: 50%; padding: 10px 12px; }
   .nrs-text-panel.has-result { flex-basis: 66%; }
   .nrs-block { width: 100%; }
@@ -2361,8 +2535,9 @@ body.has-side .site-footer { margin-inline-start:230px; }
   .nrs-footer-val { font-size: 16px; }
 }
 @media (max-width: 400px) {
-  .nrs-choice-btn { width: 38px; }
+  .nrs-choice-btn { font-size: 1.5vh; }
   .nrs-indicators { display: none; }
+  .nrs-info-col { display: none; }
 }
 
 /* =========================================================================
@@ -3160,78 +3335,136 @@ body.ui-apple .staff-side a.side-ai[aria-current="page"] { background: linear-gr
 .lx-final-actions .btn { white-space: normal; text-align: center; }
 .lx-stepper, .lx-step { min-width: 0; }
 
-/* ══ v69: شاشة الامتحان على الهاتف واللوحة — شريط علوي + لوحة أزرار كبيرة (✕ · 1-4 · ✓) ══ */
-.nrs-topbar, .nrs-btn-clear, .nrs-btn-ok .ok-ic { display: none; }
+/* ══ شاشة الامتحان على الهاتف واللوحة ══ */
+/* الشريط العلوي والأيقونات — مخفية على الحاسوب، تظهر على الهاتف */
+.nrs-topbar, .nrs-btn-ok .ok-ic { display: none; }
+
+/* الشريط العلوي — مرئي فقط على الهاتف */
+.nrs-topbar {
+  position: relative; display: none; align-items: center; gap: 10px; direction: rtl;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 12px;
+  background: linear-gradient(180deg, #0f3e9e 0%, #0b2f7a 100%);
+  box-shadow: 0 1px 0 rgb(255 255 255 / .06) inset, 0 6px 18px rgb(0 0 0 / .35);
+  font-family: var(--nrs-ui);
+}
+.nrs-tb-btn {
+  flex: none; width: 44px; height: 44px; border: 0; border-radius: 14px; display: grid; place-items: center; cursor: pointer;
+  color: #fff; background: rgb(255 255 255 / .12); transition: background .2s ease, transform .15s ease;
+}
+.nrs-tb-btn svg { width: 22px; height: 22px; }
+.nrs-tb-btn:active { transform: scale(.94); background: rgb(255 255 255 / .22); }
+.nrs-tb-btn[aria-pressed="false"] { opacity: .7; }
+.nrs-tb-pills { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.nrs-tb-pill {
+  display: inline-flex; align-items: baseline; gap: 2px; padding: 7px 14px; border-radius: 999px; white-space: nowrap;
+  background: rgb(0 0 0 / .32); color: #fff; font-weight: 800; font-size: 1rem; line-height: 1.2;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / .08) inset;
+}
+.nrs-tb-title { flex: 1 1 auto; min-width: 0; justify-content: center; overflow: hidden; text-overflow: ellipsis; display: block; text-align: center; font-weight: 700; }
+.nrs-tb-timer { color: #ffd34d; font-variant-numeric: tabular-nums; }
+.nrs-tb-timer[hidden] { display: none; }
+.nrs-tb-timer small { font-size: .72em; opacity: .85; }
+.nrs-tb-timer.timer-warn { color: #ffb020; }
+.nrs-tb-timer.timer-low { color: #fff; background: #e5302a; animation: nrs-pulse 1s ease-in-out infinite; }
+@keyframes nrs-pulse { 50% { transform: scale(1.06); } }
+.nrs-tb-count { font-variant-numeric: tabular-nums; }
+.nrs-tb-progress { position: absolute; inset-inline: 0; bottom: 0; height: 3px; background: rgb(255 255 255 / .12); }
+.nrs-tb-progress i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ffd34d, #ffb020); transition: width .35s ease; margin-inline-start: 0; }
+
 @media (max-width: 1024px) {
-  .nrs-overlay { background: #000; }
+  .nrs-topbar { display: flex; }
+  .nrs-overlay {
+    padding: 0;
+    background: #000;
+    align-items: stretch;
+  }
   .nrs-overlay .nrs-window {
-    max-width: none; height: 100%; height: 100dvh;
-    grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr) auto;
-    grid-template-areas: "top" "main" "side";
+    flex-flow: column nowrap;
+    height: 100%;
+    height: 100dvh;
+    border-radius: 0;
     background: #000;
   }
-  .nrs-overlay .nrs-footer, .nrs-overlay .nrs-indicators, .nrs-overlay .nrs-btn-close, .nrs-overlay .nrs-btn-correct { display: none !important; }
-
-  /* الشريط العلوي */
-  .nrs-topbar {
-    grid-area: top; position: relative; display: flex; align-items: center; gap: 10px; direction: rtl;
-    padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 12px;
-    background: linear-gradient(180deg, #0f3e9e 0%, #0b2f7a 100%);
-    box-shadow: 0 1px 0 rgb(255 255 255 / .06) inset, 0 6px 18px rgb(0 0 0 / .35);
-    font-family: var(--nrs-ui);
+  .nrs-overlay .nrs-content-row {
+    flex-direction: column;
+    gap: 0;
+    padding: 0;
+    flex: 1 1 0%;
+    height: auto;
+    overflow: hidden;
   }
-  .nrs-tb-btn {
-    flex: none; width: 44px; height: 44px; border: 0; border-radius: 14px; display: grid; place-items: center; cursor: pointer;
-    color: #fff; background: rgb(255 255 255 / .12); transition: background .2s ease, transform .15s ease;
-  }
-  .nrs-tb-btn svg { width: 22px; height: 22px; }
-  .nrs-tb-btn:active { transform: scale(.94); background: rgb(255 255 255 / .22); }
-  .nrs-tb-btn[aria-pressed="false"] { opacity: .7; }
-  .nrs-tb-pills { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .nrs-tb-pill {
-    display: inline-flex; align-items: baseline; gap: 2px; padding: 7px 14px; border-radius: 999px; white-space: nowrap;
-    background: rgb(0 0 0 / .32); color: #fff; font-weight: 800; font-size: 1rem; line-height: 1.2;
-    box-shadow: 0 0 0 1px rgb(255 255 255 / .08) inset;
-  }
-  .nrs-tb-title { flex: 1 1 auto; min-width: 0; justify-content: center; overflow: hidden; text-overflow: ellipsis; display: block; text-align: center; font-weight: 700; }
-  .nrs-tb-timer { color: #ffd34d; font-variant-numeric: tabular-nums; }
-  .nrs-tb-timer[hidden] { display: none; }
-  .nrs-tb-timer small { font-size: .72em; opacity: .85; }
-  .nrs-tb-timer.timer-warn { color: #ffb020; }
-  .nrs-tb-timer.timer-low { color: #fff; background: #e5302a; animation: nrs-pulse 1s ease-in-out infinite; }
-  @keyframes nrs-pulse { 50% { transform: scale(1.06); } }
-  .nrs-tb-count { font-variant-numeric: tabular-nums; }
-  .nrs-tb-progress { position: absolute; inset-inline: 0; bottom: 0; height: 3px; background: rgb(255 255 255 / .12); }
-  .nrs-tb-progress i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ffd34d, #ffb020); transition: width .35s ease; margin-inline-start: 0; }
-
-  /* الصورة والنص */
-  .nrs-overlay .nrs-main { grid-area: main; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
-  .nrs-overlay .nrs-media { flex: none; }
-  .nrs-overlay .nrs-text-panel, .nrs-overlay .nrs-text-panel.has-result { flex: 1 0 auto; flex-basis: auto; overflow: visible; padding: 14px 16px 18px; }
-
-  /* لوحة الأزرار */
+  /* اللوحة الجانبية → أسفل الشاشة */
   .nrs-overlay .nrs-side {
-    grid-area: side; display: block; padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px)); gap: 0;
-    background: #000; border-top: 1px solid rgb(255 255 255 / .06);
+    width: 100%;
+    max-width: none;
+    height: auto;
+    flex: 0 0 auto;
+    background: #000;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid rgb(255 255 255 / .08);
   }
+  .nrs-overlay .nrs-ctrl-col {
+    flex: 1 1 auto;
+    background: none;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 0;
+    flex-flow: row nowrap;
+    gap: 6px;
+    align-items: center;
+  }
+  .nrs-overlay .nrs-info-col { display: none; }
+  .nrs-overlay .nrs-btn-stop {
+    display: none;
+  }
+  .nrs-overlay .nrs-indicators { display: none; }
+  .nrs-overlay .nrs-footer { display: none; }
+  .nrs-overlay .nrs-btn-close { display: none; }
+
+  /* الشاشة الرئيسية */
+  .nrs-overlay .nrs-main {
+    flex: 1 1 0%;
+    height: auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    background: #000;
+  }
+  .nrs-overlay .nrs-media { flex: none; }
+  .nrs-overlay .nrs-text-panel, .nrs-overlay .nrs-text-panel.has-result {
+    flex: 1 0 auto; flex-basis: auto; overflow: visible; padding: 14px 16px 18px;
+  }
+
+  /* اللوحة البنفسجية كـ grid أفقي */
   .nrs-overlay .nrs-panel {
-    direction: ltr; width: 100%; max-width: none; height: clamp(168px, 30vh, 280px);
-    display: grid; grid-template-columns: minmax(64px, 20%) 1fr minmax(64px, 20%); grid-template-areas: "clear choices ok";
-    gap: 8px; padding: 0; border-radius: 0; background: none;
+    direction: ltr; width: 100%; flex: 1 1 auto; height: clamp(140px, 28vh, 260px);
+    display: grid; grid-template-columns: minmax(56px, 18%) 1fr minmax(56px, 18%); grid-template-areas: "clear choices ok";
+    gap: 6px; padding: 4px; border-radius: 10px; background: none; box-shadow: none;
+  }
+  .nrs-overlay .nrs-btn-correct {
+    grid-area: clear;
+    width: 100%; height: 100%; border-radius: 14px;
+    font-size: 1.5vh; padding: 0 4px;
+    background: linear-gradient(180deg, #ff5a4f 0%, #d6271d 100%);
+    border-color: transparent;
+    display: flex; align-items: center; justify-content: center;
   }
   .nrs-overlay .nrs-choices {
-    grid-area: choices; direction: rtl; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; gap: 8px; width: auto; height: 100%;
+    grid-area: choices; direction: rtl; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; gap: 6px; width: auto; height: 100%; padding: 0;
   }
   .nrs-overlay .nrs-choice-btn {
-    width: 100%; height: 100%; min-height: 0; min-width: 0; padding: 0; margin: 0; border: 0; border-radius: 16px;
+    width: 100%; height: 100%; min-height: 0; min-width: 0; padding: 0; margin: 0; border: 0; border-radius: 14px;
     display: grid; place-items: center; cursor: pointer; -webkit-tap-highlight-color: transparent;
     background: linear-gradient(180deg, #2a7ff0 0%, #1459c9 100%); color: #fff;
     box-shadow: 0 1px 0 rgb(255 255 255 / .25) inset, 0 -3px 0 rgb(0 0 0 / .18) inset, 0 4px 10px rgb(0 0 0 / .35);
     transition: transform .12s ease, filter .2s ease, background .2s ease;
+    font-size: clamp(1.6rem, 7vw, 2.8rem);
   }
   .nrs-overlay .nrs-choice-sep { margin: 0; }
   .nrs-overlay .nrs-choice-btn:active:not([disabled]) { transform: scale(.96); filter: brightness(1.1); }
-  .nrs-overlay .nrs-choice-num { font-family: var(--nrs-ui); font-size: clamp(2.2rem, 9vw, 3.6rem); font-weight: 800; line-height: 1; color: inherit; text-shadow: 0 2px 6px rgb(0 0 0 / .3); }
+  .nrs-overlay .nrs-choice-num { font-family: var(--nrs-ui); font-size: 1em; font-weight: 800; line-height: 1; color: inherit; text-shadow: 0 2px 6px rgb(0 0 0 / .3); }
   .nrs-overlay .nrs-choice-sq { display: none; }
   .nrs-overlay .nrs-choice-btn.choice-on { background: linear-gradient(180deg, #ffd34d 0%, #ffb020 100%); color: #1a1300; box-shadow: 0 0 0 3px #fff inset, 0 6px 16px rgb(255 176 32 / .45); }
   .nrs-overlay .nrs-choice-btn.choice-on .nrs-choice-num { text-shadow: none; }
@@ -3239,52 +3472,55 @@ body.ui-apple .staff-side a.side-ai[aria-current="page"] { background: linear-gr
   .nrs-overlay .nrs-choice-btn.choice-wrong { background: linear-gradient(180deg, #ff5a4f 0%, #d6271d 100%); color: #fff; }
   .nrs-overlay .nrs-choice-btn[disabled]:not(.choice-correct):not(.choice-wrong) { filter: saturate(.4) brightness(.6); }
 
-  .nrs-btn-clear, .nrs-overlay .nrs-btn-ok {
-    display: grid; place-items: center; align-content: center; gap: 4px; width: 100%; height: 100%; min-height: 0; min-width: 0; margin: 0; padding: 0;
-    border: 0; border-radius: 16px; color: #fff; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  .nrs-overlay .nrs-btn-ok {
+    grid-area: ok; display: grid; place-items: center; align-content: center; gap: 4px;
+    width: 100%; height: 100%; min-height: 0; min-width: 0; margin: 0; padding: 0;
+    border: 0; border-radius: 14px; color: #fff; cursor: pointer; -webkit-tap-highlight-color: transparent;
+    background: linear-gradient(180deg, #3ad16b 0%, #1f9d4b 100%); font-family: var(--nrs-ui);
     box-shadow: 0 1px 0 rgb(255 255 255 / .25) inset, 0 -3px 0 rgb(0 0 0 / .2) inset, 0 4px 10px rgb(0 0 0 / .35);
     transition: transform .12s ease, filter .2s ease;
   }
-  .nrs-btn-clear { grid-area: clear; background: linear-gradient(180deg, #ff5a4f 0%, #d6271d 100%); }
-  .nrs-overlay .nrs-btn-ok { grid-area: ok; background: linear-gradient(180deg, #3ad16b 0%, #1f9d4b 100%); font-family: var(--nrs-ui); }
   .nrs-overlay .nrs-btn-ok.is-next { background: linear-gradient(180deg, #2a7ff0 0%, #1459c9 100%); }
-  .nrs-btn-clear svg, .nrs-overlay .nrs-btn-ok .ok-ic svg { width: clamp(34px, 9vw, 52px); height: clamp(34px, 9vw, 52px); }
   .nrs-overlay .nrs-btn-ok .ok-ic { display: block; line-height: 0; }
-  .nrs-overlay .nrs-btn-ok .ok-lbl { font-size: .78rem; font-weight: 700; opacity: .9; }
-  .nrs-btn-clear:active:not(:disabled), .nrs-overlay .nrs-btn-ok:active { transform: scale(.96); filter: brightness(1.1); }
-  .nrs-btn-clear:disabled { filter: saturate(.3) brightness(.55); cursor: default; }
+  .nrs-overlay .nrs-btn-ok .ok-ic svg { width: clamp(28px, 8vw, 44px); height: clamp(28px, 8vw, 44px); }
+  .nrs-overlay .nrs-btn-ok .ok-lbl { font-size: .75rem; font-weight: 700; opacity: .9; }
+  .nrs-overlay .nrs-btn-ok:active { transform: scale(.96); filter: brightness(1.1); }
 }
+
 /* اللوحة: صورة أوسع وأزرار أقل ارتفاعاً */
 @media (min-width: 700px) and (max-width: 1024px) {
-  .nrs-overlay .nrs-panel { height: clamp(150px, 24vh, 230px); max-width: 860px; margin: 0 auto; }
+  .nrs-overlay .nrs-panel { height: clamp(140px, 22vh, 220px); }
   .nrs-tb-pills { justify-content: center; gap: 14px; }
   .nrs-tb-title { flex: 0 1 auto; }
 }
-/* الشاشة بالعرض (هاتف أو لوحة): الصورة وتحتها السؤال وأجوبته 1→4 | الأزرار 1→4 عمودياً في الجانب */
+
+/* الشاشة بالعرض (هاتف أو لوحة): الأزرار في العمود الأيمن */
 @media (max-width: 1024px) and (orientation: landscape) {
-  .nrs-overlay .nrs-window {
-    grid-template-columns: minmax(0, 1fr) clamp(150px, 19vw, 210px);
-    grid-template-rows: auto minmax(0, 1fr); grid-template-areas: "top top" "main side";
-  }
-  /* السؤال دائماً أسفل الصورة، والأزرار في الجانب */
-  .nrs-overlay .nrs-main { display: flex; flex-direction: column; overflow-y: auto; overscroll-behavior: contain; }
-  .nrs-overlay .nrs-media { flex: none; height: auto; max-height: 58%; display: flex; align-items: center; justify-content: center; background: #000; overflow: hidden; }
+  .nrs-overlay .nrs-content-row { flex-direction: row; }
+  .nrs-overlay .nrs-main { flex: 1 1 0%; height: 100%; overflow-y: auto; overscroll-behavior: contain; }
+  .nrs-overlay .nrs-media { flex: none; height: auto; max-height: 58%; background: #000; overflow: hidden; }
   .nrs-overlay .nrs-media img, .nrs-overlay .nrs-media video { max-height: 100%; max-width: 100%; object-fit: contain; }
-  .nrs-overlay .nrs-img-wrap { max-width: 100%; }
   .nrs-overlay .nrs-text-panel, .nrs-overlay .nrs-text-panel.has-result { flex: 1 0 auto; overflow: visible; padding: 10px 16px 14px; }
   .nrs-overlay .nrs-opts-row { display: flex; flex-direction: column; row-gap: 6px; }
-  .nrs-overlay .nrs-side { border-top: 0; border-inline-start: 1px solid rgb(255 255 255 / .06); padding: 8px; }
-  .nrs-overlay .nrs-panel {
-    height: 100%; grid-template-columns: 1fr 1fr; grid-template-rows: minmax(0, 4fr) minmax(0, 1.1fr);
-    grid-template-areas: "choices choices" "clear ok"; gap: 6px;
+  .nrs-overlay .nrs-side {
+    width: clamp(140px, 18vw, 200px); height: 100%; border-top: 0;
+    border-inline-start: 1px solid rgb(255 255 255 / .06);
+    padding: 6px; flex-direction: column; align-items: stretch;
   }
-  .nrs-overlay .nrs-choices { grid-template-columns: 1fr; grid-auto-rows: 1fr; gap: 6px; direction: ltr; }
-  .nrs-overlay .nrs-choice-sep { margin-top: 6px; }
-  .nrs-overlay .nrs-choice-num { font-size: clamp(1.5rem, 5.5vh, 2.4rem); }
-  .nrs-btn-clear svg, .nrs-overlay .nrs-btn-ok .ok-ic svg { width: clamp(22px, 6vh, 34px); height: clamp(22px, 6vh, 34px); }
-  .nrs-overlay .nrs-btn-ok .ok-lbl { font-size: .7rem; }
+  .nrs-overlay .nrs-ctrl-col { flex-flow: column nowrap; gap: 4px; }
+  .nrs-overlay .nrs-panel {
+    flex: 1 1 0%; height: auto;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: minmax(0, 4fr) minmax(0, 1.1fr);
+    grid-template-areas: "choices choices" "clear ok";
+    gap: 5px; padding: 4px;
+  }
+  .nrs-overlay .nrs-choices { grid-template-columns: 1fr; grid-auto-rows: 1fr; gap: 5px; direction: ltr; }
+  .nrs-overlay .nrs-choice-num { font-size: clamp(1.4rem, 5vh, 2.2rem); }
+  .nrs-overlay .nrs-btn-ok .ok-ic svg { width: clamp(20px, 5vh, 32px); height: clamp(20px, 5vh, 32px); }
   .nrs-topbar { padding-top: calc(6px + env(safe-area-inset-top, 0px)); padding-bottom: 8px; }
   .nrs-tb-btn { width: 38px; height: 38px; }
   .nrs-tb-pill { padding: 5px 12px; font-size: .92rem; }
 }
+
 @media (prefers-reduced-motion: reduce) { .nrs-tb-timer.timer-low { animation: none; } }
