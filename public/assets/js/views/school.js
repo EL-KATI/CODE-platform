@@ -153,7 +153,7 @@ export async function schoolStatsView(root, days = 30) {
   for (const sl of s.slots) (byDay[sl.date] ||= []).push(sl);
   const slotsView = Object.keys(byDay).length ? html`${Object.keys(byDay).slice(0, 7).map((dte) => html`<div class="dash-day"><div class="small muted" style="margin-bottom:4px">${dte}</div><div class="dash-chips">${byDay[dte].map((sl) => {
     const full = sl.booked >= sl.capacity;
-    return html`<a class="dash-chip ${full ? 'is-full' : ''}" href="/admin/bookings" data-tip="${sl.instructor || '—'} — ${HOUR_LBL[sl.hour] || sl.hour}: ${sl.booked}/${sl.capacity}${sl.pending ? ' · ' + sl.pending + ' معلّق' : ''}"><b>${HOUR_LBL[sl.hour] || sl.hour}</b><span class="small">${sl.instructor || '—'}</span><span class="small">${sl.booked}/${sl.capacity}</span></a>`;
+    return html`<a class="dash-chip ${full ? 'is-full' : ''}" href="/admin/bookings" data-tip="${sl.instructor || '—'} — ${HOUR_LBL[sl.hour] || sl.hour}${sl.location ? ' — ' + sl.location : ''}: ${sl.booked}/${sl.capacity}${sl.pending ? ' · ' + sl.pending + ' معلّق' : ''}"><b>${HOUR_LBL[sl.hour] || sl.hour}</b><span class="small">${sl.instructor || '—'}</span>${sl.location ? html`<span class="small muted">📍 ${sl.location}</span>` : ''}<span class="small">${sl.booked}/${sl.capacity}</span></a>`;
   })}</div></div>`)}` : html`<p class="muted small">لا حصص خلال 14 يوماً القادمة</p>`;
 
   const list = (rows) => rows.length

@@ -2859,3 +2859,5 @@ body.ui-apple .card:has(> .table) { padding: 8px 16px; }
 body.ui-apple .table th { background: transparent; }
 body.ui-apple .list-table td:first-child a { white-space: nowrap; font-weight: 700; text-decoration: none; cursor: pointer; }
 body.ui-apple .list-table td:first-child a:hover { text-decoration: underline; }
+
+.ins-loc { margin-top: 4px; }

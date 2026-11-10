@@ -87,7 +87,7 @@ function renderStudentBookings(root, slots, myBookings, from, to) {
           <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
             <div>
               <strong>${b.slot_date} — ${hourLabel(b.slot_hour)}</strong>
-              <div class="small muted">${statusPill(b.status)} ${b.instructor_name ? html` — 🧑‍🏫 ${b.instructor_name}` : ''} ${b.note ? html` — ${b.note}` : ''}</div>
+              <div class="small muted">${statusPill(b.status)} ${b.instructor_name ? html` — 🧑‍🏫 ${b.instructor_name}` : ''}${b.slot_location ? html` — 📍 ${b.slot_location}` : ''} ${b.note ? html` — ${b.note}` : ''}</div>
             </div>
             <button class="btn btn-secondary btn-sm booking-cancel-btn" data-id="${b.id}">${t('booking.cancel')}</button>
           </div>
@@ -183,6 +183,7 @@ function renderSlotCard(slot, hour, date, myBooking) {
       ${statusBadge}
     </div>
     ${slot.instructor_name ? html`<div class="small" style="margin-bottom:2px">🧑‍🏫 ${slot.instructor_name}</div>` : ''}
+    ${slot.location ? html`<div class="small" style="margin-bottom:2px">📍 ${slot.location}</div>` : ''}
     <div class="small muted">${t('booking.seats')}: ${slot.available}/${slot.capacity}</div>
     <div style="height:5px;background:var(--surface-2);border-radius:999px;margin:8px 0;overflow:hidden">
       <div style="height:100%;background:${raw(full?'var(--danger)':'var(--primary)')};width:${raw(Math.round((1-(slot.available/slot.capacity))*100))}%;border-radius:999px;transition:width .4s"></div>
@@ -245,6 +246,7 @@ export async function adminBookingsView(root) {
 let bkFilter = 'active';
 
 function renderAdminBookings(root, slots, bookingsAll, today, toDate, canManage = true) {
+  knownLocations = [...new Set(slots.map((s) => s.location).filter(Boolean))];
   const shownBookings = bookingsAll.filter((b) => bkFilter === 'all' || (bkFilter === 'pending' ? b.status === 'pending' : ['pending', 'approved', 'rescheduled'].includes(b.status)));
   const knownInstructors = [...new Set(bookingsAll.map((b) => b.instructor_name).filter(Boolean))];
   root.innerHTML = html`
@@ -302,7 +304,7 @@ function renderAdminBookings(root, slots, bookingsAll, today, toDate, canManage 
           slots.map((s) => html`
           <tr>
             <td>${formatDate(s.slot_date)}</td>
-            <td><strong>${hourLabel(s.slot_hour)}</strong></td>
+            <td><strong>${hourLabel(s.slot_hour)}</strong>${s.location ? html`<div class="small muted">📍 ${s.location}</div>` : ''}</td>
             <td>${s.instructor_name || html`<span class="muted">—</span>`}</td>
             <td>
               <div style="display:flex;align-items:center;gap:8px">
@@ -319,7 +321,7 @@ function renderAdminBookings(root, slots, bookingsAll, today, toDate, canManage 
                   <span class="small">${a.name} ${statusPill(a.status)}</span>`)}</div>`}
             </td>
             <td>${canManage ? html`<div class="act-row">
-              <button class="act-btn slot-edit-btn" type="button" data-slot="${s.id}" data-cap="${s.capacity}" data-booked="${s.booked}" title="${t('booking.editSeats')}"><span aria-hidden="true">✏️</span><span class="act-lbl">${t('booking.editSeats')}</span></button>
+              <button class="act-btn slot-edit-btn" type="button" data-slot="${s.id}" data-cap="${s.capacity}" data-loc="${s.location || ''}" data-booked="${s.booked}" title="${t('booking.editSlot')}"><span aria-hidden="true">✏️</span><span class="act-lbl">${t('booking.editSlot')}</span></button>
               <button class="act-btn act-danger slot-del-btn" type="button" data-slot="${s.id}" title="${t('common.delete')}"><span aria-hidden="true">🗑</span><span class="act-lbl">${t('common.delete')}</span></button>
             </div>` : ''}</td>
           </tr>`)}
@@ -344,7 +346,7 @@ function renderAdminBookings(root, slots, bookingsAll, today, toDate, canManage 
 
   // تعديل عدد المقاعد / حذف الحصة
   root.querySelectorAll('.slot-edit-btn').forEach((btn) => {
-    btn.onclick = () => showSlotModal(root.querySelector('#slot-modal'), root, { id: btn.dataset.slot, capacity: Number(btn.dataset.cap) });
+    btn.onclick = () => showSlotModal(root.querySelector('#slot-modal'), root, { id: btn.dataset.slot, capacity: Number(btn.dataset.cap), location: btn.dataset.loc || '', known: knownLocations });
   });
   root.querySelectorAll('.slot-del-btn').forEach((btn) => {
     btn.onclick = async () => {
@@ -414,6 +416,9 @@ function showReviewModal(container, bookingId, action, root, currentInstructor =
   };
 }
 
+// أماكن سبق استعمالها: تُقترح عند إضافة حصة جديدة
+let knownLocations = [];
+
 async function showSlotModal(container, root, edit = null) {
   const today = new Date().toISOString().slice(0, 10);
   let instructors = [];
@@ -425,7 +430,7 @@ async function showSlotModal(container, root, edit = null) {
   container.innerHTML = html`
   <div class="booking-modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px">
     <div style="background:var(--surface);border-radius:16px;max-width:400px;width:100%;padding:24px">
-      <h2 style="margin:0 0 16px">${edit ? t('booking.editSeats') : '+ ' + t('booking.addSlot')}</h2>
+      <h2 style="margin:0 0 16px">${edit ? t('booking.editSlot') : '+ ' + t('booking.addSlot')}</h2>
       ${edit ? '' : html`
       <div class="field">
         <label>${t('booking.instructor')}</label>
@@ -442,6 +447,11 @@ async function showSlotModal(container, root, edit = null) {
         </select>
       </div>`}
       <div class="field">
+        <label for="slot-loc">${t('booking.location')}</label>
+        <input type="text" id="slot-loc" maxlength="80" list="slot-loc-list" value="${edit ? edit.location || '' : ''}" placeholder="${t('booking.locationPh')}" style="width:100%">
+        <datalist id="slot-loc-list">${(edit ? edit.known : knownLocations).map((l) => html`<option value="${l}"></option>`)}</datalist>
+      </div>
+      <div class="field">
         <label>${t('booking.seatsPerInstructor')} (1–12)</label>
         <input type="number" id="slot-cap" min="1" max="12" value="${edit ? edit.capacity : 3}" style="width:100%">
         <p class="small muted" style="margin:4px 0 0">${t('booking.dayLimitHint')}</p>
@@ -457,13 +467,15 @@ async function showSlotModal(container, root, edit = null) {
   container.querySelector('#slot-confirm').onclick = async () => {
     const capacity = Number(container.querySelector('#slot-cap').value);
     try {
-      if (edit) await api.patch(`/bookings/slots/${edit.id}`, { capacity });
+      const location = container.querySelector('#slot-loc').value.trim();
+      if (edit) await api.patch(`/bookings/slots/${edit.id}`, { capacity, location });
       else {
         await api.post('/bookings/slots', {
           date: container.querySelector('#slot-date').value,
           hour: Number(container.querySelector('#slot-hour').value),
           instructorId: Number(container.querySelector('#slot-instr').value),
           capacity,
+          location,
         });
       }
       toast(t('common.saved'));

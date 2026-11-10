@@ -243,6 +243,7 @@ CREATE TABLE IF NOT EXISTS training_slots (
   slot_date     TEXT    NOT NULL,          -- YYYY-MM-DD
   slot_hour     INTEGER NOT NULL,          -- 9 | 11 | 15 | 17
   capacity      INTEGER NOT NULL DEFAULT 3, -- عدد المقاعد لهذا المدرب في هذه الحصة
+  location      TEXT,                      -- مكان الحصة (قاعة الدرس، ساحة التدريب…)
   created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
   UNIQUE (school_id, instructor_id, slot_date, slot_hour)
 );
@@ -368,6 +369,8 @@ function open(file = config.dbFile) {
       })();
     } finally { db.pragma('foreign_keys = ON'); }
   }
+  // Migration: مكان الحصة
+  if (!db.prepare('PRAGMA table_info(training_slots)').all().some((c) => c.name === 'location')) db.exec('ALTER TABLE training_slots ADD COLUMN location TEXT');
   db.exec("UPDATE users SET school_id = id WHERE role = 'school' AND (school_id IS NULL OR school_id = '')");
   const bkCols = db.prepare('PRAGMA table_info(training_bookings)').all().map((c) => c.name);
   if (!bkCols.includes('instructor_name')) db.exec('ALTER TABLE training_bookings ADD COLUMN instructor_name TEXT');

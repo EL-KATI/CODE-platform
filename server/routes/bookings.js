@@ -52,7 +52,7 @@ function slotLabel(slot) {
 
 function bookingWithSlot(id) {
   return db.get().prepare(`
-    SELECT b.*, s.slot_date, s.slot_hour, s.capacity, s.school_id AS slot_school_id, s.instructor_id,
+    SELECT b.*, s.slot_date, s.slot_hour, s.location AS slot_location, s.capacity, s.school_id AS slot_school_id, s.instructor_id,
            COALESCE(i.name, b.instructor_name) AS instructor_name,
            u.name AS student_name, u.email AS student_email, u.school_id AS student_school_id
     FROM training_bookings b
@@ -120,6 +120,12 @@ const schoolOnly = (req, res) => {
   if (req.user.role !== 'school' || !req.user.school_id) { res.status(403).json({ error: 'forbidden', details: { reason: 'school_only' } }); return false; }
   return true;
 };
+/** مكان الحصة: نص اختياري قصير (قاعة الدرس رقم 1، ساحة التدريب…) */
+function parseLocation(v) {
+  if (v === undefined || v === null) return null;
+  if (typeof v !== 'string') throw bad('invalid_field', { field: 'location' });
+  return v.trim().slice(0, 80) || null;
+}
 function parseCapacity(v) {
   const n = v === undefined || v === null || v === '' ? 3 : Number(v);
   if (!Number.isInteger(n) || n < 1 || n > DAY_LIMIT) throw bad('invalid_field', { field: 'capacity' });
@@ -136,6 +142,7 @@ router.post('/slots', wrap(async (req, res) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw bad('invalid_field', { field: 'date' });
   if (!ALLOWED_HOURS.includes(Number(hour))) throw bad('invalid_field', { field: 'hour' });
   const capacity = parseCapacity(req.body?.capacity);
+  const location = parseLocation(req.body?.location);
   const d = db.get();
   const instr = d.prepare("SELECT id FROM users WHERE id = ? AND role = 'instructor' AND school_id = ? AND active = 1 AND archived = 0")
     .get(int(instructorId, { min: 1 }), req.user.school_id);
@@ -144,8 +151,8 @@ router.post('/slots', wrap(async (req, res) => {
     .get(req.user.school_id, instr.id, date, Number(hour));
   if (existing) return res.json({ id: existing.id, already_exists: true });
   if (dayCapacity(instr.id, date) + capacity > DAY_LIMIT) throw bad('instructor_day_limit', { limit: DAY_LIMIT });
-  const info = d.prepare('INSERT INTO training_slots (school_id, instructor_id, slot_date, slot_hour, capacity) VALUES (?,?,?,?,?)')
-    .run(req.user.school_id, instr.id, date, Number(hour), capacity);
+  const info = d.prepare('INSERT INTO training_slots (school_id, instructor_id, slot_date, slot_hour, capacity, location) VALUES (?,?,?,?,?,?)')
+    .run(req.user.school_id, instr.id, date, Number(hour), capacity, location);
   res.status(201).json({ id: info.lastInsertRowid });
 }));
 
@@ -159,7 +166,9 @@ router.patch('/slots/:id', wrap(async (req, res) => {
   const booked = d.prepare(`SELECT COUNT(*) AS n FROM training_bookings WHERE slot_id = ? AND status NOT IN ('rejected','cancelled')`).get(id).n;
   if (capacity < booked) throw bad('capacity_below_booked', { booked });
   if (dayCapacity(slot.instructor_id, slot.slot_date, id) + capacity > DAY_LIMIT) throw bad('instructor_day_limit', { limit: DAY_LIMIT });
-  d.prepare('UPDATE training_slots SET capacity = ? WHERE id = ?').run(capacity, id);
+  // المكان يُعدَّل فقط إذا أُرسل (undefined = بدون تغيير، نص فارغ = حذف المكان)
+  if (req.body?.location !== undefined) d.prepare('UPDATE training_slots SET capacity = ?, location = ? WHERE id = ?').run(capacity, parseLocation(req.body.location), id);
+  else d.prepare('UPDATE training_slots SET capacity = ? WHERE id = ?').run(capacity, id);
   res.json({ ok: true });
 }));
 
@@ -223,7 +232,7 @@ router.post('/', wrap(async (req, res) => {
 router.get('/my', wrap(async (req, res) => {
   if (req.user.role !== 'student') return res.status(403).json({ error: 'forbidden' });
   const list = db.get().prepare(`
-    SELECT b.*, s.slot_date, s.slot_hour, s.capacity,
+    SELECT b.*, s.slot_date, s.slot_hour, s.location AS slot_location, s.capacity,
            COALESCE(i.name, b.instructor_name) AS instructor_name,
            r.name AS reviewer_name
     FROM training_bookings b
@@ -241,7 +250,7 @@ router.get('/', wrap(async (req, res) => {
   if (req.user.role === 'student') return res.status(403).json({ error: 'forbidden' });
   const { status, date } = req.query;
   let query = `
-    SELECT b.*, s.slot_date, s.slot_hour, s.instructor_id,
+    SELECT b.*, s.slot_date, s.slot_hour, s.location AS slot_location, s.instructor_id,
            COALESCE(i.name, b.instructor_name) AS instructor_name,
            u.name AS student_name, u.email AS student_email, u.school_id AS student_school_id,
            r.name AS reviewer_name

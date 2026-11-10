@@ -1016,6 +1016,7 @@ export function roleExtraFields(role, schools) {
     <fieldset style="border:1px solid var(--border);border-radius:8px;padding:12px;margin:4px 0">
       <legend style="font-weight:600;padding:0 6px">التواصل</legend>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <label style="grid-column:1/-1">البريد الإلكتروني (للدخول إلى الحساب)<input class="input" name="email" type="email" required maxlength="160" autocomplete="off" placeholder="exemple@gmail.com" dir="ltr"></label>
         <label>الهاتف<input class="input" name="phone" type="tel" placeholder="06xxxxxxxx"></label>
         <label>المدينة<input class="input" name="city" placeholder="Tanger"></label>
       </div>

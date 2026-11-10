@@ -56,6 +56,7 @@ export async function instructorHomeView(root) {
       ${s.attendees.length
         ? html`<div class="ins-people">${s.attendees.map((a) => html`<span class="pill ${a.status === 'pending' ? 'pill-warning' : 'pill-success'}">${a.name}${a.status === 'pending' ? ` · ${t('ins.pendingShort')}` : ''}</span>`)}</div>`
         : html`<span class="muted small">${t('ins.noBookings')}</span>`}
+      ${s.location ? html`<div class="small muted ins-loc">📍 ${s.location}</div>` : ''}
     </div>
     <span class="ins-seats ${s.booked >= s.capacity ? 'is-full' : ''}">${s.booked}/${s.capacity}</span>
   </div>`;
