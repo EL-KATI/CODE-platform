@@ -229,8 +229,8 @@ export async function quizView(appRoot, { params }) {
       }).join('');
     } else {
       const correct = new Set(norm(cur.correct));
-      const count = cur.options?.length || 4;
-      el.innerHTML = Array.from({ length: count }, (_, i) => {
+      // دائماً 4 أزرار (1-4) كما في الامتحان الرسمي، حتى إذا كان للسؤال خياران أو ثلاثة فقط
+      el.innerHTML = Array.from({ length: 4 }, (_, i) => {
         const n = i + 1;
         const pressed = selected.has(n);
         let cls = 'nrs-choice-btn';
