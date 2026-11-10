@@ -82,7 +82,7 @@ const ADMIN_TABS_CONTENT = [
   ['/admin', 'admin.stats'], ['/admin/questions', 'admin.questions'], ['/admin/series', 'admin.series'],
   ['/admin/lessons', 'admin.lessons'], ['/admin/students', 'admin.students'],
 ];
-const ADMIN_TABS_MANAGE = [['/admin/users', 'admin.users'], ['/admin/settings', 'admin.settings'], ['/admin/audit', 'admin.audit']];
+const ADMIN_TABS_MANAGE = [['/admin/users', 'admin.users'], ['/admin/audit', 'admin.audit']];
 // تبويبات السوبر أدمين الإضافية
 const SUPER_TABS = [['/admin/import', 'admin.import'], ['/admin/storage', 'admin.storage']];
 // المؤسسة: بيانات المؤسسة + طلابها + حجوزاتهم
@@ -1549,7 +1549,7 @@ export async function importView(root) {
 
 // ══ Super Admin: إعدادات التخزين السحابي ════════════════════════════════════
 export async function storageView(root) {
-  if (!store.isSuperAdmin()) { navigate('/admin/settings'); return; }
+  if (!store.isSuperAdmin()) { navigate('/admin'); return; }
   await load(root, '/admin/storage', async () => {
     let st = {};
     try { st = await api.get('/admin/super/storage'); } catch { st = {}; }

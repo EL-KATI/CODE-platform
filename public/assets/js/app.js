@@ -48,7 +48,7 @@ const SIDE_ICONS = {
   '/admin': '📊', '/admin/school/enrollments': '📋', '/admin/school/students': '🎓', '/admin/school/instructors': '🧑‍🏫',
   '/admin/bookings': '📅', '/admin/exams': '📝',
   '/admin/questions': '❓', '/admin/series': '📚', '/admin/lessons': '🎓',
-  '/admin/students': '👥', '/admin/users': '👤', '/admin/settings': '⚙️', '/admin/audit': '🔍',
+  '/admin/students': '👥', '/admin/users': '👤', '/admin/audit': '🔍',
   '/admin/import': '📥', '/admin/storage': '☁️',
 };
 // أيقونة لكل رابط؛ Monitor AI بارز بتنسيق خاص
@@ -294,7 +294,6 @@ route('/admin/lessons/:id', view(admin.lessonEditView), staff);
 route('/admin/students', view(admin.studentsView), staff);
 route('/admin/students/:id', view(admin.studentView), staff);
 route('/admin/users', view(admin.usersView), adminOnly);
-route('/admin/settings', view(admin.settingsView), adminOnly);
 route('/admin/audit', view(admin.auditView), adminOnly);
 route('/admin/import', view(admin.importView), adminOnly);
 route('/admin/storage', view(admin.storageView), adminOnly);
