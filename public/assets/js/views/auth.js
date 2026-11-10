@@ -1,4 +1,4 @@
-import { html, toast, errorMessage } from '../ui.js';
+import { html, raw, toast, errorMessage } from '../ui.js';
 import { t, getLocale, setLocale } from '../i18n.js';
 import { api } from '../api.js';
 import { store } from '../store.js';
@@ -39,11 +39,26 @@ export function loginView(root, { query }) {
           </div>
           <button class="btn btn-primary btn-lg" style="width:100%;margin-top:6px" type="submit">${t('auth.login')}</button>
         </form>
+
+        <!-- فاصل -->
+        <div style="display:flex;align-items:center;gap:12px;margin:18px 0">
+          <hr style="flex:1;border:none;border-top:1px solid var(--border)">
+          <span class="muted small">${t('auth.orContinueWith')}</span>
+          <hr style="flex:1;border:none;border-top:1px solid var(--border)">
+        </div>
+
+        <!-- زر Google -->
+        ${googleBtn()}
+
         <p class="small" style="margin-top:18px;text-align:center;color:var(--muted)">
           ${t('auth.noAccount')} <a href="/register${query.next ? `?next=${encodeURIComponent(query.next)}` : ''}" style="color:var(--primary);font-weight:700">${t('auth.createAccount')}</a>
         </p>
       </div>
     </div>`.s;
+
+  root.querySelector('#btn-google').onclick = () => {
+    window.location.href = '/auth/google';
+  };
 
   const f = root.querySelector('#f');
   f.onsubmit = async (e) => {
@@ -70,7 +85,8 @@ export function loginView(root, { query }) {
 }
 
 // ── Google Sign-In button (SVG Google logo) ───────────────────────────────────
-const GOOGLE_BTN = `<button type="button" id="btn-google" style="
+function googleBtn() {
+  return raw(`<button type="button" id="btn-google" style="
   display:flex;align-items:center;justify-content:center;gap:10px;
   width:100%;padding:11px 16px;border:1.5px solid var(--border);
   border-radius:10px;background:var(--surface);color:var(--text);
@@ -82,7 +98,8 @@ const GOOGLE_BTN = `<button type="button" id="btn-google" style="
     <path fill="#34A853" d="M24 48c6.2 0 11.4-2 15.2-5.5l-7.5-5.8c-2.1 1.4-4.7 2.3-7.7 2.3-6.1 0-11.4-3.7-13.2-9.4l-8.3 6.1C6.7 42.6 14.7 48 24 48z"/>
   </svg>
   ${t('auth.googleSignIn')}
-</button>`;
+</button>`);
+}
 
 export function registerView(root, { query }) {
   root.innerHTML = html`
@@ -105,7 +122,7 @@ export function registerView(root, { query }) {
         <div id="err" class="form-error" role="alert" hidden></div>
 
         <!-- زر Google -->
-        ${GOOGLE_BTN}
+        ${googleBtn()}
 
         <!-- فاصل -->
         <div style="display:flex;align-items:center;gap:12px;margin:18px 0">
