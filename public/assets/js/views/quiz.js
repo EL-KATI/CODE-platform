@@ -8,6 +8,16 @@ import { navigate } from '../router.js';
 import { renderVisual } from '../scenario.js';
 import { modeLabel, videoBlock, speechText } from './common.js';
 
+const svg = (d, w = 2.2) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const IC = {
+  home: svg('<path d="M3 11l9-7 9 7"/><path d="M5 10v10h5v-6h4v6h5V10"/>'),
+  vol: svg('<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>'),
+  mute: svg('<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9l5 6M22 9l-5 6"/>'),
+  x: svg('<path d="M6 6l12 12M18 6L6 18"/>', 2.8),
+  check: svg('<path d="M4.5 12.5l5 5L19.5 7"/>', 2.8),
+  next: svg('<path d="M15 5l-7 7 7 7"/>', 2.8),
+};
+
 export async function quizView(appRoot, { params }) {
   appRoot.innerHTML = loading().s;
   let a;
@@ -46,6 +56,18 @@ export async function quizView(appRoot, { params }) {
     overlay.innerHTML = `
       <div class="nrs-window">
 
+        <!-- ══ الشريط العلوي (الهاتف واللوحة فقط) ══ -->
+        <header class="nrs-topbar">
+          <button class="nrs-tb-btn" id="tb-home" type="button" aria-label="${t('quiz.close')}">${IC.home}</button>
+          <div class="nrs-tb-pills">
+            <span class="nrs-tb-pill nrs-tb-timer" id="tb-timer" ${exam ? '' : 'hidden'}>${a.secondsPerQuestion || 30}<small>s</small></span>
+            <span class="nrs-tb-pill nrs-tb-title">${esc(modeLabel(a))}</span>
+            <span class="nrs-tb-pill nrs-tb-count" id="tb-counter">1/${a.questions.length}</span>
+          </div>
+          <button class="nrs-tb-btn" id="tb-read" type="button" aria-pressed="${reading}" aria-label="${t('quiz.readAloud')}">${reading ? IC.vol : IC.mute}</button>
+          <div class="nrs-tb-progress" aria-hidden="true"><i id="tb-progress"></i></div>
+        </header>
+
         <!-- ══ الشاشة الرئيسية (يمين/فوق) ══ -->
         <div class="nrs-main">
           <!-- منطقة الوسائط: صورة أو فيديو -->
@@ -63,9 +85,10 @@ export async function quizView(appRoot, { params }) {
 
           <!-- اللوحة البنفسجية: تصحيح + أزرار 1-4 + موافق -->
           <div class="nrs-panel">
+            <button class="nrs-btn-clear" id="btn-clear" type="button" aria-label="مسح الاختيار">${IC.x}</button>
             <button class="nrs-btn-correct" id="btn-correct" type="button">تصحيح</button>
             <div class="nrs-choices" id="nrs-choices"></div>
-            <button class="nrs-btn-ok" id="btn-ok" type="button">موافق</button>
+            <button class="nrs-btn-ok" id="btn-ok" type="button"><span class="ok-ic" aria-hidden="true">${IC.check}</span><span class="ok-lbl">موافق</span></button>
           </div>
 
           <!-- زر إغلاق خفي -->
@@ -101,6 +124,23 @@ export async function quizView(appRoot, { params }) {
     overlay.querySelector('#nrs-close').onclick = async () => {
       if (exam && !finished && !(await confirmDialog(t('quiz.closeConfirm'), { okLabel: t('quiz.close') }))) return;
       navigate(exam ? '/exam' : '/practice');
+    };
+
+    overlay.querySelector('#tb-home').onclick = () => overlay.querySelector('#nrs-close').click();
+    overlay.querySelector('#tb-read').onclick = (e) => {
+      reading = !reading;
+      autoRead.set(reading);
+      e.currentTarget.innerHTML = reading ? IC.vol : IC.mute;
+      e.currentTarget.setAttribute('aria-pressed', String(reading));
+      if (reading) speak(speechText(q(), idx + 1), { silent: true }); else stopSpeaking();
+    };
+    // ✕ : مسح الاختيار الحالي (قبل التأكيد)
+    overlay.querySelector('#btn-clear').onclick = () => {
+      const cur = q();
+      if (cur.answer) return;
+      selected = cur.is_double && Array.isArray(cur.sub_questions) && cur.sub_questions.length === 2 ? { a: new Set(), b: new Set() } : new Set();
+      sound.play('click');
+      syncChoices();
     };
 
     overlay.querySelector('#btn-ok').onclick = () => {
@@ -316,6 +356,10 @@ export async function quizView(appRoot, { params }) {
   function renderFooter() {
     const ctr = overlay.querySelector('#nrs-counter');
     if (ctr) ctr.textContent = `${idx + 1}/${a.questions.length}`;
+    const tc = overlay.querySelector('#tb-counter');
+    if (tc) tc.textContent = `${idx + 1}/${a.questions.length}`;
+    const pg = overlay.querySelector('#tb-progress');
+    if (pg) pg.style.width = `${(100 * (idx + 1)) / a.questions.length}%`;
   }
 
   // ── رسم السؤال كامل ──────────────────────────────────────────────
@@ -339,7 +383,13 @@ export async function quizView(appRoot, { params }) {
 
     // تحديث حالة زر موافق
     const okBtn = overlay.querySelector('#btn-ok');
-    if (okBtn) okBtn.textContent = ans ? (idx < a.questions.length - 1 ? 'التالي' : 'النتائج') : 'موافق';
+    if (okBtn) {
+      okBtn.querySelector('.ok-lbl').textContent = ans ? (idx < a.questions.length - 1 ? 'التالي' : 'النتائج') : 'موافق';
+      okBtn.querySelector('.ok-ic').innerHTML = ans ? IC.next : IC.check;
+      okBtn.classList.toggle('is-next', !!ans);
+    }
+    const clr = overlay.querySelector('#btn-clear');
+    if (clr) clr.disabled = !!ans;
 
     // بعد التصحيح: ننزلو فاللوحة السوداء باش يبان الشرح بلا تمرير يدوي
     if (!exam && ans) { const panel = overlay.querySelector('#nrs-text-panel'); const fb = overlay.querySelector('.nrs-fb'); if (panel && fb) panel.scrollTop = Math.max(0, fb.offsetTop - panel.offsetTop - 8); }
@@ -447,7 +497,13 @@ export async function quizView(appRoot, { params }) {
     const total = a.secondsPerQuestion || 30;
     remaining = from ?? total;
     const el = overlay.querySelector('#nrs-timer');
+    const tb = overlay.querySelector('#tb-timer');
     const draw = () => {
+      if (tb) {
+        tb.innerHTML = `${remaining}<small>s</small>`;
+        tb.classList.toggle('timer-low', remaining <= 5);
+        tb.classList.toggle('timer-warn', remaining <= 10 && remaining > 5);
+      }
       if (!el) return;
       el.textContent = remaining;
       el.classList.toggle('timer-low', remaining <= 5);
