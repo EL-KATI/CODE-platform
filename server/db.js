@@ -369,6 +369,14 @@ function open(file = config.dbFile) {
       })();
     } finally { db.pragma('foreign_keys = ON'); }
   }
+  // Migration: رقم الهوية موحّد (أحرف كبيرة بدون فراغات/شرطات) وفريد لكل دور (متعلم/مدرب)
+  db.exec("UPDATE users SET cin = upper(replace(replace(trim(cin), ' ', ''), '-', '')) WHERE cin IS NOT NULL AND cin <> '' AND cin <> upper(replace(replace(trim(cin), ' ', ''), '-', ''))");
+  if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = 'ux_users_role_cin'").get()) {
+    const dups = db.prepare(`SELECT role, cin, COUNT(*) AS n FROM users WHERE role IN ('student','instructor') AND cin IS NOT NULL AND cin <> ''
+      GROUP BY role, cin HAVING n > 1`).all();
+    if (dups.length) console.warn(`[db] ${dups.length} رقم هوية مكرر — الفهرس الفريد مؤجل حتى يُصحَّح: ${dups.slice(0, 5).map((x) => `${x.role}:${x.cin}×${x.n}`).join(', ')}`);
+    else db.exec("CREATE UNIQUE INDEX ux_users_role_cin ON users(role, cin) WHERE cin IS NOT NULL AND cin <> '' AND role IN ('student','instructor')");
+  }
   // Migration: مكان الحصة
   if (!db.prepare('PRAGMA table_info(training_slots)').all().some((c) => c.name === 'location')) db.exec('ALTER TABLE training_slots ADD COLUMN location TEXT');
   db.exec("UPDATE users SET school_id = id WHERE role = 'school' AND (school_id IS NULL OR school_id = '')");

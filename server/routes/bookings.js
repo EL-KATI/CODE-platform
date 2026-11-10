@@ -248,6 +248,7 @@ router.get('/my', wrap(async (req, res) => {
 /* ── كل الحجوزات (مدرب/مؤسسة/أدمن — الاطلاع فقط للمدرب) ─────────── */
 router.get('/', wrap(async (req, res) => {
   if (req.user.role === 'student') return res.status(403).json({ error: 'forbidden' });
+  if (!req.user.school_id) return res.json({ bookings: [], canManage: false });
   const { status, date } = req.query;
   let query = `
     SELECT b.*, s.slot_date, s.slot_hour, s.location AS slot_location, s.instructor_id,

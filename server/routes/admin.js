@@ -15,6 +15,15 @@ const progress = require('../services/progress');
 const { wrap, str, int, optInt, bad, notFound, EMAIL_RE, HttpError } = require('../http');
 
 const router = express.Router();
+
+/** نفس المؤسسة؟ (school_id قد يكون TEXT في قواعد بيانات قديمة) — بدون مؤسسة = لا */
+const sameSchool = (a, b) => a !== null && a !== undefined && a !== '' && b !== null && b !== undefined && b !== '' && Number(a) === Number(b);
+/** المؤسسة والمدرب بدون school_id لا يرون أي متعلم (بدل رؤية الجميع) */
+const viewerSchool = (req) => (req.user.role === 'admin' ? null : (req.user.school_id || 0));
+/** رقم الهوية: أحرف كبيرة بدون فراغات أو شرطات (AB 123-456 → AB123456) */
+const normCin = (v) => String(v ?? '').toUpperCase().replace(/[\s-]+/g, '').slice(0, 20);
+/** رقم هوية مستعمل من قبل في نفس الدور (متعلم/مدرب) في كل المنصة؟ */
+const cinTaken = (d, role, cin, exceptId = 0) => !!d.prepare("SELECT 1 FROM users WHERE role = ? AND cin = ? AND cin <> '' AND id <> ?").get(role, cin, exceptId);
 // الوصول للوحة الإدارة: المدرب، المؤسسة، الأدمن
 const staff = auth.requireRole('instructor', 'admin', 'school');
 const adminOnly = auth.requireRole('admin');
@@ -115,8 +124,8 @@ router.get('/students', (req, res) => {
   const q = `%${(req.query.q || '').toString().slice(0, 80)}%`;
   const d = db.get();
   // المؤسسة والمدرب يريان فقط طلابهم (school_id = school.school_id أو instructor.school_id)
-  const viewerSchoolId = req.user.role === 'student' ? null
-    : (req.user.role === 'admin' ? null : req.user.school_id);
+  const viewerSchoolId = viewerSchool(req);
+  if (viewerSchoolId === 0) return res.json([]);
   let rows;
   if (viewerSchoolId) {
     rows = d.prepare(`SELECT u.id, u.name, u.email, u.created_at, u.last_login_at, u.exam_date, u.active, u.archived, u.school_id,
@@ -157,30 +166,12 @@ router.get('/students/:id', wrap(async (req, res) => {
   ).get(int(req.params.id, { min: 1 }));
   if (!u) throw notFound();
   // المؤسسة والمدرب لا يريان إلا طلاب مؤسستهم
-  const viewerSchoolId = ['school','instructor'].includes(req.user.role) ? req.user.school_id : null;
-  if (viewerSchoolId && String(u.school_id) !== String(viewerSchoolId)) return res.status(403).json({ error: 'forbidden' });
+  if (req.user.role !== 'admin' && !sameSchool(u.school_id, req.user.school_id)) return res.status(403).json({ error: 'forbidden' });
   res.json({ user: u, dashboard: progress.dashboard(u.id) });
 }));
 
 // --- إدارة طلاب المؤسسة (school + admin) ------------------------------------
-// إضافة طالب وربطه بالمؤسسة
-router.post('/school/students', schoolOrAdmin, wrap(async (req, res) => {
-  const { hashPassword } = require('./auth');
-  const body = req.body || {};
-  const name = str(body.name, { min: 2, max: 80, field: 'name' });
-  const email = str(body.email, { min: 5, max: 160, field: 'email' }).toLowerCase();
-  if (!EMAIL_RE.test(email)) throw bad('invalid_email');
-  const pw = str(body.password || '', { min: 8, max: 128, field: 'password' });
-  if (!/\d/.test(pw)) throw bad('weak_password');
-  const d = db.get();
-  if (d.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) throw new HttpError(409, 'email_taken');
-  // المؤسسة تربط الطالب بـ school_id الخاص بها تلقائياً
-  const schoolId = req.user.role === 'school' ? req.user.school_id : (body.school_id || null);
-  const info = d.prepare('INSERT INTO users (email, name, password_hash, role, locale, school_id) VALUES (?,?,?,?,?,?)')
-    .run(email, name, await auth.hashPassword(pw), 'student', body.locale || 'ar', schoolId);
-  db.audit(req.user.id, 'create', 'user', info.lastInsertRowid, { name, email, school_id: schoolId });
-  res.status(201).json({ id: info.lastInsertRowid, name, email, school_id: schoolId });
-}));
+// (أُزيل POST /school/students: كان يُنشئ متعلماً بدون رقم الهوية ولا تحقق من التكرار — الإضافة عبر POST /users)
 
 // تعديل بيانات طالب (المؤسسة)
 router.patch('/school/students/:id', schoolOrAdmin, wrap(async (req, res) => {
@@ -188,8 +179,7 @@ router.patch('/school/students/:id', schoolOrAdmin, wrap(async (req, res) => {
   const d = db.get();
   const u = d.prepare('SELECT * FROM users WHERE id = ? AND role = ?').get(id, 'student');
   if (!u) throw notFound();
-  const viewerSchoolId = req.user.role === 'school' ? req.user.school_id : null;
-  if (viewerSchoolId && u.school_id !== viewerSchoolId) return res.status(403).json({ error: 'forbidden' });
+  if (req.user.role !== 'admin' && !sameSchool(u.school_id, req.user.school_id)) return res.status(403).json({ error: 'forbidden' });
   const b = req.body || {};
   if (b.name) d.prepare('UPDATE users SET name = ? WHERE id = ?').run(str(b.name, { min: 2, max: 80, field: 'name' }), id);
   if (b.active !== undefined) d.prepare('UPDATE users SET active = ? WHERE id = ?').run(b.active ? 1 : 0, id);
@@ -204,8 +194,7 @@ router.delete('/school/students/:id', schoolOrAdmin, wrap(async (req, res) => {
   const d = db.get();
   const u = d.prepare('SELECT * FROM users WHERE id = ? AND role = ?').get(id, 'student');
   if (!u) throw notFound();
-  const viewerSchoolId = req.user.role === 'school' ? req.user.school_id : null;
-  if (viewerSchoolId && u.school_id !== viewerSchoolId) return res.status(403).json({ error: 'forbidden' });
+  if (req.user.role !== 'admin' && !sameSchool(u.school_id, req.user.school_id)) return res.status(403).json({ error: 'forbidden' });
   d.prepare('DELETE FROM users WHERE id = ?').run(id);
   db.audit(req.user.id, 'delete', 'student', id);
   res.json({ ok: true });
@@ -580,7 +569,7 @@ const userScope = wrap(async (req, res, next) => {
   // الأدمين العادي لا يمكنه الوصول لحساب الأدمين الأكبر
   if (u.is_super_admin && !isSuperAdmin(req)) return res.status(403).json({ error: 'forbidden' });
   if (req.user.role === 'admin') return next();
-  if (!req.user.school_id || u.school_id !== req.user.school_id || !['student', 'instructor'].includes(u.role)) {
+  if (!sameSchool(u.school_id, req.user.school_id) || !['student', 'instructor'].includes(u.role)) {
     return res.status(403).json({ error: 'forbidden' });
   }
   next();
@@ -619,6 +608,12 @@ router.post('/users', schoolOrAdmin, wrap(async (req, res) => {
 
   const d = db.get();
   if (d.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) throw new HttpError(409, 'email_taken');
+  // رقم الهوية: موحّد، ولا يتكرر لنفس الدور في كل المنصة
+  if (role === 'student' || role === 'instructor') {
+    vals.cin = normCin(vals.cin);
+    if (vals.cin.length < 4) throw bad('invalid_field', { field: 'cin' });
+    if (cinTaken(d, role, vals.cin)) throw new HttpError(409, 'cin_taken');
+  }
 
   // كلمة سر عشوائية تُولَّد عند الحفظ وتُعرض مرة واحدة فقط
   const password = generatePassword();
@@ -630,7 +625,7 @@ router.post('/users', schoolOrAdmin, wrap(async (req, res) => {
   try {
     info = d.prepare(`INSERT INTO users (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`).run(...params);
   } catch (e) {
-    if (e.message && e.message.includes('UNIQUE')) throw new HttpError(409, 'email_taken');
+    if (e.message && e.message.includes('UNIQUE')) throw new HttpError(409, /cin/.test(e.message) ? 'cin_taken' : 'email_taken');
     console.error('[POST /users] INSERT error:', e.message);
     throw new HttpError(500, 'server_error');
   }
@@ -668,7 +663,18 @@ router.patch('/users/:id', schoolOrAdmin, userScope, wrap(async (req, res) => {
     sets.email = email;
   }
   const fields = { ...USER_FIELDS.common, ...(USER_FIELDS[u.role] || {}) };
-  for (const [k, max] of Object.entries(fields)) if (b[k] !== undefined) sets[k] = clean(b[k], max);
+  for (const [k, max] of Object.entries(fields)) if (b[k] !== undefined && k !== 'cin') sets[k] = clean(b[k], max);
+  // رقم الهوية لا يُعدَّل بعد التسجيل (لأي دور، حتى الأدمين). استثناء وحيد: حساب قديم بدون رقم يُكمَّل مرة واحدة.
+  if (b.cin !== undefined && 'cin' in fields) {
+    const next = normCin(b.cin);
+    const cur = normCin(u.cin);
+    if (cur) { if (next !== cur) throw bad('cin_locked'); }
+    else if (next) {
+      if (next.length < 4) throw bad('invalid_field', { field: 'cin' });
+      if (cinTaken(d, u.role, next, id)) throw new HttpError(409, 'cin_taken');
+      sets.cin = next;
+    }
+  }
   if (u.role === 'student' || u.role === 'instructor') {
     if (b.gender !== undefined) sets.gender = ['M', 'F'].includes(b.gender) ? b.gender : null;
     if (u.role === 'student' && b.id_type !== undefined) sets.id_type = ['CIN', 'CD', 'CS'].includes(b.id_type) ? b.id_type : 'CIN';
@@ -687,7 +693,7 @@ router.patch('/users/:id', schoolOrAdmin, userScope, wrap(async (req, res) => {
     try {
       d.prepare(`UPDATE users SET ${cols.map((c) => `${c} = ?`).join(', ')} WHERE id = ?`).run(...Object.values(sets), id);
     } catch (e) {
-      if (e.message && e.message.includes('UNIQUE')) throw new HttpError(409, 'email_taken');
+      if (e.message && e.message.includes('UNIQUE')) throw new HttpError(409, /cin/.test(e.message) ? 'cin_taken' : 'email_taken');
       throw e;
     }
   }

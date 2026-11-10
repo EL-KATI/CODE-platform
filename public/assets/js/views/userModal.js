@@ -111,6 +111,14 @@ export async function openUserForm({ mode = 'edit', id = null, role = 'student',
       ${roleExtraFields(curRole, [])}
       ${editing ? '<p class="muted small" style="margin:0">🔒 لا يمكن تعديل كلمة السر ولا الدور من هنا.</p>' : '<p class="muted small" style="margin:0">🔑 تُولَّد كلمة سر عشوائية خاصة عند الحفظ وتظهر مرة واحدة.</p>'}`;
     if (editing) fillUserForm(form, user);
+    // رقم الهوية لا يُعدَّل بعد التسجيل (يُكمَّل فقط إذا كان فارغاً في حساب قديم)
+    const cinEl = form.elements.cin;
+    if (editing && cinEl && cinEl.value) {
+      cinEl.readOnly = true;
+      cinEl.setAttribute('aria-readonly', 'true');
+      cinEl.title = t('admin.cinLocked');
+      cinEl.insertAdjacentHTML('afterend', `<span class="small muted">🔒 ${esc(t('admin.cinLocked'))}</span>`);
+    }
     const sel = form.querySelector('#um-role');
     if (sel) sel.onchange = () => { curRole = sel.value; draw(); };
   };
@@ -137,6 +145,7 @@ export async function openUserForm({ mode = 'edit', id = null, role = 'student',
     try {
       if (editing) {
         delete body.role;
+        if (form.elements.cin && form.elements.cin.readOnly) delete body.cin;
         await api.patch(`/admin/users/${id}`, body);
         toast(t('common.saved'));
         close();
