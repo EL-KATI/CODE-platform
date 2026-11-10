@@ -16,6 +16,6 @@ if (fs.existsSync(file)) {
     let v = m[2].trim();
     if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
     else v = v.replace(/\s+#.*$/, '');
-    if (process.env[m[1]] === undefined) process.env[m[1]] = v;
+    process.env[m[1]] = v; // .env دائماً يغلب على متغيرات النظام
   }
 }
