@@ -51,12 +51,18 @@ const SIDE_ICONS = {
   '/admin/students': '👥', '/admin/users': '👤', '/admin/settings': '⚙️', '/admin/audit': '🔍',
   '/admin/import': '📥',
 };
+// أيقونة لكل رابط؛ Monitor AI بارز بتنسيق خاص
+const NAV_ICON = { '/': 'home', '/dashboard': 'dashboard', '/lessons': 'book-open', '/practice': 'layers', '/exam': 'clock', '/mistakes': 'restore', '/assistant': 'sparkles', '/bookings': 'calendar', '/login': 'log-in', '/admin': 'bar-chart', '/profile': 'user', '/register': 'user-plus' };
+const isLearnerSide = () => !!store.user && !(store.isAdmin() || store.isSchool() || store.isInstructor());
+
 function renderStaffSide() {
   const u = store.user;
   const isStaff = u && (store.isAdmin() || store.isSchool() || store.isInstructor());
-  const on = isStaff && location.pathname.startsWith('/admin');
+  const learner = isLearnerSide();
+  const on = learner || (isStaff && location.pathname.startsWith('/admin'));
   let side = document.getElementById('staff-side');
   document.body.classList.toggle('has-side', on);
+  document.body.classList.toggle('learner-side', on && learner);
   if (!on) { if (side) side.remove(); return; }
   if (!side) {
     side = document.createElement('aside');
@@ -64,8 +70,26 @@ function renderStaffSide() {
     side.className = 'staff-side';
     document.getElementById('app').before(side);
   }
-  const tabs = admin.getStaffTabs();
   const path = location.pathname;
+  if (learner) {
+    // المتعلم: نفس الشريط الجانبي التفاعلي (أيقونات تتمدد عند المرور) بدل أزرار الرأس
+    if (!side) {
+      side = document.createElement('aside');
+      side.id = 'staff-side';
+      document.getElementById('app').before(side);
+    }
+    side.className = 'staff-side learner';
+    const isCur = (href) => path === href || path.startsWith(href + '/');
+    const items = [...navLinks(), ['/profile', 'nav.profile']];
+    side.setAttribute('aria-label', t('nav.dashboard'));
+    side.innerHTML = html`<div class="side-title">${u.name || ''}</div>
+      <nav>${items.map(([href, key]) => html`<a href="${href}" class="${href === '/assistant' ? 'side-ai' : ''}" title="${t(key)}" ${isCur(href) ? html`aria-current="page"` : ''}><span aria-hidden="true">${raw(iconSvg(NAV_ICON[href] || 'file'))}</span><span>${t(key)}</span></a>`)}</nav>`.s;
+    const hdr0 = document.querySelector('.site-header');
+    if (hdr0) document.documentElement.style.setProperty('--hdr-h', `${hdr0.offsetHeight}px`);
+    return;
+  }
+  side.className = 'staff-side';
+  const tabs = admin.getStaffTabs();
   const cur = (href) => (href === '/admin' ? path === '/admin' : path === href || path.startsWith(href + '/') || (href === '/admin/school/students' && path.startsWith('/admin/students/')));
   const roleLabel = u.role === 'school' ? (u.school_name || u.name) : u.role === 'instructor' ? t('role.instructor') : t('admin.title');
   side.setAttribute('aria-label', t('admin.title'));
@@ -78,11 +102,10 @@ function renderStaffSide() {
 export function renderShell() {
   const path = location.pathname;
   const isCur = (href) => (href === '/' ? path === '/' : path === href || path.startsWith(href + '/'));
-  // أيقونة لكل رابط؛ Monitor AI بارز بتنسيق خاص
-  const NAV_ICON = { '/': 'home', '/dashboard': 'dashboard', '/lessons': 'book-open', '/practice': 'layers', '/exam': 'clock', '/mistakes': 'restore', '/assistant': 'sparkles', '/bookings': 'calendar', '/login': 'log-in', '/admin': 'bar-chart', '/profile': 'user', '/register': 'user-plus' };
   const navA = (href, key) => html`<a href="${href}" class="nav-link ${href === '/assistant' ? 'nav-ai' : ''}" ${isCur(href) ? html`aria-current="page"` : ''} title="${t(key)}"><span class="nav-ic" aria-hidden="true">${raw(iconSvg(NAV_ICON[href] || 'file'))}</span><span class="nav-lbl">${t(key)}</span></a>`;
   const linkHtml = navLinks().map(([href, key]) => navA(href, key));
-  document.getElementById('main-nav').innerHTML = html`${linkHtml}`.s;
+  // المتعلم المسجّل: الروابط في الشريط الجانبي فقط (لا أزرار في الرأس)
+  document.getElementById('main-nav').innerHTML = isLearnerSide() ? '' : html`${linkHtml}`.s;
   renderStaffSide();
   // نمط موحّد لكل الواجهات (المترشح، الزائر، المؤسسة، المدرب، الأدمين)
   document.body.classList.add('ui-apple');

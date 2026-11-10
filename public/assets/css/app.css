@@ -2933,3 +2933,19 @@ body.ui-apple .main-nav a.nav-ai[aria-current="page"], body.ui-apple .mobile-nav
   body.ui-apple .main-nav a.nav-link:not(.nav-ai):not([aria-current="page"]) { padding-inline: 10px; }
 }
 @media (prefers-reduced-motion: reduce) { .nav-ai::after, .nav-ai .nav-ic .ic { animation: none; } .nav-link .ic { transition: none; } }
+
+/* ══ v56: شريط جانبي تفاعلي للمتعلم (نفس تصميم الإدارة) ══ */
+.staff-side a.side-ai > span:first-child {
+  width: 30px; height: 30px; border-radius: 10px; color: #fff;
+  background: linear-gradient(135deg, #bf5af2 0%, #8a6cff 55%, #5d88ff 100%);
+  box-shadow: 0 4px 14px rgb(124 92 255 / .45);
+}
+.staff-side a.side-ai > span:first-child .ic { width: 18px; height: 18px; animation: nav-ai-twinkle 2.8s ease-in-out infinite; }
+.staff-side a.side-ai > span:last-child { font-weight: 700; background: linear-gradient(135deg, #a83fe0, #3d68f0); -webkit-background-clip: text; background-clip: text; color: transparent; }
+body.ui-apple .staff-side a.side-ai[aria-current="page"] { background: linear-gradient(135deg, rgb(168 63 224 / .18), rgb(61 104 240 / .18)); color: var(--text); box-shadow: inset 0 0 0 1px rgb(124 92 255 / .35); }
+.staff-side a > span:first-child .ic { transition: transform .25s cubic-bezier(.34, 1.56, .64, 1); }
+.staff-side a:hover > span:first-child .ic { transform: scale(1.15); }
+@media (max-width: 900px) {
+  .staff-side.learner { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .staff-side a.side-ai > span:first-child .ic, .staff-side a > span:first-child .ic { animation: none; transition: none; } }
