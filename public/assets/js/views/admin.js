@@ -774,6 +774,30 @@ export async function lessonEditView(root, { params }) {
         <label>${t('admin.category')}<select class="input" name="categoryId"><option value="">—</option>${cats.map((c) => html`<option value="${c.id}" ${c.id === l.category_id ? raw('selected') : ''}>${catName(c)}</option>`)}</select></label>
         <label>${t('admin.explanation')}<input class="input" name="summary" value="${l.summary || ''}"></label>
         <label>${t('admin.body')}<textarea class="input" name="body" rows="14">${l.body || ''}</textarea></label>
+        <details class="lx-help small"><summary>${t('lx.authorHelp')}</summary>
+          <pre dir="rtl" style="white-space:pre-wrap;font-size:.82rem;margin:8px 0 0">${`:::quiz
+? نص السؤال
+- [ ] خيار خاطئ
+- [x] خيار صحيح
+! الشرح بعد الجواب
+:::
+
+:::scenario
+? وصف الموقف
+- [x] خيار :: لماذا هو صحيح
+- [ ] خيار :: لماذا هو خاطئ
+:::
+
+:::reveal
+? سؤال للتفكير
+الجواب
+:::
+
+:::summary
+- نقطة مهمة
+:::`}</pre>
+          <p class="muted">${t('lx.authorNote')}</p>
+        </details>
         <div class="row"><label>min<input class="input" name="minutes" type="number" min="1" value="${l.minutes}"></label>
           <label>#<input class="input" name="sort" type="number" min="0" value="${l.sort}"></label>
           <label><input type="checkbox" name="published" ${l.published ? raw('checked') : ''}> ${t('admin.active')}</label></div>

@@ -16,11 +16,28 @@ router.get('/categories', (req, res) => {
     FROM categories c ORDER BY c.sort, c.id`).all());
 });
 
+// التكرار المتباعد للدروس: مراجعة بعد 2 ثم 7 ثم 21 يوماً من الإنجاز/آخر مراجعة
+const REVIEW_DAYS = [2, 7, 21];
+const toMs = (v) => (v ? Date.parse(String(v).replace(' ', 'T') + (/[zZ+]/.test(String(v).slice(10)) ? '' : 'Z')) : NaN);
+function reviewDue(completedAt, lastReviewAt, reviews, now = Date.now()) {
+  if (reviews >= REVIEW_DAYS.length) return false;
+  const base = toMs(lastReviewAt || completedAt);
+  return Number.isFinite(base) && now - base >= REVIEW_DAYS[reviews] * 864e5;
+}
+
 router.get('/lessons', (req, res) => {
   const uid = req.user ? req.user.id : 0;
-  res.json(db.get().prepare(`SELECT l.id, l.slug, l.title, l.summary, l.minutes, l.category_id, l.sort,
-      EXISTS(SELECT 1 FROM lesson_progress lp WHERE lp.lesson_id = l.id AND lp.user_id = ?) AS completed
-    FROM lessons l WHERE l.published = 1 ORDER BY l.sort, l.id`).all(uid));
+  const rows = db.get().prepare(`SELECT l.id, l.slug, l.title, l.summary, l.minutes, l.category_id, l.sort,
+      (lp.user_id IS NOT NULL) AS completed, lp.completed_at, lp.reviews, lp.last_review_at,
+      (instr(l.body, ':::quiz') > 0 OR instr(l.body, ':::scenario') > 0 OR instr(l.body, ':::reveal') > 0) AS interactive
+    FROM lessons l LEFT JOIN lesson_progress lp ON lp.lesson_id = l.id AND lp.user_id = ?
+    WHERE l.published = 1 ORDER BY l.sort, l.id`).all(uid);
+  const now = Date.now();
+  res.json(rows.map(({ completed_at, last_review_at, ...l }) => ({
+    ...l,
+    reviews: l.reviews || 0,
+    reviewDue: !!l.completed && reviewDue(completed_at, last_review_at, l.reviews || 0, now),
+  })));
 });
 
 router.get('/lessons/:slug', wrap(async (req, res) => {
@@ -28,7 +45,10 @@ router.get('/lessons/:slug', wrap(async (req, res) => {
   const l = d.prepare('SELECT * FROM lessons WHERE slug = ? AND published = 1').get(req.params.slug);
   if (!l) throw notFound('lesson_not_found');
   const uid = req.user ? req.user.id : 0;
-  l.completed = !!d.prepare('SELECT 1 FROM lesson_progress WHERE user_id = ? AND lesson_id = ?').get(uid, l.id);
+  const lp = d.prepare('SELECT completed_at, reviews, last_review_at FROM lesson_progress WHERE user_id = ? AND lesson_id = ?').get(uid, l.id);
+  l.completed = !!lp;
+  l.reviews = lp ? lp.reviews || 0 : 0;
+  l.reviewDue = !!lp && reviewDue(lp.completed_at, lp.last_review_at, lp.reviews || 0);
   const all = d.prepare('SELECT slug, title FROM lessons WHERE published = 1 ORDER BY sort, id').all();
   const i = all.findIndex((x) => x.slug === l.slug);
   l.prev = all[i - 1] || null;

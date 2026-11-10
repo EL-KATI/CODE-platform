@@ -2,7 +2,7 @@
 // Supporte : titres ##/###, paragraphes, listes, tableaux, citations, **gras**, *italique*, `code`, [liens](https://…).
 import { esc } from './ui.js';
 
-function inline(s) {
+export function inline(s) {
   return esc(s)
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')

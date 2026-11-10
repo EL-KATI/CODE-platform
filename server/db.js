@@ -327,6 +327,9 @@ function open(file = config.dbFile) {
   const userCols = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
   if (!userCols.includes('school_id'))     db.exec('ALTER TABLE users ADD COLUMN school_id INTEGER');
   if (!userCols.includes('gender'))        db.exec("ALTER TABLE users ADD COLUMN gender TEXT DEFAULT 'M'");
+  const lpCols = db.prepare('PRAGMA table_info(lesson_progress)').all().map((c) => c.name);
+  if (!lpCols.includes('reviews'))        db.exec('ALTER TABLE lesson_progress ADD COLUMN reviews INTEGER NOT NULL DEFAULT 0');
+  if (!lpCols.includes('last_review_at')) db.exec('ALTER TABLE lesson_progress ADD COLUMN last_review_at TEXT');
   if (!userCols.includes('session_id'))    db.exec('ALTER TABLE users ADD COLUMN session_id TEXT');
   if (!userCols.includes('cin'))           db.exec("ALTER TABLE users ADD COLUMN cin TEXT DEFAULT ''");
   if (!userCols.includes('first_name_fr')) db.exec("ALTER TABLE users ADD COLUMN first_name_fr TEXT DEFAULT ''");

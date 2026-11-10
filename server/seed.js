@@ -118,7 +118,7 @@ function ensureAdmin(d) {
   return { email };
 }
 
-module.exports = { seedContent, ensureAdmin, CATEGORIES };
+module.exports = { seedContent, ensureAdmin, CATEGORIES, parseLesson };
 
 if (require.main === module) {
   const d = db.open();

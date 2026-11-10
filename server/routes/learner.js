@@ -29,6 +29,13 @@ router.post('/lessons/:id/complete', wrap(async (req, res) => {
   db.get().prepare('INSERT OR IGNORE INTO lesson_progress (user_id, lesson_id) VALUES (?, ?)').run(req.user.id, id);
   res.json({ completed: true });
 }));
+// مراجعة درس منجز (التكرار المتباعد)
+router.post('/lessons/:id/review', wrap(async (req, res) => {
+  const id = int(req.params.id, { min: 1 });
+  const r = db.get().prepare("UPDATE lesson_progress SET reviews = COALESCE(reviews, 0) + 1, last_review_at = datetime('now') WHERE user_id = ? AND lesson_id = ?").run(req.user.id, id);
+  if (!r.changes) throw notFound('lesson_not_found');
+  res.json({ ok: true });
+}));
 router.delete('/lessons/:id/complete', wrap(async (req, res) => {
   db.get().prepare('DELETE FROM lesson_progress WHERE user_id = ? AND lesson_id = ?').run(req.user.id, int(req.params.id, { min: 1 }));
   res.json({ completed: false });
