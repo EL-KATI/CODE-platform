@@ -14,7 +14,7 @@
  */
 const { Router } = require('express');
 const auth = require('../auth');
-const getDb = require('../db');
+const db = require('../db');
 
 const router = Router();
 
@@ -57,7 +57,7 @@ function computeNextStep(j) {
    جميع الطلاب في مسار الامتحانات (للمؤسسة أو الأدمين)
    ───────────────────────────────────────────────────────────────────────── */
 router.get('/students', schoolOrAdmin, wrap(async (req, res) => {
-  const d = getDb();
+  const d = db.get();
   let rows;
 
   if (req.user.role === 'admin') {
@@ -86,7 +86,7 @@ router.get('/students', schoolOrAdmin, wrap(async (req, res) => {
    الطلاب الذين لديهم امتحان اليوم (نظري أو تطبيقي)
    ───────────────────────────────────────────────────────────────────────── */
 router.get('/today', schoolOrAdmin, wrap(async (req, res) => {
-  const d = getDb();
+  const d = db.get();
   const today = new Date().toISOString().slice(0, 10);
 
   const schoolFilter = req.user.role === 'admin' ? '' : 'AND ej.school_id = ?';
@@ -126,7 +126,7 @@ router.get('/today', schoolOrAdmin, wrap(async (req, res) => {
    الطلاب المؤرشفون (نهاية المسار)
    ───────────────────────────────────────────────────────────────────────── */
 router.get('/archive', schoolOrAdmin, wrap(async (req, res) => {
-  const d = getDb();
+  const d = db.get();
   let rows;
 
   if (req.user.role === 'admin') {
@@ -156,7 +156,7 @@ router.get('/archive', schoolOrAdmin, wrap(async (req, res) => {
    body: { student_id, theory1_date }
    ───────────────────────────────────────────────────────────────────────── */
 router.post('/enroll', schoolOrAdmin, wrap(async (req, res) => {
-  const d = getDb();
+  const d = db.get();
   const { student_id, theory1_date } = req.body;
 
   if (!student_id || !theory1_date) {
@@ -192,7 +192,7 @@ router.post('/enroll', schoolOrAdmin, wrap(async (req, res) => {
    body: { exam_type: 'theory_1'|'theory_2'|'practical_1'|'practical_2', date }
    ───────────────────────────────────────────────────────────────────────── */
 router.patch('/:studentId/date', schoolOrAdmin, wrap(async (req, res) => {
-  const d = getDb();
+  const d = db.get();
   const studentId = parseInt(req.params.studentId, 10);
   if (!Number.isInteger(studentId) || studentId < 1) return res.status(400).json({ error: 'invalid_student_id' });
   const { exam_type, date } = req.body;
@@ -230,7 +230,7 @@ router.patch('/:studentId/date', schoolOrAdmin, wrap(async (req, res) => {
    body: { exam_type, result: 'passed'|'failed' }
    ───────────────────────────────────────────────────────────────────────── */
 router.patch('/:studentId/result', schoolOrAdmin, wrap(async (req, res) => {
-  const d = getDb();
+  const d = db.get();
   const studentId = parseInt(req.params.studentId, 10);
   if (!Number.isInteger(studentId) || studentId < 1) return res.status(400).json({ error: 'invalid_student_id' });
   const { exam_type, result } = req.body;
@@ -282,7 +282,7 @@ router.patch('/:studentId/result', schoolOrAdmin, wrap(async (req, res) => {
    ───────────────────────────────────────────────────────────────────────── */
 router.get('/me', auth.requireAuth, wrap(async (req, res) => {
   if (req.user.role !== 'student') return res.status(403).json({ error: 'forbidden' });
-  const d = getDb();
+  const d = db.get();
   const journey = d.prepare('SELECT * FROM exam_journey WHERE student_id = ?').get(req.user.id);
   if (!journey) return res.json({ journey: null });
   res.json({ journey, next_step: computeNextStep(journey) });
