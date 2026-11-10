@@ -196,6 +196,20 @@ CREATE TABLE IF NOT EXISTS otp_codes (
   created_at TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 
+/* ── روابط إعادة تعيين كلمة السر ────────────────────────────────────────
+   - token: رمز UUID عشوائي يُرسَل بالإيميل
+   - expires_at: صلاحية 30 دقيقة
+   - used: 1 بعد الاستخدام
+   ─────────────────────────────────────────────────────────────────────── */
+CREATE TABLE IF NOT EXISTS pw_reset_tokens (
+  id         INTEGER PRIMARY KEY,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token      TEXT    NOT NULL UNIQUE,
+  expires_at TEXT    NOT NULL,
+  used       INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
 /* ── مؤسسات تعليم السياقة ────────────────────────────────────────────────
    يقوم الأدمين بإضافة المؤسسات، وتستخدم school_id في جدول users للربط.
    school_id في users = id من هذا الجدول (INTEGER, وليس TEXT).
@@ -413,6 +427,15 @@ function open(file = config.dbFile) {
     id         INTEGER PRIMARY KEY,
     user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     code       TEXT    NOT NULL,
+    expires_at TEXT    NOT NULL,
+    used       INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+  )`);
+  // Migration: روابط إعادة تعيين كلمة السر
+  db.exec(`CREATE TABLE IF NOT EXISTS pw_reset_tokens (
+    id         INTEGER PRIMARY KEY,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token      TEXT    NOT NULL UNIQUE,
     expires_at TEXT    NOT NULL,
     used       INTEGER NOT NULL DEFAULT 0,
     created_at TEXT    NOT NULL DEFAULT (datetime('now'))
