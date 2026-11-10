@@ -6,8 +6,12 @@ export class ApiError extends Error {
 async function request(method, url, body) {
   const opts = { method, headers: { 'X-Requested-With': 'fetch' }, credentials: 'same-origin' };
   if (body !== undefined) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+  // لا يبقى أي طلب معلقاً إلى الأبد (Monitor AI قد ينتظر حتى ~45 ث في الخادم)
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 60_000);
+  opts.signal = ctrl.signal;
   let res;
-  try { res = await fetch(`/api${url}`, opts); } catch { throw new ApiError(0, 'network_error'); }
+  try { res = await fetch(`/api${url}`, opts); } catch { throw new ApiError(0, ctrl.signal.aborted ? 'timeout' : 'network_error'); } finally { clearTimeout(timer); }
   const data = res.headers.get('content-type')?.includes('application/json') ? await res.json() : null;
   if (!res.ok) {
     // الحساب فُتح من جهاز آخر: التطبيق يُخرج هذا الجهاز فوراً

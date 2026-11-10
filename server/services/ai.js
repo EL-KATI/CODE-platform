@@ -85,7 +85,7 @@ async function askClaude(question, context = '') {
     max_tokens: 1024,
     system: DRIVING_SYSTEM_PROMPT,
     messages: [{ role: 'user', content: userContent }],
-  });
+  }, { timeout: 40_000, maxRetries: 1 });
 
   const textBlock = response.content.find(b => b.type === 'text');
   return {
@@ -109,13 +109,16 @@ async function askGemini(question, context = '') {
     .filter(Boolean);
   const tried = new Set();
   let lastErr = null;
+  const deadline = Date.now() + GEMINI_TOTAL_MS;
   while (queue.length) {
+    if (Date.now() > deadline) break; // لا نترك المستخدم ينتظر أكثر من الحد الإجمالي
     const name = queue.shift();
     if (tried.has(name)) continue;
     tried.add(name);
     try {
-      const model = googleAI.getGenerativeModel({ model: name });
-      const result = await model.generateContent(prompt);
+      const model = googleAI.getGenerativeModel({ model: name }, { timeout: GEMINI_MODEL_MS });
+      const left = Math.max(3000, Math.min(GEMINI_MODEL_MS, deadline - Date.now()));
+      const result = await withTimeout(model.generateContent(prompt), left, name);
       const response = await result.response;
       if (workingGeminiModel !== name) {
         workingGeminiModel = name;
@@ -127,7 +130,7 @@ async function askGemini(question, context = '') {
       const busy = isOverloaded(e);
       if (!busy && !isModelGone(e)) throw e; // مفتاح خاطئ/شبكة: لا فائدة من تجريب نموذج آخر
       if (busy) { // ضغط مؤقت (503) على هذا النموذج: ننتقل للنموذج التالي لهذا الطلب فقط
-        console.warn(`[Monitor AI] Gemini model "${name}" overloaded (503), trying next…`);
+        console.warn(`[Monitor AI] Gemini model "${name}" busy or slow (${e.status || "timeout"}), trying next…`);
         continue;
       }
       if (workingGeminiModel === name) workingGeminiModel = null;
@@ -143,9 +146,17 @@ async function askGemini(question, context = '') {
 const GEMINI_CANDIDATES = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite'];
 let workingGeminiModel = null;
 let workingFor = null;
+// حدود الانتظار: نموذج واحد 20 ث، والمجموع 45 ث (وإلا يبقى «جارٍ الاختبار…» معلقاً)
+const GEMINI_MODEL_MS = 20_000;
+const GEMINI_TOTAL_MS = 45_000;
+function withTimeout(promise, ms, name) {
+  let t;
+  const timer = new Promise((_, rej) => { t = setTimeout(() => { const e = new Error(`timeout: ${name} did not answer in ${Math.round(ms / 1000)}s`); e.status = 504; rej(e); }, ms); });
+  return Promise.race([promise, timer]).finally(() => clearTimeout(t));
+}
 const isOverloaded = (e) => {
   const status = e && (e.status || e.statusCode);
-  return status === 503 || /\b503\b|high demand|overloaded|UNAVAILABLE/i.test(String(e && e.message || ''));
+  return [429, 503, 504].includes(status) || /\btimeout\b|aborted|ETIMEDOUT|ECONNRESET|\b(429|503)\b|RESOURCE_EXHAUSTED|high demand|overloaded|UNAVAILABLE/i.test(String(e && e.message || ''));
 };
 const isModelGone = (e) => {
   const msg = String(e && e.message || '');
