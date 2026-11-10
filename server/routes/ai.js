@@ -6,6 +6,7 @@ const { ipKeyGenerator } = rateLimit;
 const { requireAuth } = require('../auth');
 const { wrap, str, HttpError } = require('../http');
 const { askAI, availableModels } = require('../services/ai');
+const { findReferences } = require('../services/aiContext');
 
 const router = express.Router();
 
@@ -32,8 +33,13 @@ router.post('/ask', requireAuth, aiLimit, wrap(async (req, res) => {
     throw new HttpError(400, 'invalid_field', { field: 'model' });
   }
 
-  const result = await askAI(question, context, model);
-  res.json(result);
+  // مراجع من دروس المنصة وشروح الأسئلة الأقرب للسؤال (قد تكون فارغة)
+  let refs = { text: '', sources: [] };
+  try { refs = findReferences(question); } catch (e) { console.error('[ai] references:', e.message); }
+  const fullContext = [context, refs.text].filter(Boolean).join('\n\n');
+
+  const result = await askAI(question, fullContext, model);
+  res.json({ answer: result.answer, model: result.model, sources: refs.sources });
 }));
 
 module.exports = router;

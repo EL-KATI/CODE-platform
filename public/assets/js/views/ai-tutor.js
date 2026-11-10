@@ -1,4 +1,4 @@
-/* المساعد الذكي – محادثة مع Claude أو Gemini حول قانون السير */
+/* Monitor AI – محادثة حول مدونة السير المغربية (Claude أو Gemini من جهة الخادم) */
 import { api } from '../api.js';
 import { html, esc, toast, errorMessage } from '../ui.js';
 import { t } from '../i18n.js';
@@ -73,7 +73,8 @@ export async function aiTutorView(root) {
     try {
       const res = await api.post('/ai/ask', { question, model: modelSel.value });
       pending.remove();
-      addMessage('assistant', res.answer, res.model === 'claude' ? 'Claude' : 'Gemini');
+      const src = Array.isArray(res.sources) && res.sources.length ? ` · ${t('ai.sources')} ${res.sources.map((s) => s.replace(/^درس:\s*/, '')).join('، ')}` : '';
+      addMessage('assistant', res.answer, `Monitor AI${src}`);
     } catch (err) {
       pending.remove();
       toast(errorMessage(err), 'error');
