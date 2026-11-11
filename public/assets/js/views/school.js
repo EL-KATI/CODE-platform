@@ -159,9 +159,10 @@ export async function schoolStatsView(root, days = 30) {
   // ── كارد الحصص الجماعية المباشرة ──
   const lv = s.live || { active: 0, total: 0, ended: 0, recent: [] };
   const liveStatusPill = (status) => {
-    if (status === 'active')   return html`<span class="pill pill-success" style="font-size:.7rem">🔴 مباشر</span>`;
-    if (status === 'ended')    return html`<span class="pill" style="font-size:.7rem">منتهية</span>`;
-    return html`<span class="pill pill-warning" style="font-size:.7rem">في الانتظار</span>`;
+    if (status === 'live')     return html`<span class="pill pill-success" style="font-size:.7rem">🔴 مباشر</span>`;
+    if (status === 'waiting')  return html`<span class="pill pill-warning" style="font-size:.7rem">⏳ في الانتظار</span>`;
+    if (status === 'ended')    return html`<span class="pill" style="font-size:.7rem">✅ منتهية</span>`;
+    return html`<span class="pill" style="font-size:.7rem">${status}</span>`;
   };
   const liveRows = lv.recent.length
     ? html`${lv.recent.map((sess) => html`<a class="dash-hrow" href="/admin/live" data-tip="${sess.title} — ${sess.participants} مشارك — ${sess.questions} سؤال">
@@ -170,7 +171,7 @@ export async function schoolStatsView(root, days = 30) {
           <span class="small muted">${sess.date} · ${sess.participants} مشارك · ${sess.questions} سؤال</span>
         </span>
         ${liveStatusPill(sess.status)}
-        ${sess.status === 'active' ? html`<span style="display:inline-flex;align-items:center;gap:4px;min-width:60px"><span class="dash-track" style="width:48px;display:inline-block"><i style="width:${sess.progress}%;background:var(--primary,#c2410c)"></i></span><span class="small" style="width:30px;text-align:end">${sess.progress}%</span></span>` : ''}
+        ${(sess.status === 'live' || sess.status === 'waiting') ? html`<span style="display:inline-flex;align-items:center;gap:4px;min-width:60px"><span class="dash-track" style="width:48px;display:inline-block"><i style="width:${sess.progress}%;background:var(--primary,#c2410c)"></i></span><span class="small" style="width:30px;text-align:end">${sess.progress}%</span></span>` : ''}
       </a>`)}`
     : html`<p class="muted small" style="padding:12px 0">لا حصص جماعية بعد — أنشئ أولى حصصك</p>`;
 

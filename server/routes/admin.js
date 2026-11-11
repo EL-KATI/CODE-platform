@@ -125,7 +125,7 @@ router.get('/school/stats', auth.requireRole('school'), (req, res) => {
     WHERE ls.school_id = ?
     ORDER BY ls.created_at DESC LIMIT 20`).all(sid);
 
-  const liveActive  = liveSessions.filter((s) => s.status === 'active').length;
+  const liveActive  = liveSessions.filter((s) => s.status === 'live' || s.status === 'waiting').length;
   const liveTotal   = liveSessions.length;
   const liveEnded   = liveSessions.filter((s) => s.status === 'ended').length;
 
