@@ -50,7 +50,7 @@ function navLinks() {
 // --- القائمة الجانبية لجميع الكوادر (مؤسسة، مدرب، أدمن) -------------------------
 const SIDE_ICONS = {
   '/admin': '📊', '/admin/school/enrollments': '📋', '/admin/school/students': '🎓', '/admin/school/instructors': '🧑‍🏫',
-  '/admin/bookings': '📅', '/admin/exams': '📝',
+  '/admin/bookings': '📅', '/admin/exams': '📝', '/admin/live': '📡',
   '/admin/questions': '❓', '/admin/series': '📚', '/admin/lessons': '🎓',
   '/admin/students': '👥', '/admin/users': '👤', '/admin/audit': '🔍',
   '/admin/import': '📥', '/admin/storage': '☁️',
