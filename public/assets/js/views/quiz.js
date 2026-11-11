@@ -431,7 +431,7 @@ export async function quizView(appRoot, { params }) {
   let _audioEl = null;
   function stopAudio() {
     if (_audioEl) { _audioEl.pause(); _audioEl.currentTime = 0; }
-    stopAudio();
+    speechSynthesis?.cancel?.();
   }
   function playQuestion(cur) {
     stopAudio();
