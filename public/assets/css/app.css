@@ -3673,3 +3673,42 @@ body.ui-apple .staff-side a.side-ai[aria-current="page"] { background: linear-gr
   .nrs-overlay .nrs-info-cat { font-size: 1rem; }
   .nrs-overlay .nrs-info-num { font-size: 0.8rem; }
 }
+
+/* ══ بطل الكود — Champion Card ══════════════════════════════════════════════ */
+.champ-hero { display:flex; align-items:center; gap:14px; padding:4px 0 12px; border-bottom:1px solid var(--border); margin-bottom:12px; }
+.champ-avatar { width:52px; height:52px; border-radius:50%; object-fit:cover; }
+.champ-avatar-ph { width:52px; height:52px; border-radius:50%; background:var(--surface-2); display:flex; align-items:center; justify-content:center; font-size:1.4rem; }
+.champ-crown { font-size:.75rem; font-weight:700; color:var(--accent); letter-spacing:.03em; }
+.champ-name { font-size:1.05rem; font-weight:700; }
+.champ-score { font-size:.82rem; color:var(--muted); }
+.champ-empty { color:var(--muted); font-size:.9rem; padding:8px 0 12px; border-bottom:1px solid var(--border); margin-bottom:12px; }
+.champ-mine { font-size:.9rem; padding:10px 0; border-bottom:1px solid var(--border); margin-bottom:10px; }
+.champ-cta { text-align:center; padding:12px 0 4px; }
+.champ-school-board, .champ-global-board { margin-top:4px; }
+.champ-board-title { font-size:.78rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:8px; }
+.champ-board-row { display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:1px solid var(--border); font-size:.88rem; }
+.champ-board-row:last-child { border-bottom:none; }
+.champ-board-row.is-me { background:color-mix(in srgb,var(--accent) 8%,transparent); border-radius:8px; padding-inline:8px; }
+.champ-rank { min-width:24px; font-weight:700; text-align:center; font-size:.82rem; }
+.champ-mini-av { width:28px; height:28px; border-radius:50%; object-fit:cover; font-size:.85rem; display:flex; align-items:center; justify-content:center; background:var(--surface-2); }
+.champ-board-name { flex:1; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.champ-board-score { font-weight:700; color:var(--accent); }
+.champ-board-time { margin-inline-start:4px; }
+
+/* ── Modal التحدي ───────────────────────────────────────────────────────── */
+.champ-modal { max-width:520px; width:94vw; }
+.ch-body { padding:0 4px 8px; }
+.ch-progress { display:flex; justify-content:space-between; align-items:center; font-size:.82rem; color:var(--muted); margin-bottom:14px; padding-top:4px; }
+.ch-timer { font-variant-numeric:tabular-nums; font-weight:700; color:var(--accent); }
+.ch-q-text { font-size:1rem; font-weight:600; margin-bottom:12px; line-height:1.5; }
+.ch-q-img { width:100%; max-height:200px; object-fit:cover; border-radius:10px; margin-bottom:12px; }
+.ch-options { display:flex; flex-direction:column; gap:8px; margin-bottom:16px; }
+.ch-opt { background:var(--surface-2); border:2px solid var(--border); border-radius:10px; padding:12px 16px; text-align:start; font-size:.9rem; cursor:pointer; transition:border-color .15s, background .15s; }
+.ch-opt:hover { border-color:var(--accent); }
+.ch-opt.sel { border-color:var(--accent); background:color-mix(in srgb,var(--accent) 12%,transparent); font-weight:600; }
+.ch-next { width:100%; }
+.ch-result { text-align:center; padding:24px 0 8px; }
+.ch-result-score { font-size:3.5rem; font-weight:900; color:var(--accent); line-height:1; }
+.ch-result-score span { font-size:1.6rem; color:var(--muted); }
+.ch-result-label { font-size:.9rem; color:var(--muted); margin:4px 0 10px; }
+.ch-result-time { font-size:.88rem; }

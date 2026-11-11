@@ -170,6 +170,15 @@ export async function dashboardView(root) {
           <a href="/enroll" class="btn btn-primary">${t('auth.requestEnroll')}</a>
         </div>
       </section>` : html``}
+
+      <section id="champ-section" aria-label="${t('champ.title')}">
+        <div class="dash-h-row"><h2 class="dash-h">${raw('🏆')} ${t('champ.title')}</h2><button class="dash-link" id="lb-toggle">${t('champ.seeAll')}</button></div>
+        <div id="champ-card" class="card" style="padding:16px 20px">
+          <div class="muted small" style="text-align:center;padding:12px 0">${t('common.loading')}</div>
+        </div>
+        <div id="lb-panel" style="display:none;margin-top:12px"></div>
+      </section>
+
     </div>`.s;
 
   root.querySelectorAll('[data-cat]').forEach((b) => (b.onclick = () => startAttempt({ mode: 'category', categoryId: Number(b.dataset.cat), practice: true }, b)));
@@ -179,4 +188,207 @@ export async function dashboardView(root) {
   bm.onclick = () => startAttempt({ mode: 'bookmarks', practice: true }, bm);
   const nb = root.querySelector('#next-btn');
   if (nb) nb.onclick = () => startAttempt({ mode: 'review', practice: true }, nb);
+
+  // ── بطل الكود ──────────────────────────────────────────────────────────────
+  loadChampion(root, store.user);
+}
+
+async function loadChampion(root, user) {
+  const card = root.querySelector('#champ-card');
+  const lbPanel = root.querySelector('#lb-panel');
+  const lbToggle = root.querySelector('#lb-toggle');
+
+  let ch;
+  try { ch = await api.get('/challenge/today'); } catch { return; }
+
+  renderChampCard(card, ch, user);
+
+  // زر إظهار/إخفاء لوحة الصدارة
+  lbToggle.onclick = async () => {
+    if (lbPanel.style.display === 'none') {
+      lbPanel.style.display = '';
+      lbToggle.textContent = t('champ.hide');
+      if (!lbPanel.dataset.loaded) {
+        lbPanel.innerHTML = html`<div class="muted small" style="padding:8px 0">${t('common.loading')}</div>`.s;
+        try {
+          const lb = await api.get('/challenge/leaderboard');
+          lbPanel.innerHTML = renderLeaderboard(lb.leaderboard, user.id).s;
+        } catch { lbPanel.innerHTML = ''; }
+        lbPanel.dataset.loaded = '1';
+      }
+    } else {
+      lbPanel.style.display = 'none';
+      lbToggle.textContent = t('champ.seeAll');
+    }
+  };
+}
+
+function renderChampCard(card, ch, user) {
+  const { mine, globalChamp, schoolBoard, globalRank } = ch;
+
+  const champBlock = globalChamp ? html`
+    <div class="champ-hero">
+      ${globalChamp.picture ? html`<img src="${globalChamp.picture}" class="champ-avatar" alt="" loading="lazy">` : html`<div class="champ-avatar champ-avatar-ph">👤</div>`}
+      <div>
+        <div class="champ-crown">👑 ${t('champ.grandChamp')}</div>
+        <div class="champ-name">${globalChamp.name}</div>
+        <div class="champ-score">${globalChamp.score}/7 · ${globalChamp.time_taken}s</div>
+      </div>
+    </div>` : html`<div class="champ-empty">${t('champ.noChampYet')}</div>`;
+
+  if (mine) {
+    // أجرى التحدي — عرض نتيجته + صدارة المؤسسة
+    card.innerHTML = html`
+      ${champBlock}
+      <div class="champ-mine">${t('champ.yourScore')}: <strong>${mine.score}/7</strong> · ${mine.time_taken}s${globalRank ? html` · 🏅 ${t('champ.rank')} ${globalRank}` : html``}</div>
+      ${schoolBoard.length > 1 ? html`
+        <div class="champ-school-board">
+          <div class="champ-board-title">${t('champ.schoolBoard')}</div>
+          ${schoolBoard.slice(0, 5).map((r) => html`
+            <div class="champ-board-row ${r.user_id === user.id ? 'is-me' : ''}">
+              <span class="champ-rank">${r.rank}</span>
+              ${r.picture ? html`<img src="${r.picture}" class="champ-mini-av" alt="">` : html`<span class="champ-mini-av">👤</span>`}
+              <span class="champ-board-name">${r.name}</span>
+              <span class="champ-board-score">${r.score}/7</span>
+              <span class="champ-board-time muted small">${r.time_taken}s</span>
+            </div>`)}
+        </div>` : html``}`.s;
+  } else {
+    // لم يبدأ التحدي بعد
+    card.innerHTML = html`
+      ${champBlock}
+      <div class="champ-cta">
+        <p class="muted small" style="margin:0 0 12px">${t('champ.joinToday')}</p>
+        <button class="btn btn-primary" id="start-challenge">${raw('⚡')} ${t('champ.start')}</button>
+      </div>`.s;
+
+    card.querySelector('#start-challenge').onclick = () => openChallengeModal(card);
+  }
+}
+
+// ── Modal التحدي ───────────────────────────────────────────────────────────
+let _modal = null;
+
+function openChallengeModal(card) {
+  if (_modal) return;
+  _modal = document.createElement('div');
+  _modal.className = 'modal-overlay';
+  _modal.innerHTML = html`
+    <div class="modal champ-modal" role="dialog" aria-modal="true" aria-label="${t('champ.title')}">
+      <div class="modal-head">
+        <h2>${raw('⚡')} ${t('champ.title')}</h2>
+        <button class="modal-close" id="ch-close" aria-label="${t('common.close')}">✕</button>
+      </div>
+      <div id="ch-body" class="ch-body">
+        <div class="muted" style="text-align:center;padding:24px">${t('common.loading')}</div>
+      </div>
+    </div>`.s;
+  document.body.appendChild(_modal);
+  _modal.querySelector('#ch-close').onclick = closeModal;
+  _modal.addEventListener('click', (e) => { if (e.target === _modal) closeModal(); });
+  startChallenge(card);
+}
+
+function closeModal() {
+  if (_modal) { _modal.remove(); _modal = null; }
+}
+
+async function startChallenge(card) {
+  const body = document.querySelector('#ch-body');
+  try {
+    const { questions } = await api.post('/challenge/start', {});
+    runChallenge(body, questions, card);
+  } catch (err) {
+    const msg = err?.data?.error === 'already_done_today' ? t('champ.alreadyDone') : t('champ.startError');
+    body.innerHTML = html`<div class="muted" style="text-align:center;padding:24px">${msg}</div>`.s;
+  }
+}
+
+function runChallenge(body, questions, card) {
+  let idx = 0;
+  let selected = null;
+  const answers = [];
+  const startTime = Date.now();
+  let timerEl, timerInterval;
+
+  const render = () => {
+    const q = questions[idx];
+    const opts = q.options;
+    body.innerHTML = html`
+      <div class="ch-progress">${t('champ.question')} ${idx + 1} / ${questions.length}
+        <span id="ch-timer" class="ch-timer">0s</span>
+      </div>
+      <div class="ch-q-text">${q.text}</div>
+      ${q.image ? html`<img src="${q.image}" class="ch-q-img" alt="" loading="lazy">` : html``}
+      <div class="ch-options">
+        ${opts.map((o, i) => html`
+          <button class="ch-opt" data-idx="${i + 1}">${o}</button>`)}
+      </div>
+      <button class="btn btn-primary ch-next" id="ch-next" disabled>${idx < questions.length - 1 ? t('champ.next') : t('champ.submit')}</button>`.s;
+
+    selected = null;
+    timerEl = body.querySelector('#ch-timer');
+    let elapsed = Math.round((Date.now() - startTime) / 1000);
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      elapsed = Math.round((Date.now() - startTime) / 1000);
+      if (timerEl) timerEl.textContent = elapsed + 's';
+    }, 1000);
+
+    body.querySelectorAll('.ch-opt').forEach((btn) => {
+      btn.onclick = () => {
+        body.querySelectorAll('.ch-opt').forEach((b) => b.classList.remove('sel'));
+        btn.classList.add('sel');
+        selected = Number(btn.dataset.idx);
+        body.querySelector('#ch-next').disabled = false;
+      };
+    });
+
+    body.querySelector('#ch-next').onclick = async () => {
+      clearInterval(timerInterval);
+      answers.push({ id: q.id, selected: selected ? [selected] : [] });
+      if (idx < questions.length - 1) { idx++; render(); }
+      else {
+        const timeTaken = Math.round((Date.now() - startTime) / 1000);
+        await submitChallenge(body, answers, timeTaken, card);
+      }
+    };
+  };
+  render();
+}
+
+async function submitChallenge(body, answers, timeTaken, card) {
+  body.innerHTML = html`<div class="muted" style="text-align:center;padding:24px">${t('common.loading')}</div>`.s;
+  try {
+    const res = await api.post('/challenge/submit', { answers, time_taken: timeTaken });
+    body.innerHTML = html`
+      <div class="ch-result">
+        <div class="ch-result-score">${res.score}<span>/${res.total}</span></div>
+        <div class="ch-result-label">${t('champ.yourScore')}</div>
+        <div class="ch-result-time">⏱ ${res.timeTaken}s${res.globalRank ? html` · 🏅 ${t('champ.rank')} ${res.globalRank}` : html``}</div>
+        <button class="btn btn-primary" style="margin-top:20px" id="ch-done">${t('common.close')}</button>
+      </div>`.s;
+    body.querySelector('#ch-done').onclick = () => {
+      closeModal();
+      loadChampion(card.closest('.dash').parentElement, store.user);
+    };
+  } catch {
+    body.innerHTML = html`<div class="muted" style="text-align:center;padding:24px">${t('champ.submitError')}</div>`.s;
+  }
+}
+
+function renderLeaderboard(list, myId) {
+  if (!list.length) return html`<div class="muted small" style="padding:8px 0">${t('champ.noEntries')}</div>`;
+  return html`
+    <div class="card">
+      <div class="champ-board-title">${t('champ.globalBoard')}</div>
+      ${list.map((r) => html`
+        <div class="champ-board-row ${r.user_id === myId ? 'is-me' : ''}">
+          <span class="champ-rank">${r.rank === 1 ? raw('🥇') : r.rank === 2 ? raw('🥈') : r.rank === 3 ? raw('🥉') : r.rank}</span>
+          ${r.picture ? html`<img src="${r.picture}" class="champ-mini-av" alt="">` : html`<span class="champ-mini-av">👤</span>`}
+          <span class="champ-board-name">${r.name}${r.school_name ? html` <span class="muted small">(${r.school_name})</span>` : html``}</span>
+          <span class="champ-board-score">${r.score}/7</span>
+          <span class="champ-board-time muted small">${r.time_taken}s</span>
+        </div>`)}
+    </div>`;
 }

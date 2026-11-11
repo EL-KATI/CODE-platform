@@ -567,4 +567,23 @@ function repairDoubleQuestions(db) {
   console.log(`[db] double questions repaired: ${fixed} fixed, ${broken.length - fixed} converted to single`);
 }
 
+// ── Migration: جدول التحديات اليومية (بطل الكود) ──────────────────────────────
+{
+  const db = get();
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS daily_challenges (
+      id             INTEGER PRIMARY KEY,
+      user_id        INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      school_id      INTEGER,
+      score          INTEGER NOT NULL DEFAULT 0,
+      time_taken     INTEGER NOT NULL DEFAULT 0,
+      challenge_date TEXT NOT NULL DEFAULT (date('now')),
+      created_at     TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(user_id, challenge_date)
+    );
+    CREATE INDEX IF NOT EXISTS idx_daily_challenges_date  ON daily_challenges(challenge_date);
+    CREATE INDEX IF NOT EXISTS idx_daily_challenges_school ON daily_challenges(school_id, challenge_date);
+  `);
+}
+
 module.exports = { open, get, getSettings, audit };
