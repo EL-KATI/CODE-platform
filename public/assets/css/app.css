@@ -2296,10 +2296,12 @@ body.has-side .site-footer { margin-inline-start:230px; }
 .nrs-opts-list { display: flex; flex-direction: column; gap: 2px; }
 .nrs-opts-row { display: grid; grid-template-columns: 1fr 1fr; column-gap: 12%; }
 /* سطر اختيار: -النص (أزرق) ......... الرقم (أبيض) */
-/* سطر خيار: النص يمين | نقاط | رقم يسار — اتجاه RTL */
+/* سطر خيار NARSA: النص يمين ← نقاط ← رقم يسار */
+/* DOM order: [nrs-opt-text] [nrs-opt-dots] [nrs-opt-n]
+   direction:rtl + flex-direction:row → أول عنصر (نص) = يمين، آخر عنصر (رقم) = يسار */
 .nrs-opt {
   display: flex;
-  flex-direction: row;         /* أول عنصر DOM (نص) → يمين في RTL */
+  flex-direction: row;
   direction: rtl;
   align-items: baseline;
   padding: 3px 0;
@@ -2309,12 +2311,12 @@ body.has-side .site-footer { margin-inline-start:230px; }
   color: #fff;
 }
 .nrs-opt:last-child { border-bottom: none; }
-/* النص الأزرق: يبدأ من اليمين */
-.nrs-opt-text { color: #6b9bff; white-space: normal; word-break: break-word; text-align: right; }
-/* نقاط مائلة تملأ الوسط */
-.nrs-opt-dots { flex: 1; min-width: 16px; margin: 0 6px; border-bottom: 2px dotted rgba(255,255,255,0.4); transform: translateY(-.3em); }
-/* الرقم في اليسار */
-.nrs-opt-n { color: #fff; font-family: 'Times New Roman', serif; font-size: 1em; font-weight: 700; min-width: 1.4em; text-align: left; flex-shrink: 0; direction: ltr; }
+/* النص الأزرق: يمتد ويملأ المساحة، يبدأ من اليمين */
+.nrs-opt-text { color: #6b9bff; flex: 1 1 auto; white-space: normal; word-break: break-word; text-align: right; min-width: 0; }
+/* نقاط مائلة بعرض ثابت */
+.nrs-opt-dots { flex: 0 0 40px; width: 40px; margin: 0 4px; border-bottom: 2px dotted rgba(255,255,255,0.4); transform: translateY(-.3em); }
+/* الرقم في اليسار: LTR داخلي */
+.nrs-opt-n { color: #fff; font-family: 'Times New Roman', serif; font-size: 1em; font-weight: 700; flex: 0 0 auto; min-width: 1.4em; text-align: center; flex-shrink: 0; direction: ltr; }
 .nrs-opt.sub-ok .nrs-opt-text { color: #4ade6e; }
 .nrs-opt.sub-wrong .nrs-opt-text { color: #ff7a70; }
 /* السؤال المزدوج: عنوان كل جزء بالأبيض */
