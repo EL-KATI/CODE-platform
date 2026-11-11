@@ -44,11 +44,10 @@ let _sse = null; // EventSource الحالي
 
 export async function liveSessionView(el, ctx) {
   const id = Number(ctx.params.id);
-  _closeSSE(); // إغلاق أي اتصال سابق
+  _closeSSE();
 
   el.innerHTML = html`<div class="page-wrap live-page"><div class="live-loading">${t('live.loading')}</div></div>`.s;
 
-  // الانضمام أولاً
   try {
     await api.post(`/live/${id}/join`, {});
   } catch (e) {
@@ -57,14 +56,10 @@ export async function liveSessionView(el, ctx) {
     if (msg === 'forbidden')     return _showForbidden(el);
   }
 
-  // جلب الحالة الأولية عبر REST (أسرع من انتظار SSE)
   let initState = null;
   try { initState = await api.get(`/live/${id}/state`); } catch {}
 
-  // بناء الواجهة بالحالة الأولية
   _buildStudentShell(el, id, initState);
-
-  // ربط SSE للتحديثات الفورية
   _connectSSE(el, id, false);
 }
 
@@ -72,7 +67,6 @@ function _buildStudentShell(el, sessionId, initState) {
   const status = initState?.status || 'waiting';
 
   el.innerHTML = html`<div class="page-wrap live-page" id="live-student-wrap">
-    <!-- شريط التقدم + عداد المتصلين -->
     <div class="live-top-bar">
       <div class="live-connection-dot" id="live-conn-dot" title="${t('live.connecting')}">●</div>
       <div class="live-prog-wrap" id="live-prog-wrap">
@@ -80,16 +74,13 @@ function _buildStudentShell(el, sessionId, initState) {
         <div class="live-prog-bar"><div class="live-prog-fill" id="live-prog-fill" style="width:0%"></div></div>
         <span class="live-answered-label">${t('live.answered')}: <strong id="live-ans-count">0</strong></span>
       </div>
-      <!-- زر لوحة الترتيب -->
       <button class="live-lb-toggle" id="live-lb-btn" title="${t('live.leaderboard')}">🏆</button>
     </div>
 
-    <!-- المحتوى الرئيسي -->
     <div id="live-main">
-      ${status === 'waiting' ? _waitingRoomHtml() : status === 'ended' ? _endedHtml() : ''}
+      ${raw(status === 'waiting' ? _waitingRoomHtml() : status === 'ended' ? _endedHtml() : '')}
     </div>
 
-    <!-- لوحة الترتيب (overlay) -->
     <aside class="live-lb-panel hidden" id="live-lb-panel" aria-label="${t('live.leaderboard')}">
       <div class="live-lb-header">
         <span>🏆 ${t('live.leaderboard')}</span>
@@ -99,7 +90,6 @@ function _buildStudentShell(el, sessionId, initState) {
     </aside>
   </div>`.s;
 
-  // زر الترتيب
   el.querySelector('#live-lb-btn')?.addEventListener('click', () => {
     el.querySelector('#live-lb-panel')?.classList.toggle('hidden');
   });
@@ -107,7 +97,6 @@ function _buildStudentShell(el, sessionId, initState) {
     el.querySelector('#live-lb-panel')?.classList.add('hidden');
   });
 
-  // إذا عندنا حالة أولية مع سؤال → اعرضه
   if (initState?.status === 'live' && initState?.question) {
     _renderQuestion(el, sessionId, initState);
     if (initState.board) _updateLeaderboard(el, initState.board, store.user?.id);
@@ -124,9 +113,6 @@ function _connectSSE(el, sessionId, isInstructor) {
   _sse.onopen = () => { if (dot) { dot.className = 'live-connection-dot connected'; dot.title = t('live.connected'); } };
   _sse.onerror = () => { if (dot) { dot.className = 'live-connection-dot error'; dot.title = t('live.disconnected'); } };
 
-  // ── أحداث SSE ────────────────────────────────────────────────────────────
-
-  // حالة جديدة (live / waiting / ended)
   _sse.addEventListener('session', (e) => {
     const data = JSON.parse(e.data);
     if (data.status === 'ended') {
@@ -143,50 +129,42 @@ function _connectSSE(el, sessionId, isInstructor) {
     }
   });
 
-  // سؤال جديد
   _sse.addEventListener('question', (e) => {
     const data = JSON.parse(e.data);
     _renderQuestion(el, sessionId, data);
     _updateProgress(el, data.current_q, data.total);
-    // إزالة الـ answered_count عند سؤال جديد
     const cnt = el.querySelector('#live-ans-count');
     if (cnt) cnt.textContent = '0';
   });
 
-  // تأكيد الإجابة للطالب
   _sse.addEventListener('answer_ack', (e) => {
     const data = JSON.parse(e.data);
     _showAnswerFeedback(el, data);
   });
 
-  // عداد المجيبين
   _sse.addEventListener('answered_count', (e) => {
     const { count } = JSON.parse(e.data);
     const cnt = el.querySelector('#live-ans-count');
     if (cnt) cnt.textContent = count;
   });
 
-  // لوحة الترتيب
   _sse.addEventListener('leaderboard', (e) => {
     const { board } = JSON.parse(e.data);
     _updateLeaderboard(el, board, store.user?.id);
   });
 
-  // عدد المتصلين (للمدرب)
   _sse.addEventListener('connected_count', (e) => {
     const { count } = JSON.parse(e.data);
     const c = el.querySelector('#live-connected-count');
     if (c) c.textContent = count;
   });
 
-  // للمدرب: السؤال مع الإجابات الصحيحة
   _sse.addEventListener('question_full', (e) => {
     const data = JSON.parse(e.data);
     _renderInstructorQuestion(el, sessionId, data);
     _updateProgress(el, data.current_q, data.total);
   });
 
-  // وقف عند مغادرة الصفحة
   document.addEventListener('routechange', _closeSSE, { once: true });
 }
 
@@ -212,7 +190,7 @@ function _renderQuestion(el, sessionId, data) {
   const alreadyAnswered = !!myAnswer;
 
   main.innerHTML = html`<div class="live-q-wrap" id="live-q-wrap">
-    ${question.image_url ? html`<img class="live-q-img" src="${question.image_url}" alt="" loading="lazy">`.s : ''}
+    ${question.image_url ? html`<img class="live-q-img" src="${question.image_url}" alt="" loading="lazy">` : ''}
     <p class="live-q-text">${esc(question.text || '')}</p>
     <div class="live-opts" id="live-opts">
       ${opts.map((o, i) => {
@@ -223,10 +201,10 @@ function _renderQuestion(el, sessionId, data) {
         return html`<button class="${cls}" data-idx="${i}" ${alreadyAnswered ? 'disabled' : ''} type="button">
           <span class="live-opt-letter">${String.fromCharCode(0x0041 + i)}</span>
           <span>${esc(o)}</span>
-        </button>`.s;
-      }).join('')}
+        </button>`;
+      })}
     </div>
-    ${alreadyAnswered ? _feedbackHtml(myAnswer.isCorrect, []) : ''}
+    ${alreadyAnswered ? raw(_feedbackHtml(myAnswer.isCorrect)) : ''}
   </div>`.s;
 
   if (!alreadyAnswered) {
@@ -240,7 +218,6 @@ function _handleStudentClick(el, sessionId, btn, optsCount) {
   if (_studentAnswered) return;
   _studentAnswered = true;
 
-  // تعطيل كل الأزرار فوراً
   el.querySelectorAll('.live-opt').forEach(b => b.disabled = true);
   btn.classList.add('selected-pending');
 
@@ -251,14 +228,12 @@ function _handleStudentClick(el, sessionId, btn, optsCount) {
       btn.classList.remove('selected-pending');
       toast(t('err.server_error'), 'error');
     });
-  // النتيجة الحقيقية ستصل عبر SSE (answer_ack)
 }
 
 function _showAnswerFeedback(el, data) {
   const { isCorrect, selected, correct } = data;
   const opts = el.querySelectorAll('.live-opt');
 
-  // تلوين الخيارات
   opts.forEach((btn, i) => {
     btn.disabled = true;
     btn.classList.remove('selected-pending', 'correct', 'wrong');
@@ -266,26 +241,25 @@ function _showAnswerFeedback(el, data) {
     else if (selected?.map(Number).includes(i)) btn.classList.add('wrong');
   });
 
-  // إضافة نص الردود
   const wrap = el.querySelector('#live-q-wrap');
   if (wrap && !wrap.querySelector('.live-feedback')) {
-    wrap.insertAdjacentHTML('beforeend', _feedbackHtml(isCorrect, []));
+    wrap.insertAdjacentHTML('beforeend', _feedbackHtml(isCorrect));
   }
 }
 
-function _feedbackHtml(isCorrect, _correct) {
+function _feedbackHtml(isCorrect) {
   return html`<div class="live-feedback ${isCorrect ? 'correct' : 'wrong'}">
     ${isCorrect
-      ? html`<span class="live-fb-ic">✅</span> <span>${t('live.correct')}</span>`.s
-      : html`<span class="live-fb-ic">❌</span> <span>${t('live.wrong')}</span>`.s}
+      ? html`<span class="live-fb-ic">✅</span> <span>${t('live.correct')}</span>`
+      : html`<span class="live-fb-ic">❌</span> <span>${t('live.wrong')}</span>`}
   </div>`.s;
 }
 
 function _updateProgress(el, current, total) {
-  const qNum  = el.querySelector('#live-q-num');
-  const fill  = el.querySelector('#live-prog-fill');
-  if (qNum)  qNum.textContent  = `${t('live.question')} ${(current ?? 0) + 1} / ${total}`;
-  if (fill)  fill.style.width  = `${total ? Math.round(100 * ((current ?? 0) + 1) / total) : 0}%`;
+  const qNum = el.querySelector('#live-q-num');
+  const fill = el.querySelector('#live-prog-fill');
+  if (qNum) qNum.textContent = `${t('live.question')} ${(current ?? 0) + 1} / ${total}`;
+  if (fill) fill.style.width = `${total ? Math.round(100 * ((current ?? 0) + 1) / total) : 0}%`;
 }
 
 // ── لوحة الترتيب ────────────────────────────────────────────────────────────
@@ -296,17 +270,16 @@ function _updateLeaderboard(el, board, myUserId) {
   if (!list) return;
   if (!board?.length) { list.innerHTML = html`<li class="lb-empty">${t('live.lbEmpty')}</li>`.s; return; }
 
-  list.innerHTML = board.map((row) => {
+  list.innerHTML = html`${board.map((row) => {
     const isMe  = String(row.userId) === String(myUserId);
     const medal = MEDALS[row.rank - 1] || `${row.rank}.`;
     return html`<li class="lb-row ${isMe ? 'is-me' : ''}" data-rank="${row.rank}">
       <span class="lb-medal">${medal}</span>
-      <span class="lb-name">${isMe ? html`<strong>${t('live.lbYou')}</strong>`.s : html`${t('champ.candidate')} #${row.userId}`.s}</span>
+      <span class="lb-name">${isMe ? html`<strong>${t('live.lbYou')}</strong>` : html`${t('champ.candidate')} #${row.userId}`}</span>
       <span class="lb-score">${row.score} ${t('live.lbPts')}</span>
-    </li>`.s;
-  }).join('');
+    </li>`;
+  })}`.s;
 
-  // تلميع المركز الخاص بالمستخدم
   const myRow = list.querySelector('.lb-row.is-me');
   if (myRow) myRow.scrollIntoView({ block: 'nearest' });
 }
@@ -324,7 +297,7 @@ function _endedHtml(finalBoard) {
     <div class="live-ended-ic">🏁</div>
     <h2>${t('live.ended')}</h2>
     <p>${t('live.endedDesc')}</p>
-    ${finalBoard ? html`<p class="muted small">${t('live.checkLeaderboard')}</p>`.s : ''}
+    ${finalBoard ? html`<p class="muted small">${t('live.checkLeaderboard')}</p>` : ''}
     <a class="btn" href="/dashboard">${t('nav.dashboard')}</a>
   </div>`.s;
 }
@@ -367,26 +340,23 @@ function _renderAdminPanel(el, sessions) {
     <div class="admin-live-header">
       <h1 class="dash-h">${t('live.admin.title')}</h1>
       ${!activeSess
-        ? html`<button class="btn btn-primary" id="create-live-btn">+ ${t('live.admin.create')}</button>`.s
+        ? html`<button class="btn btn-primary" id="create-live-btn">+ ${t('live.admin.create')}</button>`
         : ''}
     </div>
 
-    <!-- الحصة الفعّالة -->
     <div id="active-sess-wrap">
-      ${activeSess ? _renderActiveCard(activeSess) : ''}
+      ${activeSess ? raw(_renderActiveCard(activeSess)) : ''}
     </div>
 
-    <!-- لوحة الترتيب الحية (للمدرب) -->
     ${activeSess ? html`<div class="card live-admin-lb" id="admin-lb-wrap">
       <h2 class="dash-h">🏆 ${t('live.leaderboard')} · <span id="live-connected-count">0</span> متصل</h2>
       <ol class="live-lb-list" id="live-lb-list"></ol>
-    </div>`.s : ''}
+    </div>` : ''}
 
-    <!-- الحصص المنتهية -->
     <div class="live-sessions-list">
       <h2 class="dash-h" style="margin-bottom:12px">${t('live.admin.history')}</h2>
       ${sessions.filter(s => s.status === 'ended').length === 0
-        ? html`<div class="empty small">${t('live.admin.empty')}</div>`.s
+        ? html`<div class="empty small">${t('live.admin.empty')}</div>`
         : sessions.filter(s => s.status === 'ended').map(s => html`
           <div class="live-sess-card ended">
             <div class="live-sess-info">
@@ -395,22 +365,17 @@ function _renderAdminPanel(el, sessions) {
               <span class="muted small">${s.started_at ? s.started_at.slice(0, 16) : ''}</span>
             </div>
             <a class="btn btn-sm" href="/admin/live/${s.id}/results">${t('live.admin.results')}</a>
-          </div>`.s).join('')}
+          </div>`)}
     </div>
   </div>`.s;
 
-  // زر إنشاء حصة
   el.querySelector('#create-live-btn')?.addEventListener('click', () => _showCreateModal(el));
-
-  // أزرار التحكم
   el.querySelector('#start-live-btn')?.addEventListener('click', () => _doAction(el, activeSess?.id, 'start'));
   el.querySelector('#next-q-btn')?.addEventListener('click',  () => _doAction(el, activeSess?.id, 'next'));
   el.querySelector('#end-live-btn')?.addEventListener('click', () => _doAction(el, activeSess?.id, 'end'));
 
-  // ربط SSE للمدرب
   if (activeSess) {
     _connectSSE(el, activeSess.id, true);
-    // جلب الترتيب الحالي
     api.get(`/live/${activeSess.id}/state`).then(r => {
       if (r.board) _updateLeaderboard(el, r.board, null);
     }).catch(() => {});
@@ -430,14 +395,13 @@ function _renderActiveCard(sess) {
     </div>
     ${isLive ? html`<div class="live-active-progress" id="live-instructor-q">
       ${t('live.question')} ${sess.current_q + 1} / ${qCount}
-    </div>`.s : ''}
+    </div>` : ''}
 
-    <!-- السؤال الحالي للمدرب (مع الإجابة الصحيحة) -->
     <div id="instructor-q-wrap"></div>
 
     <div class="live-active-actions">
-      ${isWaiting ? html`<button class="btn btn-primary" id="start-live-btn">▶ ${t('live.admin.start')}</button>`.s : ''}
-      ${isLive ? html`<button class="btn btn-primary" id="next-q-btn">⏭ ${t('live.admin.next')}</button>`.s : ''}
+      ${isWaiting ? html`<button class="btn btn-primary" id="start-live-btn">▶ ${t('live.admin.start')}</button>` : ''}
+      ${isLive ? html`<button class="btn btn-primary" id="next-q-btn">⏭ ${t('live.admin.next')}</button>` : ''}
       <button class="btn btn-danger" id="end-live-btn">⏹ ${t('live.admin.end')}</button>
     </div>
   </div>`.s;
@@ -455,14 +419,14 @@ function _renderInstructorQuestion(el, _sessionId, data) {
   const correct = (question.correct || []).map(Number);
 
   wrap.innerHTML = html`<div class="instructor-q-preview">
-    ${question.image_url ? html`<img class="live-q-img" src="${question.image_url}" alt="" style="max-height:120px">`.s : ''}
+    ${question.image_url ? html`<img class="live-q-img" src="${question.image_url}" alt="" style="max-height:120px">` : ''}
     <p class="live-q-text" style="font-size:.95rem">${esc(question.text || '')}</p>
     <div class="live-opts readonly">
       ${opts.map((o, i) => html`<div class="live-opt ${correct.includes(i) ? 'correct' : ''}" style="cursor:default">
         <span class="live-opt-letter">${String.fromCharCode(0x0041 + i)}</span>
         <span>${esc(o)}</span>
-        ${correct.includes(i) ? html`<span class="live-opt-tick">✓</span>`.s : ''}
-      </div>`.s).join('')}
+        ${correct.includes(i) ? html`<span class="live-opt-tick">✓</span>` : ''}
+      </div>`)}
     </div>
   </div>`.s;
 }
