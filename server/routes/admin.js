@@ -118,7 +118,8 @@ router.get('/school/stats', auth.requireRole('school'), (req, res) => {
 
   // ── إحصائيات الحصص الجماعية المباشرة ──
   const liveSessions = d.prepare(`SELECT ls.id, ls.title, ls.status, ls.created_at,
-      ls.question_count, ls.current_question_index,
+      json_array_length(ls.question_ids) AS question_count,
+      ls.current_q AS current_question_index,
       (SELECT COUNT(*) FROM live_session_answers lsa WHERE lsa.session_id = ls.id) AS total_answers,
       (SELECT COUNT(DISTINCT lsa.user_id) FROM live_session_answers lsa WHERE lsa.session_id = ls.id) AS participants_answered
     FROM live_sessions ls

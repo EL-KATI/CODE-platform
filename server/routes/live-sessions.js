@@ -216,7 +216,23 @@ router.post('/school', auth.requireRole('school', 'instructor', 'admin'), wrap(a
   if (!sid && req.user.role !== 'admin') throw bad('no school');
 
   const { title = 'حصة جماعية', mode = 'exam', count = 40, school_id } = req.body;
-  const targetSchool = req.user.role === 'admin' ? (school_id || sid) : sid;
+  let targetSchool = req.user.role === 'admin' ? (school_id || sid) : sid;
+
+  // إذا لم يوجد سجل في schools لهذا المستخدم، ننشئه تلقائياً
+  if (targetSchool && req.user.role === 'school') {
+    const schoolRow = d.prepare('SELECT id FROM schools WHERE owner_id = ? OR id = ?').get(targetSchool, targetSchool);
+    if (!schoolRow) {
+      const ins = d.prepare(`INSERT INTO schools (name, code, email, owner_id, created_at)
+        VALUES (?, ?, ?, ?, datetime('now'))`
+      ).run(req.user.name || 'مؤسسة', `sch_${req.user.id}`, req.user.email || '', req.user.id);
+      targetSchool = ins.lastInsertRowid;
+      // تحديث school_id في users
+      d.prepare('UPDATE users SET school_id = ? WHERE id = ?').run(targetSchool, req.user.id);
+    } else {
+      targetSchool = schoolRow.id;
+    }
+  }
+
   if (!targetSchool) throw bad('school_id required');
   if (!['exam', 'practice'].includes(mode)) throw bad('invalid mode');
 
