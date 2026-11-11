@@ -98,7 +98,7 @@ function renderStaffSide() {
   side.className = 'staff-side';
   const tabs = admin.getStaffTabs();
   const cur = (href) => (href === '/admin' ? path === '/admin' : path === href || path.startsWith(href + '/') || (href === '/admin/school/students' && path.startsWith('/admin/students/')));
-  const roleLabel = u.role === 'school' ? (u.school_name || u.name) : u.role === 'instructor' ? t('role.instructor') : t('admin.title');
+  const roleLabel = u.role === 'instructor' ? t('role.instructor') : u.role === 'admin' ? t('admin.title') : '';
   side.setAttribute('aria-label', t('admin.title'));
   side.innerHTML = html`<button class="side-toggle" type="button" aria-expanded="false" aria-label="${t('a11y.menu')}">${raw(iconSvg('menu'))}</button><div class="side-title">${roleLabel}</div>
     <nav>${tabs.map(([href, key]) => html`<a href="${href}" ${cur(href) ? html`aria-current="page"` : ''}><span aria-hidden="true">${SIDE_ICONS[href] || '•'}</span><span>${t(key)}</span></a>`)}</nav>`.s;

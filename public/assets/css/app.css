@@ -2208,6 +2208,7 @@ body.has-side .site-footer { margin-inline-start: 230px; }
 /* Staff sidebar — works for school, instructor, admin */
 .staff-side { position:fixed; top:var(--hdr-h,64px); inset-inline-start:0; bottom:0; width:224px; overflow-y:auto; padding:16px 10px; background:var(--surface,#fff); border-inline-end:1px solid var(--border,#e5e7eb); z-index:200; }
 .staff-side .side-title { font-weight:800; margin:0 8px 12px; color:var(--muted,#64748b); font-size:.8rem; letter-spacing:.04em; }
+.staff-side .side-title:empty { display:none; margin:0; }
 .staff-side nav { display:flex; flex-direction:column; gap:4px; }
 .staff-side a { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; color:var(--text); text-decoration:none; font-size:.9rem; }
 .staff-side a:hover { background:var(--primary-soft,#fef3ee); }
