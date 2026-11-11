@@ -351,6 +351,7 @@ function open(file = config.dbFile) {
   if (!cols.includes('is_double')) db.exec('ALTER TABLE questions ADD COLUMN is_double INTEGER NOT NULL DEFAULT 0');
   if (!cols.includes('sub_questions')) db.exec('ALTER TABLE questions ADD COLUMN sub_questions TEXT');
   if (!cols.includes('skill_type')) db.exec("ALTER TABLE questions ADD COLUMN skill_type TEXT NOT NULL DEFAULT 'معرفية'");
+  if (!cols.includes('admin_note')) db.exec("ALTER TABLE questions ADD COLUMN admin_note TEXT NOT NULL DEFAULT ''");
   repairDoubleQuestions(db);
   // Migration: add school_id + NARSA fields to users if missing
   const userCols = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);

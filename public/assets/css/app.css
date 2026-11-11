@@ -1072,11 +1072,14 @@ dialog::backdrop { background: rgb(12 10 9 / .7); backdrop-filter: blur(4px); }
 /* ── Layout grille quiz ────────────────────────────────────────────── */
 .quiz-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
+  grid-template-columns: 280px minmax(0, 1fr);
   gap: 20px;
   align-items: start;
+  direction: rtl; /* السايدبار يمين، المحتوى يسار */
 }
-@media (max-width: 1000px) { .quiz-layout { grid-template-columns: 1fr; } }
+/* عناصر داخل quiz-layout تعود للاتجاه الطبيعي */
+.quiz-layout > * { direction: rtl; }
+@media (max-width: 1000px) { .quiz-layout { grid-template-columns: 1fr; direction: rtl; } }
 
 /* ── Carte question principale ─────────────────────────────────────── */
 .qcard {
@@ -2257,7 +2260,7 @@ body.has-side .site-footer { margin-inline-start:230px; }
 /* الصف الرئيسي: اللوحة اليسرى + الشاشة اليمنى (apprtl-182y7uk) */
 .nrs-content-row {
   display: flex;
-  flex-direction: row;
+  flex-direction: row-reverse; /* السايدبار يمين، الشاشة يسار (RTL) */
   gap: 0.2rem;
   align-items: center;
   flex: 1 1 0%;
@@ -3501,7 +3504,7 @@ body.ui-apple .staff-side a.side-ai[aria-current="page"] { background: linear-gr
 
 /* الشاشة بالعرض (هاتف أو لوحة): الأزرار في العمود الأيمن */
 @media (max-width: 1024px) and (orientation: landscape) {
-  .nrs-overlay .nrs-content-row { flex-direction: row; }
+  .nrs-overlay .nrs-content-row { flex-direction: row-reverse; }
   .nrs-overlay .nrs-main { flex: 1 1 0%; height: 100%; overflow-y: auto; overscroll-behavior: contain; }
   .nrs-overlay .nrs-media { flex: none; height: auto; max-height: 58%; background: #000; overflow: hidden; }
   .nrs-overlay .nrs-media img, .nrs-overlay .nrs-media video { max-height: 100%; max-width: 100%; object-fit: contain; }

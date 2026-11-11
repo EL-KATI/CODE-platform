@@ -458,6 +458,12 @@ function renderForm(root, cats, q, catId, startDouble, isNew, params, { onSaved 
         <label>${t('admin.difficulty')}<select class="input" name="difficulty">${[1, 2, 3].map((d) => html`<option ${d === (q.difficulty || 2) ? raw('selected') : ''}>${d}</option>`)}</select></label>
       </div>
 
+      <!-- ملاحظة الأدمين (تظهر للمؤسسة فقط) -->
+      <label style="margin-top:4px">${t('admin.adminNote')}
+        <textarea class="input" name="admin_note" rows="2" placeholder="${t('admin.adminNotePlaceholder')}">${q.admin_note || ''}</textarea>
+        <span class="small muted" style="margin-top:2px;display:block">📌 ${t('admin.adminNoteHint')}</span>
+      </label>
+
       <!-- الحالة مخفية — تُدار من قائمة الأسئلة -->
       <input type="hidden" name="status" value="${q.status || 'published'}">
 
@@ -579,6 +585,7 @@ function renderForm(root, cats, q, catId, startDouble, isNew, params, { onSaved 
       is_double: isDoubleNow ? 1 : 0, sub_questions: subQuestions, skill_type: val(form, 'skill_type'),
       visual: q.visual || null, image: val(form, 'image').trim() || null, imageAlt: val(form, 'imageAlt'),
       video: val(form, 'video').trim() || null, audioText: val(form, 'audioText'),
+      adminNote: val(form, 'admin_note').trim(),
     };
     try {
       if (isNew) await api.post('/admin/questions', body); else await api.put(`/admin/questions/${params.id}`, body);

@@ -359,6 +359,7 @@ function validateQuestion(b) {
     is_double: isDouble,
     sub_questions: subQuestions ? JSON.stringify(subQuestions) : null,
     skill_type: ['معرفية', 'سلوكية', 'اجتماعية'].includes(b.skill_type) ? b.skill_type : 'معرفية',
+    admin_note: str(b.adminNote || b.admin_note || '', { max: 2000, field: 'adminNote' }),
   };
 }
 
@@ -389,8 +390,8 @@ router.get('/questions/:id', wrap(async (req, res) => {
 
 router.post('/questions', instructorReadOnly, wrap(async (req, res) => {
   const v = validateQuestion(req.body || {});
-  const info = db.get().prepare(`INSERT INTO questions (category_id, text, options, correct, explanation, visual, image, image_alt, video, audio_text, difficulty, status, is_double, sub_questions, skill_type)
-    VALUES (@category_id, @text, @options, @correct, @explanation, @visual, @image, @image_alt, @video, @audio_text, @difficulty, @status, @is_double, @sub_questions, @skill_type)`).run(v);
+  const info = db.get().prepare(`INSERT INTO questions (category_id, text, options, correct, explanation, visual, image, image_alt, video, audio_text, difficulty, status, is_double, sub_questions, skill_type, admin_note)
+    VALUES (@category_id, @text, @options, @correct, @explanation, @visual, @image, @image_alt, @video, @audio_text, @difficulty, @status, @is_double, @sub_questions, @skill_type, @admin_note)`).run(v);
   db.audit(req.user.id, 'create', 'question', info.lastInsertRowid);
   res.status(201).json(rowToAdmin(db.get().prepare('SELECT * FROM questions WHERE id = ?').get(info.lastInsertRowid)));
 }));
@@ -401,7 +402,7 @@ router.put('/questions/:id', instructorReadOnly, wrap(async (req, res) => {
   const v = validateQuestion(req.body || {});
   db.get().prepare(`UPDATE questions SET category_id=@category_id, text=@text, options=@options, correct=@correct, explanation=@explanation,
     visual=@visual, image=@image, image_alt=@image_alt, video=@video, audio_text=@audio_text, difficulty=@difficulty, status=@status,
-    is_double=@is_double, sub_questions=@sub_questions, skill_type=@skill_type, updated_at=datetime('now') WHERE id=@id`).run({ ...v, id });
+    is_double=@is_double, sub_questions=@sub_questions, skill_type=@skill_type, admin_note=@admin_note, updated_at=datetime('now') WHERE id=@id`).run({ ...v, id });
   db.audit(req.user.id, 'update', 'question', id);
   res.json(rowToAdmin(db.get().prepare('SELECT * FROM questions WHERE id = ?').get(id)));
 }));
@@ -435,8 +436,8 @@ router.post('/questions-import', instructorReadOnly, wrap(async (req, res) => {
   if (list.length > 5000) throw bad('import_too_large');
   const d = db.get();
   const cats = new Map(d.prepare('SELECT id, slug FROM categories').all().map((c) => [c.slug, c.id]));
-  const ins = d.prepare(`INSERT INTO questions (category_id, text, options, correct, explanation, visual, image, image_alt, video, audio_text, difficulty, status, is_double, sub_questions, skill_type)
-    VALUES (@category_id, @text, @options, @correct, @explanation, @visual, @image, @image_alt, @video, @audio_text, @difficulty, @status, @is_double, @sub_questions, @skill_type)`);
+  const ins = d.prepare(`INSERT INTO questions (category_id, text, options, correct, explanation, visual, image, image_alt, video, audio_text, difficulty, status, is_double, sub_questions, skill_type, admin_note)
+    VALUES (@category_id, @text, @options, @correct, @explanation, @visual, @image, @image_alt, @video, @audio_text, @difficulty, @status, @is_double, @sub_questions, @skill_type, @admin_note)`);
   const dup = d.prepare('SELECT 1 FROM questions WHERE category_id = ? AND text = ?');
   let created = 0;
   const errors = [];
