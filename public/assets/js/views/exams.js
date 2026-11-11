@@ -319,8 +319,9 @@ export async function schoolExamsView(root) {
   container.innerHTML = `
     <div class="page-header">
       <h2>${t('exam.title')}</h2>
-      <div class="page-header-actions">
-        <button class="btn btn-primary" id="enroll-btn">+ ${t('exam.enrollStudent')}</button>
+      <div class="page-header-actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <a class="btn btn-primary" href="/admin/live" style="text-decoration:none">📡 + ${t('live.admin.title') || 'حصة جماعية'}</a>
+        <button class="btn btn-ghost" id="enroll-btn">+ ${t('exam.enrollStudent')}</button>
       </div>
     </div>
 
