@@ -71,15 +71,14 @@ function createApp() {
   const pub = path.join(config.ROOT, 'public');
   app.use('/uploads', express.static(config.uploadsDir, { maxAge: '30d', immutable: true }));
   app.use('/audio', express.static(path.join(config.ROOT, 'public', 'audio'), { maxAge: '30d' }));
-  // ملفات JS/CSS: no-cache في dev، short-revalidate في prod (ETag يضمن التحديث الفوري)
+  // ملفات JS/CSS: no-store دائماً — يمنع كاش ES modules في المتصفح
   app.use('/assets', express.static(path.join(pub, 'assets'), {
     maxAge: 0,
-    etag: true,
-    lastModified: true,
+    etag: false,
+    lastModified: false,
     setHeaders(res, filePath) {
-      if (config.isProd && /\.(js|css)$/.test(filePath)) {
-        // يسمح للمتصفح بالتخزين لكن يُجبره على إعادة التحقق في كل مرة
-        res.set('Cache-Control', 'no-cache');
+      if (/\.(js|css)$/.test(filePath)) {
+        res.set('Cache-Control', 'no-store');
       }
     },
   }));
