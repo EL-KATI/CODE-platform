@@ -4717,3 +4717,10 @@ body.ui-apple .staff-side a.side-ai[aria-current="page"] { background: linear-gr
   margin-top: 20px;
   .live-lb-list { max-height: 320px; overflow-y: auto; }
 }
+
+
+/* بانر الحصة الجماعية */
+@keyframes pulse-border {
+  0%, 100% { box-shadow: 0 4px 20px rgba(194,65,12,.35); }
+  50% { box-shadow: 0 4px 32px rgba(194,65,12,.6), 0 0 0 3px rgba(255,255,255,.2); }
+}

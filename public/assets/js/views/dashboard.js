@@ -53,7 +53,11 @@ export async function dashboardView(root) {
   // الأدمن لا يملك داشبورد متعلم — يُوجَّه مباشرة للإدارة
   if (store.isAdmin()) { const { navigate } = await import('../router.js'); navigate('/admin', { replace: true }); return; }
   root.innerHTML = loading().s;
-  const [d, journey] = await Promise.all([api.get('/me/dashboard'), api.get('/exams/me').catch(() => null)]);
+  const [d, journey, liveData] = await Promise.all([
+    api.get('/me/dashboard'),
+    api.get('/exams/me').catch(() => null),
+    store.user?.schoolId ? api.get('/live/active').catch(() => null) : Promise.resolve(null),
+  ]);
   const u = store.user;
   const r = d.readiness;
   const tone = r.ready ? 'good' : r.score >= 50 ? 'mid' : 'low';
@@ -63,8 +67,32 @@ export async function dashboardView(root) {
     : d.counts.due > 0 ? { action: 'review', label: t('dash.nextReview', { n: d.counts.due }) }
       : { href: '/exam', label: t('dash.nextExam') };
 
+  // بانر الحصة الجماعية الفعّالة
+  const liveSession = liveData?.session || null;
+  const liveBanner = liveSession ? html`
+    <div id="live-banner" style="
+      background:linear-gradient(135deg,var(--primary,#c2410c),#b45309);
+      color:#fff;border-radius:14px;padding:18px 20px;margin-bottom:20px;
+      display:flex;align-items:center;justify-content:space-between;gap:12px;
+      box-shadow:0 4px 20px rgba(194,65,12,.35);animation:pulse-border 2s infinite">
+      <div style="display:flex;align-items:center;gap:14px">
+        <span style="font-size:2rem">🎓</span>
+        <div>
+          <div style="font-weight:700;font-size:1.05rem">${liveSession.title || 'حصة جماعية'}</div>
+          <div style="font-size:.82rem;opacity:.9;margin-top:2px">
+            ${liveSession.status === 'live' ? '🔴 الحصة جارية الآن' : '⏳ في انتظار البدء'}
+          </div>
+        </div>
+      </div>
+      <a class="btn" href="/live/${liveSession.id}"
+        style="background:#fff;color:var(--primary,#c2410c);font-weight:700;white-space:nowrap;flex-shrink:0">
+        دخول الحصة ←
+      </a>
+    </div>` : html``;
+
   root.innerHTML = html`
     <div class="dash">
+      ${liveBanner}
       <header class="dash-hello">
         <div><p class="dash-eyebrow">${new Date().toLocaleDateString(loc, { weekday: 'long', day: 'numeric', month: 'long' })}</p>
         <h1>${t('dash.hello', { name: u.name })}</h1>
