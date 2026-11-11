@@ -252,16 +252,20 @@ export async function quizView(appRoot, { params }) {
       }).join('');
     } else {
       const correct = new Set(norm(cur.correct));
-      // دائماً 4 أزرار (1-4) كما في الامتحان الرسمي، حتى إذا كان للسؤال خياران أو ثلاثة فقط
+      const optCount = (cur.options || []).length; // عدد الخيارات الحقيقية
+      // دائماً 4 أزرار (1-4) — أزرار بدون خيار مقابل تبقى مرئية لكن غير نشطة
       el.innerHTML = Array.from({ length: 4 }, (_, i) => {
         const n = i + 1;
+        const hasOpt = n <= optCount; // هل يوجد خيار حقيقي لهذا الرقم؟
         const pressed = selected.has(n);
         let cls = 'nrs-choice-btn';
-        if (ans) {
+        if (!hasOpt) {
+          cls += ' choice-inactive'; // بصرياً غير نشط لكن شكله يبقى
+        } else if (ans) {
           if (correct.has(n)) cls += ' choice-correct';
           else if (pressed) cls += ' choice-wrong';
         } else if (pressed) cls += ' choice-on';
-        return `<button class="${cls}" data-n="${n}" ${ans ? 'disabled' : ''}><span class="nrs-choice-num">${n}</span><span class="nrs-choice-sq"></span></button>`;
+        return `<button class="${cls}" data-n="${n}" data-has-opt="${hasOpt}" ${(ans || !hasOpt) ? 'disabled' : ''}><span class="nrs-choice-num">${n}</span><span class="nrs-choice-sq"></span></button>`;
       }).join('');
     }
 
