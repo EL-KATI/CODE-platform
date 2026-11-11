@@ -28,7 +28,12 @@ const cinTaken = (d, role, cin, exceptId = 0) => !!d.prepare("SELECT 1 FROM user
 const staff = auth.requireRole('instructor', 'admin', 'school');
 const adminOnly = auth.requireRole('admin');
 const schoolOrAdmin = auth.requireRole('admin', 'school');
-router.use(staff);
+// استثناء routes المتعلم من middleware staff
+router.use((req, res, next) => {
+  if (req.method === 'POST' && req.path === '/enroll') return next();
+  if (req.method === 'GET' && req.path === '/enroll/status') return next();
+  return staff(req, res, next);
+});
 
 /** المدرب والمؤسسة: قراءة فقط للمحتوى التعليمي (أسئلة/سلاسل/دروس). */
 function contentReadOnly(req, res, next) {
