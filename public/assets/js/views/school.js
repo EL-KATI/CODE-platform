@@ -282,7 +282,7 @@ export async function enrollmentsView(root) {
           <th>الحالة</th><th>التاريخ</th><th>${t('common.actions')}</th>
         </tr></thead>
         <tbody>
-          ${rows.map((r) => `<tr data-id="${r.id}" data-status="${r.status}">
+          ${rows.map((r) => html`<tr data-id="${r.id}" data-status="${r.status}">
             <td data-label="${t('admin.name')}">${r.name || '—'}</td>
             <td data-label="${t('auth.email')}">${r.email || '—'}</td>
             <td data-label="${t('auth.phone')}">${r.phone || '—'}</td>
@@ -290,12 +290,12 @@ export async function enrollmentsView(root) {
             <td data-label="الحالة"><span style="color:${statusColor[r.status] || 'var(--muted)'}">${statusLabel[r.status] || r.status}</span></td>
             <td data-label="التاريخ" style="font-size:.8rem">${r.created_at ? r.created_at.slice(0,10) : '—'}</td>
             <td data-label="${t('common.actions')}">
-              ${r.status === 'pending' ? `
+              ${r.status === 'pending' ? html`
                 <button class="btn btn-sm btn-primary" data-action="approved">✓ قبول</button>
                 <button class="btn btn-sm" style="background:var(--red-100);color:var(--red-700);border:none;margin-inline-start:6px" data-action="rejected">✕ رفض</button>
-              ` : `<span class="small muted">—</span>`}
+              ` : html`<span class="small muted">—</span>`}
             </td>
-          </tr>`).join('')}
+          </tr>`)}
         </tbody>
       </table>`.s;
 
