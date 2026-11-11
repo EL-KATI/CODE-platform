@@ -209,13 +209,27 @@ router.get('/school', auth.requireRole('school', 'instructor', 'admin'), wrap(as
   res.json({ sessions: rows.map(r => ({ ...r, question_ids: tryJson(r.question_ids, []) })) });
 }));
 
+// GET /api/live/series — قائمة السلاسل المنشورة (للمؤسسات)
+router.get('/series', auth.requireRole('school', 'instructor', 'admin'), wrap(async (req, res) => {
+  const d = db.get();
+  const rows = d.prepare(`
+    SELECT s.id, s.title, s.description, COUNT(sq.question_id) AS question_count
+    FROM series s
+    LEFT JOIN series_questions sq ON sq.series_id = s.id
+    WHERE s.published = 1
+    GROUP BY s.id
+    ORDER BY s.sort, s.id
+  `).all();
+  res.json(rows);
+}));
+
 // POST /api/live/school
 router.post('/school', auth.requireRole('school', 'instructor', 'admin'), wrap(async (req, res) => {
   const d   = db.get();
   const sid = req.user.school_id;
   if (!sid && req.user.role !== 'admin') throw bad('no school');
 
-  const { title = 'حصة جماعية', mode = 'exam', count = 40, school_id } = req.body;
+  const { title = 'حصة جماعية', mode = 'exam', count = 40, school_id, source = 'random', series_id } = req.body;
   let targetSchool = req.user.role === 'admin' ? (school_id || sid) : sid;
 
   // إذا لم يوجد سجل في schools لهذا المستخدم، ننشئه تلقائياً
@@ -236,9 +250,20 @@ router.post('/school', auth.requireRole('school', 'instructor', 'admin'), wrap(a
   if (!targetSchool) throw bad('school_id required');
   if (!['exam', 'practice'].includes(mode)) throw bad('invalid mode');
 
-  const qCount = Math.min(Math.max(Number(count) || 40, 5), 46);
-  const questionIds = drawExamPublic(qCount);
-  if (!questionIds.length) throw bad('no_questions');
+  let questionIds;
+  if (source === 'series' && series_id) {
+    // جلب أسئلة السلسلة المختارة بالترتيب
+    const seriesRow = d.prepare('SELECT id FROM series WHERE id = ? AND published = 1').get(Number(series_id));
+    if (!seriesRow) throw bad('series_not_found');
+    const sqRows = d.prepare('SELECT question_id FROM series_questions WHERE series_id = ? ORDER BY position').all(Number(series_id));
+    questionIds = sqRows.map((r) => r.question_id);
+    if (!questionIds.length) throw bad('series_empty');
+  } else {
+    // عشوائي من بنك الأسئلة
+    const qCount = Math.min(Math.max(Number(count) || 40, 5), 46);
+    questionIds = drawExamPublic(qCount);
+    if (!questionIds.length) throw bad('no_questions');
+  }
 
   const info = d.prepare(`
     INSERT INTO live_sessions (school_id, created_by, title, mode, status, question_ids)

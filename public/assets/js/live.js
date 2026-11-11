@@ -369,7 +369,7 @@ function _renderAdminPanel(el, sessions) {
     </div>
   </div>`.s;
 
-  el.querySelector('#create-live-btn')?.addEventListener('click', () => _showCreateModal(el));
+  el.querySelector('#create-live-btn')?.addEventListener('click', () => _showCreateModal(el).catch(() => {}));
   el.querySelector('#start-live-btn')?.addEventListener('click', () => _doAction(el, activeSess?.id, 'start'));
   el.querySelector('#next-q-btn')?.addEventListener('click',  () => _doAction(el, activeSess?.id, 'next'));
   el.querySelector('#end-live-btn')?.addEventListener('click', () => _doAction(el, activeSess?.id, 'end'));
@@ -431,10 +431,18 @@ function _renderInstructorQuestion(el, _sessionId, data) {
   </div>`.s;
 }
 
-function _showCreateModal(el) {
+async function _showCreateModal(el) {
+  // جلب السلاسل المتاحة أولاً
+  let seriesList = [];
+  try { seriesList = await api.get('/live/series'); } catch {}
+
+  const seriesOptions = seriesList.length
+    ? seriesList.map((s) => html`<option value="${s.id}">${s.title} (${s.question_count} سؤال)</option>`)
+    : [];
+
   const modal = document.createElement('div');
   modal.className = 'modal-overlay';
-  modal.innerHTML = html`<div class="modal-box">
+  modal.innerHTML = html`<div class="modal-box" style="max-width:480px">
     <h2>${t('live.admin.create')}</h2>
     <label class="form-label">${t('live.admin.titleLabel')}
       <input type="text" id="live-title" value="حصة جماعية" class="inp">
@@ -445,9 +453,35 @@ function _showCreateModal(el) {
         <option value="practice">${t('live.admin.modePractice')}</option>
       </select>
     </label>
-    <label class="form-label">${t('live.admin.qcount')} (5–46)
-      <input type="number" id="live-count" value="40" min="5" max="46" class="inp">
-    </label>
+
+    <div style="margin:16px 0 8px;font-weight:600;font-size:.9rem">مصدر الأسئلة</div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+      <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:12px;border-radius:10px;border:2px solid var(--border);transition:border-color .2s" id="src-random-box">
+        <input type="radio" name="live-source" value="random" id="src-random" checked style="margin-top:2px;accent-color:var(--primary,#c2410c)">
+        <div>
+          <div style="font-weight:600">🎲 عشوائي من بنك الأسئلة</div>
+          <div class="muted small" style="margin-top:2px">يتم اختيار الأسئلة عشوائياً من المجموعة المنشورة</div>
+        </div>
+      </label>
+      ${seriesList.length ? html`
+      <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:12px;border-radius:10px;border:2px solid var(--border);transition:border-color .2s" id="src-series-box">
+        <input type="radio" name="live-source" value="series" id="src-series" style="margin-top:2px;accent-color:var(--primary,#c2410c)">
+        <div style="flex:1">
+          <div style="font-weight:600">📚 اختيار سلسلة</div>
+          <div class="muted small" style="margin-top:2px">يتم استخدام أسئلة السلسلة المختارة بالترتيب</div>
+          <select id="live-series" class="inp" style="margin-top:8px;display:none">
+            ${seriesOptions}
+          </select>
+        </div>
+      </label>` : html``}
+    </div>
+
+    <div id="count-row">
+      <label class="form-label">${t('live.admin.qcount')} (5–46)
+        <input type="number" id="live-count" value="40" min="5" max="46" class="inp">
+      </label>
+    </div>
+
     <div class="modal-actions">
       <button class="btn btn-primary" id="create-confirm">${t('live.admin.createConfirm')}</button>
       <button class="btn" id="create-cancel">${t('modal.cancel')}</button>
@@ -455,13 +489,48 @@ function _showCreateModal(el) {
   </div>`.s;
 
   document.body.appendChild(modal);
+
+  // تبديل الحالة عند اختيار المصدر
+  const radios = modal.querySelectorAll('input[name="live-source"]');
+  const countRow = modal.querySelector('#count-row');
+  const seriesSelect = modal.querySelector('#live-series');
+  const randomBox = modal.querySelector('#src-random-box');
+  const seriesBox = modal.querySelector('#src-series-box');
+
+  const updateSource = () => {
+    const val = modal.querySelector('input[name="live-source"]:checked')?.value || 'random';
+    if (val === 'series') {
+      countRow.style.display = 'none';
+      if (seriesSelect) seriesSelect.style.display = 'block';
+      if (seriesBox) seriesBox.style.borderColor = 'var(--primary,#c2410c)';
+      if (randomBox) randomBox.style.borderColor = 'var(--border)';
+    } else {
+      countRow.style.display = 'block';
+      if (seriesSelect) seriesSelect.style.display = 'none';
+      if (randomBox) randomBox.style.borderColor = 'var(--primary,#c2410c)';
+      if (seriesBox) seriesBox.style.borderColor = 'var(--border)';
+    }
+  };
+  radios.forEach((r) => r.addEventListener('change', updateSource));
+  updateSource(); // تطبيق الحالة الأولية
+
   modal.querySelector('#create-cancel').onclick = () => modal.remove();
   modal.querySelector('#create-confirm').onclick = async () => {
-    const title = modal.querySelector('#live-title').value.trim() || 'حصة جماعية';
-    const mode  = modal.querySelector('#live-mode').value;
-    const count = Number(modal.querySelector('#live-count').value) || 40;
+    const title  = modal.querySelector('#live-title').value.trim() || 'حصة جماعية';
+    const mode   = modal.querySelector('#live-mode').value;
+    const source = modal.querySelector('input[name="live-source"]:checked')?.value || 'random';
+    const body   = { title, mode, source };
+
+    if (source === 'series') {
+      const sid = modal.querySelector('#live-series')?.value;
+      if (!sid) { toast('اختر سلسلة أولاً', 'error'); return; }
+      body.series_id = Number(sid);
+    } else {
+      body.count = Number(modal.querySelector('#live-count').value) || 40;
+    }
+
     try {
-      await api.post('/live/school', { title, mode, count });
+      await api.post('/live/school', body);
       toast(t('live.admin.created'), 'success');
       modal.remove();
       adminLiveView(el);
