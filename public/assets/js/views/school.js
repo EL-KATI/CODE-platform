@@ -156,6 +156,37 @@ export async function schoolStatsView(root, days = 30) {
     return html`<a class="dash-chip ${full ? 'is-full' : ''}" href="/admin/bookings" data-tip="${sl.instructor || '—'} — ${HOUR_LBL[sl.hour] || sl.hour}${sl.location ? ' — ' + sl.location : ''}: ${sl.booked}/${sl.capacity}${sl.pending ? ' · ' + sl.pending + ' معلّق' : ''}"><b>${HOUR_LBL[sl.hour] || sl.hour}</b><span class="small">${sl.instructor || '—'}</span>${sl.location ? html`<span class="small muted">📍 ${sl.location}</span>` : ''}<span class="small">${sl.booked}/${sl.capacity}</span></a>`;
   })}</div></div>`)}` : html`<p class="muted small">لا حصص خلال 14 يوماً القادمة</p>`;
 
+  // ── كارد الحصص الجماعية المباشرة ──
+  const lv = s.live || { active: 0, total: 0, ended: 0, recent: [] };
+  const liveStatusPill = (status) => {
+    if (status === 'active')   return html`<span class="pill pill-success" style="font-size:.7rem">🔴 مباشر</span>`;
+    if (status === 'ended')    return html`<span class="pill" style="font-size:.7rem">منتهية</span>`;
+    return html`<span class="pill pill-warning" style="font-size:.7rem">في الانتظار</span>`;
+  };
+  const liveRows = lv.recent.length
+    ? html`${lv.recent.map((sess) => html`<a class="dash-hrow" href="/admin/live" data-tip="${sess.title} — ${sess.participants} مشارك — ${sess.questions} سؤال">
+        <span style="display:flex;flex-direction:column;min-width:0;flex:1;gap:2px">
+          <span style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sess.title}</span>
+          <span class="small muted">${sess.date} · ${sess.participants} مشارك · ${sess.questions} سؤال</span>
+        </span>
+        ${liveStatusPill(sess.status)}
+        ${sess.status === 'active' ? html`<span style="display:inline-flex;align-items:center;gap:4px;min-width:60px"><span class="dash-track" style="width:48px;display:inline-block"><i style="width:${sess.progress}%;background:var(--primary,#c2410c)"></i></span><span class="small" style="width:30px;text-align:end">${sess.progress}%</span></span>` : ''}
+      </a>`)}`
+    : html`<p class="muted small" style="padding:12px 0">لا حصص جماعية بعد — أنشئ أولى حصصك</p>`;
+
+  const liveCard = html`<div class="card" style="margin-top:20px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+      <h3 class="dash-h" style="margin:0">📡 الحصص الجماعية المباشرة</h3>
+      <div style="display:flex;align-items:center;gap:8px">
+        ${lv.active ? html`<span class="pill pill-success" style="animation:pulse 1.5s ease-in-out infinite">🔴 ${lv.active} مباشرة</span>` : ''}
+        <span class="small muted">${lv.ended} منتهية · ${lv.total} إجمالاً</span>
+        <a class="btn btn-primary btn-sm" href="/admin/live">＋ حصة جديدة</a>
+      </div>
+    </div>
+    ${liveRows}
+    ${lv.total > 5 ? html`<a class="small" href="/admin/live" style="display:block;text-align:center;margin-top:8px;color:var(--primary,#c2410c)">عرض جميع الحصص (${lv.total}) ←</a>` : ''}
+  </div>`;
+
   const list = (rows) => rows.length
     ? html`${rows.map((r) => html`<a class="dash-hrow" href="/admin/students/${r.id}" data-tip="${r.name}: ${r.progress}%"><span class="small" style="width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.name}</span><span class="dash-track"><i style="width:${r.progress}%;background:var(--success,#16a34a)"></i></span><strong class="small" style="width:40px;text-align:end">${r.progress}%</strong></a>`)}`
     : html`<p class="muted small">${t('common.none')}</p>`;
@@ -169,7 +200,7 @@ export async function schoolStatsView(root, days = 30) {
       ${kpi('🟢', 'متعلمون الآن', s.activeNow ?? 0, `${s.activeNowPct ?? 0}% من إجمالي المتعلمين`, '/admin/school/students')}
       ${kpi('📅', 'حصص قادمة مقبولة', s.upcoming, '', '/admin/bookings')}
       ${kpi('⏳', 'طلبات معلقة', bk.pending || 0, 'تحتاج قراراً', '/admin/bookings')}
-      ${kpi('📡', 'الحصص الجماعية المباشرة', '', 'إنشاء وإدارة الحصص', '/admin/live')}
+      ${kpi('📡', 'الحصص الجماعية المباشرة', s.live?.active ? `${s.live.active} 🔴` : s.live?.total || 0, `${s.live?.ended || 0} منتهية — ${s.live?.total || 0} إجمالاً`, '/admin/live')}
     </div>
     <div class="grid grid-2" style="margin-top:20px">
       <div class="card"><h3 class="dash-h">📝 الامتحانات حسب اليوم <span class="small muted">(آخر ${s.days} يوماً)</span></h3>${examChart}
@@ -180,6 +211,7 @@ export async function schoolStatsView(root, days = 30) {
         <div class="dash-stack" id="bk-stack"></div><div class="dash-legend" id="bk-legend"></div></div>
     </div>
     <div class="card" style="margin-top:20px"><h3 class="dash-h">🗓 الحصص القادمة</h3>${slotsView}</div>
+    ${liveCard}
     <div class="grid grid-2" style="margin-top:20px">
       <div class="card"><h3 class="dash-h">🏆 الأعلى تقدماً</h3>${list(s.top)}</div>
       <div class="card"><h3 class="dash-h">⚠️ يحتاجون متابعة</h3>${list(s.lagging)}</div>

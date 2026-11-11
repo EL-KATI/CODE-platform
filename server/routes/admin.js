@@ -115,10 +115,36 @@ router.get('/school/stats', auth.requireRole('school'), (req, res) => {
   const activeNow = one(`SELECT COUNT(*) AS n FROM users WHERE role = 'student' AND school_id = ?
     AND active = 1 AND session_id IS NOT NULL AND session_id NOT LIKE 'revoked-%' AND session_id NOT LIKE 'out-%'`, sid).n;
   const activeNowPct = students.total > 0 ? Math.round((100 * activeNow) / students.total) : 0;
+
+  // ── إحصائيات الحصص الجماعية المباشرة ──
+  const liveSessions = d.prepare(`SELECT ls.id, ls.title, ls.status, ls.created_at,
+      ls.question_count, ls.current_question_index,
+      (SELECT COUNT(*) FROM live_session_answers lsa WHERE lsa.session_id = ls.id) AS total_answers,
+      (SELECT COUNT(DISTINCT lsa.user_id) FROM live_session_answers lsa WHERE lsa.session_id = ls.id) AS participants_answered
+    FROM live_sessions ls
+    WHERE ls.school_id = ?
+    ORDER BY ls.created_at DESC LIMIT 20`).all(sid);
+
+  const liveActive  = liveSessions.filter((s) => s.status === 'active').length;
+  const liveTotal   = liveSessions.length;
+  const liveEnded   = liveSessions.filter((s) => s.status === 'ended').length;
+
+  // آخر 5 حصص للعرض في الكارد
+  const recentLive = liveSessions.slice(0, 5).map((s) => ({
+    id: s.id, title: s.title || `حصة #${s.id}`, status: s.status,
+    date: s.created_at ? s.created_at.slice(0, 10) : '—',
+    participants: s.participants_answered || 0,
+    questions: s.question_count || 0,
+    progress: s.question_count
+      ? Math.round(((s.current_question_index || 0) / s.question_count) * 100)
+      : 0,
+  }));
+
   res.json({
     days, students, instructors, new30, active7, exams, bookings, upcoming, avgProgress, ready,
     examsSeries, slots, instructorLoad: [...load.values()], buckets,
     activeNow, activeNowPct,
+    live: { active: liveActive, total: liveTotal, ended: liveEnded, recent: recentLive },
     top: [...prog].sort((a, b) => b.progress - a.progress).slice(0, 5),
     lagging: [...prog].sort((a, b) => a.progress - b.progress).slice(0, 5),
   });
