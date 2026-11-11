@@ -23,23 +23,20 @@ router.get('/today', wrap(async (req, res) => {
     `SELECT score, time_taken FROM daily_challenges WHERE user_id=? AND challenge_date=?`
   ).get(uid, today) || null;
 
-  // بطل الكود العام (أعلى نقطة، أقل وقت)
+  // بطل الكود العام (أعلى نقطة، أقل وقت) — بدون معلومات شخصية
   const globalChamp = d.prepare(`
-    SELECT dc.score, dc.time_taken, u.name, u.google_picture AS picture
+    SELECT dc.score, dc.time_taken, dc.user_id
     FROM daily_challenges dc
-    JOIN users u ON u.id = dc.user_id
     WHERE dc.challenge_date = ?
     ORDER BY dc.score DESC, dc.time_taken ASC
     LIMIT 1
   `).get(today) || null;
 
-  // صدارة المؤسسة (أعلى 10)
+  // صدارة المؤسسة (أعلى 10) — ID رقمي فقط
   const schoolBoard = sid ? d.prepare(`
     SELECT dc.score, dc.time_taken, dc.user_id,
-           u.name, u.google_picture AS picture,
            ROW_NUMBER() OVER (ORDER BY dc.score DESC, dc.time_taken ASC) AS rank
     FROM daily_challenges dc
-    JOIN users u ON u.id = dc.user_id
     WHERE dc.school_id = ? AND dc.challenge_date = ?
     ORDER BY dc.score DESC, dc.time_taken ASC
     LIMIT 10
@@ -154,14 +151,11 @@ router.get('/leaderboard', wrap(async (req, res) => {
   const d    = db.get();
   const today = new Date().toISOString().slice(0, 10);
 
+  // لوحة الصدارة — ID رقمي فقط، بدون اسم أو صورة أو مدرسة
   const global = d.prepare(`
     SELECT dc.score, dc.time_taken, dc.user_id,
-           u.name, u.google_picture AS picture,
-           s.name AS school_name,
            ROW_NUMBER() OVER (ORDER BY dc.score DESC, dc.time_taken ASC) AS rank
     FROM daily_challenges dc
-    JOIN users u ON u.id = dc.user_id
-    LEFT JOIN schools s ON s.id = dc.school_id
     WHERE dc.challenge_date = ?
     ORDER BY dc.score DESC, dc.time_taken ASC
     LIMIT 20

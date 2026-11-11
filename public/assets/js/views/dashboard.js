@@ -228,10 +228,10 @@ function renderChampCard(card, ch, user) {
 
   const champBlock = globalChamp ? html`
     <div class="champ-hero">
-      ${globalChamp.picture ? html`<img src="${globalChamp.picture}" class="champ-avatar" alt="" loading="lazy">` : html`<div class="champ-avatar champ-avatar-ph">👤</div>`}
+      <div class="champ-avatar champ-avatar-ph">👤</div>
       <div>
         <div class="champ-crown">👑 ${t('champ.grandChamp')}</div>
-        <div class="champ-name">${globalChamp.name}</div>
+        <div class="champ-name">${t('champ.candidate')} #${globalChamp.user_id}</div>
         <div class="champ-score">${globalChamp.score}/7 · ${globalChamp.time_taken}s</div>
       </div>
     </div>` : html`<div class="champ-empty">${t('champ.noChampYet')}</div>`;
@@ -247,8 +247,8 @@ function renderChampCard(card, ch, user) {
           ${schoolBoard.slice(0, 5).map((r) => html`
             <div class="champ-board-row ${r.user_id === user.id ? 'is-me' : ''}">
               <span class="champ-rank">${r.rank}</span>
-              ${r.picture ? html`<img src="${r.picture}" class="champ-mini-av" alt="">` : html`<span class="champ-mini-av">👤</span>`}
-              <span class="champ-board-name">${r.name}</span>
+              <span class="champ-mini-av">👤</span>
+              <span class="champ-board-name">${t('champ.candidate')} #${r.user_id}</span>
               <span class="champ-board-score">${r.score}/7</span>
               <span class="champ-board-time muted small">${r.time_taken}s</span>
             </div>`)}
@@ -390,8 +390,8 @@ function renderLeaderboard(list, myId) {
       ${list.map((r) => html`
         <div class="champ-board-row ${r.user_id === myId ? 'is-me' : ''}">
           <span class="champ-rank">${r.rank === 1 ? raw('🥇') : r.rank === 2 ? raw('🥈') : r.rank === 3 ? raw('🥉') : r.rank}</span>
-          ${r.picture ? html`<img src="${r.picture}" class="champ-mini-av" alt="">` : html`<span class="champ-mini-av">👤</span>`}
-          <span class="champ-board-name">${r.name}${r.school_name ? html` <span class="muted small">(${r.school_name})</span>` : html``}</span>
+          <span class="champ-mini-av">👤</span>
+          <span class="champ-board-name">${t('champ.candidate')} #${r.user_id}</span>
           <span class="champ-board-score">${r.score}/7</span>
           <span class="champ-board-time muted small">${r.time_taken}s</span>
         </div>`)}

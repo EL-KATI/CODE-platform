@@ -89,8 +89,8 @@ export async function championView(root) {
             ${lbData.map((r) => html`
               <div class="champ-board-row ${store.user && r.user_id === store.user.id ? 'is-me' : ''}">
                 <span class="champ-rank">${r.rank === 1 ? raw('🥇') : r.rank === 2 ? raw('🥈') : r.rank === 3 ? raw('🥉') : r.rank}</span>
-                ${r.picture ? html`<img src="${r.picture}" class="champ-mini-av" alt="">` : html`<span class="champ-mini-av">👤</span>`}
-                <span class="champ-board-name">${r.name}${r.school_name ? html` <span class="muted small">(${r.school_name})</span>` : html``}</span>
+                <span class="champ-mini-av">👤</span>
+                <span class="champ-board-name">${t('champ.candidate')} #${r.user_id}</span>
                 <span class="champ-board-score">${r.score}/7</span>
                 <span class="champ-board-time muted small">${r.time_taken}s</span>
               </div>`)}
