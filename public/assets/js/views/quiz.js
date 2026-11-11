@@ -324,11 +324,11 @@ export async function quizView(appRoot, { params }) {
     return `<div class="nrs-fb ${ok ? 'is-ok' : 'is-ko'}">${ok ? '✓ إجابة صحيحة' : `✗ إجابة خاطئة${nums ? ` — الجواب الصحيح: ${nums}` : ''}`}</div>${explanation ? `<div class="nrs-fb-text">${esc(explanation)}</div>` : ''}`;
   }
 
-  // سطر اختيار: -النص (أزرق) ......... الرقم
-  // RTL: النص يمين → نقاط وسط → رقم يسار
-  // ترتيب HTML: نص أولاً (يمين في RTL)، ثم نقاط، ثم رقم (يسار في RTL)
+  // سطر خيار NARSA: رقم | . . . . . | النص العربي
+  // LTR flex: رقم يسار → نقاط ممتدة → نص يمين (text-align:right + direction:rtl)
+  // DOM order: [nrs-opt-n] [nrs-opt-dots] [nrs-opt-text]
   function optHtml(n, text, state) {
-    return `<div class="nrs-opt ${state}"><span class="nrs-opt-text">${esc(text)}</span><span class="nrs-opt-dots" aria-hidden="true"></span><span class="nrs-opt-n">${n}</span></div>`;
+    return `<div class="nrs-opt ${state}"><span class="nrs-opt-n">${n}</span><span class="nrs-opt-dots" aria-hidden="true"></span><span class="nrs-opt-text">${esc(text)}</span></div>`;
   }
   const optText = (o) => ((o && typeof o === 'object') ? (o.text || '') : String(o ?? ''));
 

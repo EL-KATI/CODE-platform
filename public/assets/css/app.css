@@ -2271,11 +2271,11 @@ body.has-side .site-footer { margin-inline-start:230px; }
 
 /* ── الشاشة الرئيسية: الصورة ثم الصندوق الأسود ── */
 .nrs-main { display: flex; flex-direction: column; flex: 1 1 0%; min-width: 0; min-height: 0; overflow: hidden; background: #000; border-radius: 0.4rem; box-shadow: rgba(49,49,49,0.78) 0px 0px 17px 1px inset; }
-.nrs-media { flex: 0 0 50%; min-height: 100px; display: flex; align-items: stretch; justify-content: center; overflow: hidden; background: #fff; }
-.nrs-media img, .nrs-media video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.nrs-media { flex: 0 0 50%; min-height: 100px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #1a1a1a; }
+.nrs-media img, .nrs-media video { width: 100%; height: 100%; object-fit: contain; display: block; }
 .nrs-media.has-video > * { width: 100%; height: 100%; margin: 0 !important; max-height: none !important; }
-.nrs-img-wrap { width: 100%; height: 100%; display: flex; align-items: stretch; }
-.nrs-img-wrap img { width: 100%; object-fit: cover; }
+.nrs-img-wrap { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+.nrs-img-wrap img { width: 100%; height: 100%; object-fit: contain; }
 .nrs-img-wrap svg { width: 100%; height: 100%; }
 .nrs-no-media { display: flex; align-items: center; justify-content: center; color: #555; font-size: 5rem; width: 100%; }
 
@@ -2292,31 +2292,30 @@ body.has-side .site-footer { margin-inline-start:230px; }
 /* نص السؤال: أبيض في الوسط */
 .nrs-q-main { color: #fff; font-size: clamp(1.25rem, 2.3vw, 1.75rem); font-weight: 400; line-height: 1.55; text-align: right; direction: rtl; margin: 0 0 6px; padding: 0 4px; }
 /* كتلة الاختيارات */
-.nrs-block { width: min(100%, max(62%, 440px)); margin: 0 auto; direction: rtl; }
-.nrs-opts-list { display: flex; flex-direction: column; gap: 2px; }
-.nrs-opts-row { display: grid; grid-template-columns: 1fr 1fr; column-gap: 12%; }
-/* سطر اختيار: -النص (أزرق) ......... الرقم (أبيض) */
-/* سطر خيار NARSA: النص يمين ← نقاط ← رقم يسار */
-/* DOM order: [nrs-opt-text] [nrs-opt-dots] [nrs-opt-n]
-   direction:rtl + flex-direction:row → أول عنصر (نص) = يمين، آخر عنصر (رقم) = يسار */
+.nrs-block { width: 100%; direction: rtl; }
+.nrs-opts-list { display: flex; flex-direction: column; gap: 0; }
+.nrs-opts-row { display: grid; grid-template-columns: 1fr 1fr; column-gap: 8%; }
+/* سطر خيار NARSA:  رقم | . . . . . | النص العربي الأزرق
+   DOM order في HTML: [nrs-opt-n] [nrs-opt-dots] [nrs-opt-text]
+   direction:ltr → رقم يسار، نص يمين بـ text-align:right */
 .nrs-opt {
   display: flex;
   flex-direction: row;
-  direction: rtl;
+  direction: ltr;
   align-items: baseline;
-  padding: 3px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  font-size: clamp(1.2rem, 2.2vw, 1.7rem);
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  font-size: clamp(1.15rem, 2vw, 1.6rem);
   line-height: 1.6;
   color: #fff;
 }
 .nrs-opt:last-child { border-bottom: none; }
-/* النص الأزرق: يمتد ويملأ المساحة، يبدأ من اليمين */
-.nrs-opt-text { color: #6b9bff; flex: 1 1 auto; white-space: normal; word-break: break-word; text-align: right; min-width: 0; }
-/* نقاط مائلة بعرض ثابت */
-.nrs-opt-dots { flex: 0 0 40px; width: 40px; margin: 0 4px; border-bottom: 2px dotted rgba(255,255,255,0.4); transform: translateY(-.3em); }
-/* الرقم في اليسار: LTR داخلي */
-.nrs-opt-n { color: #fff; font-family: 'Times New Roman', serif; font-size: 1em; font-weight: 700; flex: 0 0 auto; min-width: 1.4em; text-align: center; flex-shrink: 0; direction: ltr; }
+/* الرقم: يسار دائماً */
+.nrs-opt-n { color: #fff; font-family: 'Times New Roman', serif; font-size: 1em; font-weight: 700; flex: 0 0 auto; min-width: 1.6em; text-align: left; direction: ltr; padding-left: 2px; }
+/* نقاط ممتدة تملأ الوسط */
+.nrs-opt-dots { flex: 1 1 auto; min-width: 20px; margin: 0 6px; border-bottom: 2px dotted rgba(255,255,255,0.35); transform: translateY(-.3em); align-self: flex-end; margin-bottom: 0.4em; }
+/* النص الأزرق: يمين */
+.nrs-opt-text { color: #6b9bff; flex: 0 1 auto; white-space: normal; word-break: break-word; text-align: right; direction: rtl; min-width: 0; max-width: 80%; }
 .nrs-opt.sub-ok .nrs-opt-text { color: #4ade6e; }
 .nrs-opt.sub-wrong .nrs-opt-text { color: #ff7a70; }
 /* السؤال المزدوج: عنوان كل جزء بالأبيض */
