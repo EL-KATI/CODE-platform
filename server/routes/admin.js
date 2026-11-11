@@ -258,7 +258,8 @@ router.post('/enroll', auth.requireRole('student'), wrap(async (req, res) => {
 // قائمة طلبات الانتساب المعلقة (المؤسسة ترى طلباتها)
 router.get('/school/enrollments', auth.requireRole('school', 'admin'), (req, res) => {
   const d = db.get();
-  const sid = req.user.role === 'admin' ? (req.query.school_id || null) : req.user.school_id;
+  // المؤسسة: school_id في school_enrollments = users.id الخاص بالمؤسسة
+  const sid = req.user.role === 'admin' ? (req.query.school_id || null) : req.user.id;
   let rows;
   if (sid) {
     rows = d.prepare(`
@@ -288,7 +289,8 @@ router.patch('/school/enrollments/:id', auth.requireRole('school', 'admin'), wra
   const req_row = d.prepare('SELECT * FROM school_enrollments WHERE id = ?').get(id);
   if (!req_row) throw notFound();
 
-  if (req.user.role !== 'admin' && req.user.school_id != req_row.school_id) {
+  // المؤسسة: تحقق بـ users.id وليس school_id
+  if (req.user.role !== 'admin' && req.user.id != req_row.school_id) {
     return res.status(403).json({ error: 'forbidden' });
   }
 

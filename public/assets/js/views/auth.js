@@ -281,6 +281,28 @@ export function verifyOtpView(root, { query }) {
 }
 
 // ── Enroll ────────────────────────────────────────────────────────────────────
+async function _loadEnrollStatus(root) {
+  try {
+    const rows = await api.get('/admin/enroll/status');
+    const box = root.querySelector('#status-box');
+    const form = root.querySelector('#enroll-f');
+    if (!box) return;
+    if (rows && rows.length) {
+      const r = rows[0];
+      const color = r.status === 'approved' ? 'var(--green-600)' : r.status === 'rejected' ? 'var(--red-600)' : 'var(--orange-500)';
+      const label = r.status === 'approved' ? t('auth.enrollApproved') : r.status === 'rejected' ? t('auth.enrollRejected') : t('auth.enrollPending');
+      box.innerHTML = `<div style="padding:12px 14px;border-radius:8px;background:var(--surface-2);border:1.5px solid ${color};margin-bottom:16px;font-size:.9rem">🏫 <strong>${r.school_name || ''}</strong> — <span style="color:${color}">${label}</span></div>`;
+      // إخفاء النموذج إذا كان الطلب معلقاً أو مقبولاً
+      if (form && (r.status === 'pending' || r.status === 'approved')) {
+        form.style.display = 'none';
+      }
+    } else {
+      box.innerHTML = '';
+      if (form) form.style.display = '';
+    }
+  } catch { /* لا توجد طلبات */ }
+}
+
 export async function enrollView(root) {
   root.innerHTML = html`
     <div style="max-width:480px;margin:32px auto">
@@ -299,15 +321,7 @@ export async function enrollView(root) {
       </div>
     </div>`.s;
 
-  try {
-    const rows = await api.get('/admin/enroll/status');
-    if (rows.length) {
-      const r = rows[0];
-      const color = r.status === 'approved' ? 'var(--green-600)' : r.status === 'rejected' ? 'var(--red-600)' : 'var(--orange-500)';
-      const label = r.status === 'approved' ? t('auth.enrollApproved') : r.status === 'rejected' ? t('auth.enrollRejected') : t('auth.enrollPending');
-      root.querySelector('#status-box').innerHTML = `<div style="padding:12px 14px;border-radius:8px;background:var(--surface-2);border:1.5px solid ${color};margin-bottom:16px;font-size:.9rem">🏫 <strong>${r.school_name || ''}</strong> — <span style="color:${color}">${label}</span></div>`;
-    }
-  } catch { /* ماعنده طلبات */ }
+  await _loadEnrollStatus(root);
 
   root.querySelector('#enroll-f').onsubmit = async (e) => {
     e.preventDefault();
@@ -318,8 +332,15 @@ export async function enrollView(root) {
     try {
       const schools = await api.get(`/schools?narsa_num=${encodeURIComponent(f.narsa_num.value.trim())}`);
       if (!schools || !schools.length) throw new Error(t('err.school_not_found'));
-      await api.post('/admin/enroll', { school_id: schools[0].id });
-      toast(t('auth.enrollPending')); f.reset();
+      const result = await api.post('/admin/enroll', { school_id: schools[0].id });
+      if (result && result.message === 'already_requested') {
+        err.textContent = t('err.already_requested') || 'سبق إرسال طلب لهذه المؤسسة.';
+        err.hidden = false;
+      } else {
+        toast(t('auth.enrollPending'));
+        f.reset();
+        await _loadEnrollStatus(root);
+      }
     } catch (ex) {
       err.textContent = ex.message || errorMessage(ex); err.hidden = false;
     } finally {
