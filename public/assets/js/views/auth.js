@@ -283,18 +283,43 @@ export function verifyOtpView(root, { query }) {
 // ── Enroll ────────────────────────────────────────────────────────────────────
 async function _loadEnrollStatus(root) {
   try {
+    const { navigate } = await import('../router.js');
+    const { store } = await import('../store.js');
     const rows = await api.get('/admin/enroll/status');
     const box = root.querySelector('#status-box');
     const form = root.querySelector('#enroll-f');
     if (!box) return;
     if (rows && rows.length) {
       const r = rows[0];
-      const color = r.status === 'approved' ? 'var(--green-600)' : r.status === 'rejected' ? 'var(--red-600)' : 'var(--orange-500)';
-      const label = r.status === 'approved' ? t('auth.enrollApproved') : r.status === 'rejected' ? t('auth.enrollRejected') : t('auth.enrollPending');
-      box.innerHTML = `<div style="padding:12px 14px;border-radius:8px;background:var(--surface-2);border:1.5px solid ${color};margin-bottom:16px;font-size:.9rem">🏫 <strong>${r.school_name || ''}</strong> — <span style="color:${color}">${label}</span></div>`;
-      // إخفاء النموذج إذا كان الطلب معلقاً أو مقبولاً
-      if (form && (r.status === 'pending' || r.status === 'approved')) {
-        form.style.display = 'none';
+      if (r.status === 'approved') {
+        // تم القبول — تحديث بيانات المستخدم
+        try {
+          const meData = await api.get('/auth/me');
+          if (meData?.user) store.user = meData.user;
+        } catch {}
+        box.innerHTML = `
+          <div style="text-align:center;padding:24px 0">
+            <div style="font-size:2.5rem;margin-bottom:12px">✅</div>
+            <h3 style="margin:0 0 6px;color:var(--green-600)">${t('auth.enrollApproved')}</h3>
+            <p class="muted small" style="margin:0 0 20px">🏫 <strong>${r.school_name || ''}</strong></p>
+            <a class="btn btn-primary" href="/dashboard">${t('nav.home')}</a>
+          </div>`;
+        if (form) form.style.display = 'none';
+      } else if (r.status === 'pending') {
+        box.innerHTML = `
+          <div style="padding:16px;border-radius:10px;background:var(--surface-2);border:2px solid var(--orange-500);margin-bottom:16px;text-align:center">
+            <div style="font-size:1.8rem;margin-bottom:8px">⏳</div>
+            <p style="margin:0 0 4px;font-weight:600">🏫 ${r.school_name || ''}</p>
+            <p class="muted small" style="margin:0">${t('auth.enrollPending')}</p>
+          </div>`;
+        if (form) form.style.display = 'none';
+      } else {
+        // rejected — أعرض الحالة وأُبقي النموذج
+        box.innerHTML = `
+          <div style="padding:12px 14px;border-radius:8px;background:var(--surface-2);border:1.5px solid var(--red-600);margin-bottom:16px;font-size:.9rem">
+            🏫 <strong>${r.school_name || ''}</strong> — <span style="color:var(--red-600)">${t('auth.enrollRejected')}</span>
+          </div>`;
+        if (form) form.style.display = '';
       }
     } else {
       box.innerHTML = '';

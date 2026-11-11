@@ -67,7 +67,9 @@ export async function dashboardView(root) {
     <div class="dash">
       <header class="dash-hello">
         <div><p class="dash-eyebrow">${new Date().toLocaleDateString(loc, { weekday: 'long', day: 'numeric', month: 'long' })}</p>
-        <h1>${t('dash.hello', { name: u.name })}</h1></div>
+        <h1>${t('dash.hello', { name: u.name })}</h1>
+        ${u.schoolName ? html`<p class="muted small" style="margin:4px 0 0;display:flex;align-items:center;gap:6px"><span>🏫</span><span>${u.schoolName}</span></p>` : ''}
+        </div>
         ${next.href ? html`<a class="btn btn-primary" href="${next.href}">${next.label}</a>` : html`<button class="btn btn-primary" id="next-btn">${next.label}</button>`}
       </header>
 

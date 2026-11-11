@@ -53,10 +53,19 @@ function publicUser(u) {
   const schoolId = (rawSchoolId === null || rawSchoolId === undefined || rawSchoolId === '')
     ? null
     : Number(rawSchoolId);
+  // جلب اسم المؤسسة إن كان المستخدم منتسباً لها
+  let schoolName = u.school_name || null;
+  if (schoolId && !schoolName) {
+    try {
+      const row = db.get().prepare("SELECT school_name FROM users WHERE id = ?").get(schoolId);
+      schoolName = row?.school_name || null;
+    } catch { /* تجاهل */ }
+  }
   return {
     id: u.id, email: u.email, name: u.name, role: u.role,
     locale: u.locale, examDate: u.exam_date, createdAt: u.created_at,
     schoolId,
+    schoolName,
     isSuperAdmin: u.is_super_admin === 1,
   };
 }
