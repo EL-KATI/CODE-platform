@@ -39,7 +39,8 @@ applyTheme(getTheme());
 function navLinks() {
   const u = store.user;
   // الأدمن والمؤسسة والمدرب: يتجهون مباشرة للوحة الإدارة
-  if (u && (store.isAdmin() || store.isSchool() || store.isInstructor())) return [['/admin', 'nav.admin']];
+  if (u && store.isSchool()) return [['/admin/live', 'live.admin.title']];
+  if (u && (store.isAdmin() || store.isInstructor())) return [['/admin', 'nav.admin']];
   // المتعلم: دروس + تمارين + (حجوزات إذا مرتبط بمؤسسة)
   const links = u
     ? [['/dashboard', 'nav.dashboard'], ['/lessons', 'nav.lessons'], ['/practice', 'nav.practice'], ['/exam', 'nav.exam'], ['/mistakes', 'nav.mistakes'], ['/assistant', 'nav.ai'], ...(store.isEnrolled() ? [['/bookings', 'nav.bookings']] : [])]
