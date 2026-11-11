@@ -71,6 +71,18 @@ function createApp() {
   const pub = path.join(config.ROOT, 'public');
   app.use('/uploads', express.static(config.uploadsDir, { maxAge: '30d', immutable: true }));
   app.use('/audio', express.static(path.join(config.ROOT, 'public', 'audio'), { maxAge: '30d' }));
+  // ملفات JS/CSS: no-cache في dev، short-revalidate في prod (ETag يضمن التحديث الفوري)
+  app.use('/assets', express.static(path.join(pub, 'assets'), {
+    maxAge: 0,
+    etag: true,
+    lastModified: true,
+    setHeaders(res, filePath) {
+      if (config.isProd && /\.(js|css)$/.test(filePath)) {
+        // يسمح للمتصفح بالتخزين لكن يُجبره على إعادة التحقق في كل مرة
+        res.set('Cache-Control', 'no-cache');
+      }
+    },
+  }));
   app.use(express.static(pub, { maxAge: config.isProd ? '1h' : 0, index: 'index.html' }));
   // Application monopage : toutes les autres URL renvoient index.html (routage côté client).
   app.get(/^\/(?!api\/|uploads\/|assets\/).*/, (req, res) => res.sendFile(path.join(pub, 'index.html')));
