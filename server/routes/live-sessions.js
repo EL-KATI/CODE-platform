@@ -92,7 +92,7 @@ function buildQuestionPayload(sessionId) {
   if (!qid) return null;
 
   const q = d.prepare(`
-    SELECT q.id, q.text, q.image_url, q.is_double, q.sub_questions,
+    SELECT q.id, q.text, q.image, q.image_alt, q.is_double, q.sub_questions,
            q.options, q.correct, q.explanation, c.name_ar AS cat
     FROM questions q LEFT JOIN categories c ON c.id = q.category_id
     WHERE q.id = ?
@@ -452,7 +452,7 @@ router.get('/:id/state', wrap(async (req, res) => {
   let question = null;
   if (qid && sess.status === 'live') {
     const q = d.prepare(`
-      SELECT q.id, q.text, q.image_url, q.is_double, q.sub_questions,
+      SELECT q.id, q.text, q.image, q.image_alt, q.is_double, q.sub_questions,
              q.options, q.correct, q.explanation, c.name_ar AS cat
       FROM questions q LEFT JOIN categories c ON c.id = q.category_id
       WHERE q.id = ?
