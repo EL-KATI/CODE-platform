@@ -316,7 +316,7 @@ export async function enrollView(root) {
     const err = root.querySelector('#err2');
     err.hidden = true; btn.disabled = true; btn.textContent = '…';
     try {
-      const schools = await api.get(`/api/schools?narsa_num=${encodeURIComponent(f.narsa_num.value.trim())}`);
+      const schools = await api.get(`/schools?narsa_num=${encodeURIComponent(f.narsa_num.value.trim())}`);
       if (!schools || !schools.length) throw new Error(t('err.school_not_found'));
       await api.post('/admin/enroll', { school_id: schools[0].id });
       toast(t('auth.enrollPending')); f.reset();
