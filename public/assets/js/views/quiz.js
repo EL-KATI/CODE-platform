@@ -501,7 +501,10 @@ export async function quizView(appRoot, { params }) {
         next();
       }
     } catch (e) {
-      if (e.code === 'already_answered' || e.code === 'attempt_finished') return navigate(`/quiz/${a.id}`, { replace: true });
+      if (e.code === 'already_answered' || e.code === 'attempt_finished') {
+        busy = false;
+        return navigate(`/quiz/${a.id}`, { replace: true });
+      }
       toast(errorMessage(e), 'error');
       if (exam) startTimer(remaining);
     } finally { busy = false; }
