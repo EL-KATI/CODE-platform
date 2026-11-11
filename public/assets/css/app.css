@@ -4421,3 +4421,139 @@ body.ui-apple .staff-side a.side-ai[aria-current="page"] { background: linear-gr
 .translate-loading {
   text-align: center; padding: 10px; color: var(--muted); font-size: .85rem;
 }
+
+/* ═══════════════ LIVE SESSIONS ════════════════════════════════════════════ */
+/* زر الانضمام في الهيدر */
+.live-join-btn {
+  display: flex; align-items: center; gap: 7px;
+  padding: 6px 14px; border-radius: 20px; border: none; cursor: pointer;
+  font-size: .85rem; font-weight: 600; font-family: inherit;
+  transition: transform .15s, box-shadow .15s;
+}
+.live-join-btn.is-live {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff; box-shadow: 0 2px 10px rgba(34,197,94,.4);
+  animation: live-pulse 2s ease-in-out infinite;
+}
+.live-join-btn.is-waiting {
+  background: var(--surface2, #f3f4f6); color: var(--text-soft);
+}
+.live-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: currentColor; flex: none;
+}
+.is-live .live-dot { background: #fff; animation: dot-blink 1s step-end infinite; }
+@keyframes live-pulse {
+  0%,100% { box-shadow: 0 2px 10px rgba(34,197,94,.4); }
+  50%      { box-shadow: 0 2px 20px rgba(34,197,94,.7); }
+}
+@keyframes dot-blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+/* صفحة الحصة */
+.live-page { max-width: 760px; margin: 0 auto; padding: 24px 16px; }
+.live-loading, .live-waiting-room, .live-ended-wrap {
+  text-align: center; padding: 60px 20px;
+}
+.live-pulse { font-size: 3rem; animation: pulse 2s ease-in-out infinite; }
+.live-ended-ic { font-size: 3.5rem; margin-bottom: 12px; }
+@keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.1)} }
+
+.live-q-wrap { background: var(--surface); border-radius: 16px; padding: 28px; box-shadow: 0 2px 12px rgba(0,0,0,.07); }
+
+/* شريط التقدم */
+.live-progress {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 20px; flex-wrap: wrap;
+}
+.live-q-num { font-size: .85rem; color: var(--muted); white-space: nowrap; }
+.live-prog-bar {
+  flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden;
+  min-width: 80px;
+}
+.live-prog-fill {
+  height: 100%; background: var(--accent); border-radius: 3px;
+  transition: width .4s ease;
+}
+.live-answered-label { font-size: .82rem; color: var(--muted); }
+
+.live-q-img { max-width: 100%; border-radius: 10px; margin-bottom: 16px; }
+.live-q-text { font-size: 1.15rem; line-height: 1.6; margin-bottom: 20px; }
+
+/* خيارات الإجابة */
+.live-opts { display: flex; flex-direction: column; gap: 10px; }
+.live-opt {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; border-radius: 10px; cursor: pointer; text-align: start;
+  border: 2px solid var(--border); background: var(--surface2);
+  transition: border-color .15s, background .15s, transform .1s;
+  font-family: inherit; font-size: .95rem;
+}
+.live-opt:not(:disabled):hover { border-color: var(--accent); transform: translateX(-2px); }
+.live-opt-letter {
+  width: 28px; height: 28px; border-radius: 50%; flex: none;
+  background: var(--accent-pale, rgba(234,88,12,.1)); color: var(--accent);
+  display: grid; place-items: center; font-weight: 700; font-size: .85rem;
+}
+.live-opt.correct { border-color: #22c55e; background: rgba(34,197,94,.08); }
+.live-opt.correct .live-opt-letter { background: #22c55e; color: #fff; }
+.live-opt.wrong   { border-color: #ef4444; background: rgba(239,68,68,.08); }
+.live-opt.wrong   .live-opt-letter { background: #ef4444; color: #fff; }
+
+/* ردود الفعل */
+.live-feedback {
+  margin-top: 16px; padding: 10px 16px; border-radius: 10px;
+  font-weight: 600; font-size: 1rem;
+}
+.live-feedback.correct { background: rgba(34,197,94,.12); color: #15803d; }
+.live-feedback.wrong   { background: rgba(239,68,68,.12); color: #b91c1c; }
+.live-explanation {
+  margin-top: 12px; padding: 12px 16px; border-radius: 10px;
+  background: var(--surface2); font-size: .9rem; line-height: 1.6;
+  border-inline-start: 3px solid var(--accent);
+}
+
+/* لوحة المؤسسة */
+.admin-live-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+.live-active-card {
+  background: var(--surface); border-radius: 14px; padding: 20px;
+  border: 2px solid #22c55e; margin-bottom: 24px; box-shadow: 0 2px 12px rgba(34,197,94,.12);
+}
+.live-active-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.live-active-progress { font-size: 1.1rem; font-weight: 600; margin-bottom: 14px; color: var(--accent); }
+.live-active-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.live-badge {
+  padding: 3px 10px; border-radius: 20px; font-size: .78rem; font-weight: 700;
+}
+.live-badge.live, .live-badge.is-live { background: rgba(34,197,94,.15); color: #15803d; }
+.live-badge.waiting { background: rgba(234,179,8,.15); color: #92400e; }
+.live-badge.ended   { background: var(--border); color: var(--muted); }
+.live-sessions-list { display: flex; flex-direction: column; gap: 10px; }
+.live-sess-card {
+  display: flex; align-items: center; gap: 12px; padding: 14px 18px;
+  background: var(--surface); border-radius: 12px; border: 1px solid var(--border); flex-wrap: wrap;
+}
+.live-sess-info { flex: 1; display: flex; align-items: center; gap: 8px; }
+.live-sess-meta { font-size: .82rem; color: var(--muted); }
+
+/* ═══════════════ ERROR MAP (نتائج الامتحان) ═══════════════════════════════ */
+.res-error-map { margin-bottom: 20px; }
+.err-dots-wrap {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin: 14px 0 10px;
+}
+.err-dot {
+  width: 20px; height: 20px; border-radius: 50%;
+  display: inline-block; flex: none;
+  transition: transform .15s;
+}
+.err-dot:hover, .err-dot:focus { transform: scale(1.4); outline: 2px solid var(--accent); }
+.err-dot.ok   { background: #22c55e; }
+.err-dot.med  { background: #f97316; }
+.err-dot.hard { background: #ef4444; }
+.err-dot.skip { background: var(--border); }
+.err-legend {
+  display: flex; gap: 16px; flex-wrap: wrap;
+  margin-top: 8px; font-size: .82rem; color: var(--text-soft);
+}
+.err-legend-item { display: flex; align-items: center; gap: 5px; }
+.err-legend-item i { width: 12px; height: 12px; border-radius: 50%; flex: none; }

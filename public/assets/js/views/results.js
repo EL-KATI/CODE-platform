@@ -158,6 +158,36 @@ export async function resultsView(root, { params }) {
         </div>
       </section>` : ''}
 
+      <!-- شريط التلوين الذكي حسب نسبة الخطأ -->
+      <section class="card res-error-map">
+        <h2 class="dash-h">${t('results.errorMap')}</h2>
+        <p class="small muted">${t('results.errorMapDesc')}</p>
+        <div class="err-dots-wrap" role="list" aria-label="${t('results.errorMap')}">
+          ${questions.map((q, i) => {
+            const st = statusOf(q);
+            if (st === 'skip') return html`<span class="err-dot skip" title="${t('quiz.qn', { n: i + 1 })} · ${t('results.skipped')}" role="listitem" data-i="${i}"></span>`.s;
+            const isCorrect = st === 'ok';
+            const er = typeof q.errorRate === 'number' ? q.errorRate : null;
+            // الأخضر: أجاب صح
+            // الأحمر: أجاب خطأ وخطأ المنصة ≥ 50% (سؤال صعب لكنه أخطأ)
+            // البرتقالي: أجاب خطأ وخطأ المنصة < 50%
+            let dotCls = 'err-dot';
+            if (isCorrect) dotCls += ' ok';
+            else if (er === null || er >= 50) dotCls += ' hard';
+            else dotCls += ' med';
+            const tip = isCorrect
+              ? t('results.dotOk')
+              : er !== null ? t('results.dotErr', { n: er }) : t('results.dotWrong');
+            return html`<span class="${dotCls}" title="${t('quiz.qn', { n: i + 1 })} · ${tip}" role="listitem" data-i="${i}"></span>`.s;
+          }).join('')}
+        </div>
+        <div class="err-legend">
+          <span class="err-legend-item"><i class="err-dot ok"></i> ${t('results.legendOk')}</span>
+          <span class="err-legend-item"><i class="err-dot med"></i> ${t('results.legendMed')}</span>
+          <span class="err-legend-item"><i class="err-dot hard"></i> ${t('results.legendHard')}</span>
+        </div>
+      </section>
+
       <section id="review-section">
         <div class="dash-h-row res-review-head">
           <h2 class="dash-h">${t('results.review')}</h2>
@@ -204,6 +234,20 @@ export async function resultsView(root, { params }) {
     renderReview();
   }
   root.querySelectorAll('.seg button').forEach((b) => (b.onclick = () => setFilter(b.dataset.filter)));
+
+  // النقر على نقطة التلوين → يفتح السؤال مباشرة
+  root.querySelectorAll('.err-dot[data-i]').forEach((dot) => {
+    dot.style.cursor = 'pointer';
+    dot.addEventListener('click', () => {
+      setFilter('all');
+      requestAnimationFrame(() => {
+        const idx = Number(dot.dataset.i);
+        const details = root.querySelectorAll('#review-list details.acc');
+        const target = Array.from(details).find(d => Number(d.dataset.i) === idx);
+        if (target) { target.open = true; target.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+      });
+    });
+  });
 
   const ow = root.querySelector('#only-wrong');
   if (ow) ow.onclick = () => {

@@ -321,6 +321,46 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 
 CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id, read, created_at DESC);
+
+-- ══════════════════════════════════════════════════════════════════════
+-- الحصص الجماعية المباشرة (Live Group Sessions)
+-- ══════════════════════════════════════════════════════════════════════
+CREATE TABLE IF NOT EXISTS live_sessions (
+  id           INTEGER PRIMARY KEY,
+  school_id    INTEGER NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+  created_by   INTEGER NOT NULL REFERENCES users(id),
+  title        TEXT    NOT NULL DEFAULT 'حصة جماعية',
+  mode         TEXT    NOT NULL DEFAULT 'exam'   CHECK (mode IN ('exam','practice')),
+  status       TEXT    NOT NULL DEFAULT 'waiting' CHECK (status IN ('waiting','live','ended')),
+  question_ids TEXT    NOT NULL DEFAULT '[]',   -- JSON array
+  current_q    INTEGER NOT NULL DEFAULT 0,       -- index السؤال الحالي
+  started_at   TEXT    DEFAULT NULL,
+  ended_at     TEXT    DEFAULT NULL,
+  created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+-- صلاحية مترشح للانضمام إلى حصص مؤسسته (first-time approval)
+CREATE TABLE IF NOT EXISTS live_session_access (
+  user_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  school_id INTEGER NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+  granted_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (user_id, school_id)
+);
+
+-- إجابات المتعلمين في الحصة الجماعية
+CREATE TABLE IF NOT EXISTS live_session_answers (
+  id          INTEGER PRIMARY KEY,
+  session_id  INTEGER NOT NULL REFERENCES live_sessions(id) ON DELETE CASCADE,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  question_id INTEGER NOT NULL,
+  selected    TEXT    NOT NULL DEFAULT '[]',   -- JSON array
+  is_correct  INTEGER NOT NULL DEFAULT 0,
+  answered_at TEXT    NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (session_id, user_id, question_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ls_school  ON live_sessions(school_id, status);
+CREATE INDEX IF NOT EXISTS idx_lsa_session ON live_session_answers(session_id, question_id);
 `;
 
 let db;

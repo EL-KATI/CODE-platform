@@ -61,6 +61,7 @@ function createApp() {
   api.use('/exams', require('./routes/exams'));
   api.use('/notifications', require('./routes/notifications'));
   api.use('/translate', require('./routes/translate'));
+  api.use('/live', require('./routes/live-sessions'));
   api.use((req, res) => res.status(404).json({ error: 'not_found' }));
   app.use('/api', api);
 

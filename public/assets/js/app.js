@@ -19,10 +19,12 @@ import { mistakesView, historyView } from './views/mistakes.js';
 import { profileView } from './views/profile.js';
 import { privacyView, notFoundView } from './views/static.js';
 import { mountNotifications } from './notifications.js';
+import { mountLiveJoinBtn } from './live.js';
 import * as admin from './views/admin.js';
 import { bookingsView, adminBookingsView } from './views/bookings.js';
 import { schoolStudentsView, schoolInstructorsView, enrollmentsView } from './views/school.js';
 import { schoolExamsView, studentExamView } from './views/exams.js';
+import { liveSessionView, adminLiveView } from './views/live.js';
 
 const app = document.getElementById('app');
 
@@ -164,6 +166,7 @@ export function renderShell() {
     <button class="icon-btn" id="sound-btn" type="button" aria-label="${t('a11y.sound')}" aria-pressed="${sound.enabled}">${sound.enabled ? '🔊' : '🔇'}</button>
     ${store.user && !store.isStaff() ? html`<a class="icon-btn ai-quick" href="/assistant" title="${t('nav.ai')}" ${location.pathname === '/assistant' ? html`aria-current="page"` : ''}>${raw(iconSvg('sparkles'))}<span class="sr-only">${t('nav.ai')}</span></a>` : ''}
     ${store.user && !store.isStaff() ? html`<a class="hdr-challenge-btn" href="/champion" title="${t('champ.title')}" ${location.pathname === '/champion' ? html`aria-current="page"` : ''}><span class="hdr-ch-ic" aria-hidden="true">⚡</span><span class="hdr-ch-lbl">${t('champ.title')}</span></a>` : ''}
+    ${store.user && store.user.role === 'student' ? html`<span id="live-join-mount"></span>` : ''}
     ${store.user ? html`<span id="notif-mount"></span>` : ''}
     ${store.user
       ? html`<a class="icon-btn" href="/profile" title="${store.user.name}"><span aria-hidden="true">👤</span><span class="sr-only">${t('nav.profile')}</span></a>
@@ -175,6 +178,12 @@ export function renderShell() {
   const notifMount = document.getElementById('notif-mount');
   if (notifMount && store.user) {
     mountNotifications(notifMount);
+  }
+
+  // زر الانضمام للحصة الجماعية (للطلاب فقط)
+  const liveMount = document.getElementById('live-join-mount');
+  if (liveMount && store.user?.role === 'student') {
+    mountLiveJoinBtn(liveMount);
   }
 
   document.getElementById('site-footer').innerHTML = html`
@@ -316,6 +325,8 @@ route('/admin/school/students', view(schoolStudentsView), { auth: true, roles: [
 route('/admin/school/instructors', view(schoolInstructorsView), { auth: true, roles: ['school'] });
 route('/admin/exams', view(schoolExamsView), { auth: true, roles: ['admin', 'school'] });
 route('/my-exams', view(studentExamView), { auth: true, roles: ['student'] });
+route('/live/:id', view(liveSessionView), learner);
+route('/admin/live', view(adminLiveView), { auth: true, roles: ['admin', 'school', 'instructor'] });
 route('*', view(notFoundView));
 
 (async function boot() {

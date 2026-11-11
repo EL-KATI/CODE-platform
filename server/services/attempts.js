@@ -215,11 +215,30 @@ function load(user, attemptId) {
     AND question_id IN (${ids.map(() => '?').join(',')})`).all(user.id, ...ids).map((r) => r.question_id));
   const finished = !!a.finished_at;
 
+  // نسبة الخطأ لكل سؤال من جميع محاولات المنصة (للتحليل الإحصائي)
+  const errorRateMap = new Map();
+  if (finished && ids.length) {
+    const placeholders = ids.map(() => '?').join(',');
+    const errorRows = d.prepare(`
+      SELECT question_id,
+             COUNT(*) AS total,
+             SUM(CASE WHEN is_correct = 0 THEN 1 ELSE 0 END) AS wrong
+      FROM attempt_answers
+      WHERE question_id IN (${placeholders})
+      GROUP BY question_id
+    `).all(...ids);
+    for (const row of errorRows) {
+      const rate = row.total > 0 ? Math.round(100 * row.wrong / row.total) : null;
+      errorRateMap.set(row.question_id, rate);
+    }
+  }
+
   const questions = ids.filter((id) => rows.has(id)).map((id) => {
     const ans = answers.get(id);
     const reveal = finished || (a.practice && ans);
     const q = toQuestion(rows.get(id), { includeAnswer: reveal });
     q.bookmarked = bookmarks.has(id);
+    if (finished) q.errorRate = errorRateMap.get(id) ?? null;
     if (ans) {
       const rawSel = ans.selected;
       let parsedSel;

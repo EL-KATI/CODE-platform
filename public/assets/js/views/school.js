@@ -169,6 +169,7 @@ export async function schoolStatsView(root, days = 30) {
       ${kpi('🟢', 'متعلمون الآن', s.activeNow ?? 0, `${s.activeNowPct ?? 0}% من إجمالي المتعلمين`, '/admin/school/students')}
       ${kpi('📅', 'حصص قادمة مقبولة', s.upcoming, '', '/admin/bookings')}
       ${kpi('⏳', 'طلبات معلقة', bk.pending || 0, 'تحتاج قراراً', '/admin/bookings')}
+      ${kpi('📡', 'الحصص الجماعية المباشرة', '', 'إنشاء وإدارة الحصص', '/admin/live')}
     </div>
     <div class="grid grid-2" style="margin-top:20px">
       <div class="card"><h3 class="dash-h">📝 الامتحانات حسب اليوم <span class="small muted">(آخر ${s.days} يوماً)</span></h3>${examChart}
