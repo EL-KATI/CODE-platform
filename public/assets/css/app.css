@@ -2269,57 +2269,104 @@ body.has-side .site-footer { margin-inline-start:230px; }
   overflow: hidden;
 }
 
-/* ── الشاشة الرئيسية: الصورة ثم الصندوق الأسود ── */
-.nrs-main { display: flex; flex-direction: column; flex: 1 1 0%; min-width: 0; min-height: 0; overflow: hidden; background: #000; border-radius: 0.4rem; box-shadow: rgba(49,49,49,0.78) 0px 0px 17px 1px inset; }
-.nrs-media { flex: 0 0 50%; min-height: 100px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #1a1a1a; }
-.nrs-media img, .nrs-media video { width: 100%; height: 100%; object-fit: contain; display: block; }
+/* ── الشاشة الرئيسية: الصورة ثم لوحة الأسئلة ── */
+.nrs-main { display: flex; flex-direction: column; flex: 1 1 0%; min-width: 0; min-height: 0; overflow: hidden; background: #0d1b3e; border-radius: 0.4rem; }
+/* الصورة: تملأ النصف العلوي بالكامل */
+.nrs-media { flex: 0 0 48%; min-height: 80px; display: flex; align-items: stretch; overflow: hidden; background: #000; }
+.nrs-media img, .nrs-media video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .nrs-media.has-video > * { width: 100%; height: 100%; margin: 0 !important; max-height: none !important; }
-.nrs-img-wrap { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
-.nrs-img-wrap img { width: 100%; height: 100%; object-fit: contain; }
+.nrs-img-wrap { width: 100%; height: 100%; display: flex; }
+.nrs-img-wrap img { width: 100%; height: 100%; object-fit: cover; }
 .nrs-img-wrap svg { width: 100%; height: 100%; }
 .nrs-no-media { display: flex; align-items: center; justify-content: center; color: #555; font-size: 5rem; width: 100%; }
 
+/* لوحة النص: خلفية navy blue مثل NARSA الأصلي */
 .nrs-text-panel {
   flex: 1 1 0%; min-height: 0;
-  background: #000;
-  padding: 14px 18px 12px;
+  background: #0d1b3e;
+  padding: 10px 16px 10px;
   overflow-y: auto;
-  scrollbar-width: thin; scrollbar-color: #333 #000;
+  scrollbar-width: thin; scrollbar-color: #1e3a6e #0d1b3e;
   font-family: var(--nrs-serif);
 }
 .nrs-text-panel.has-result { flex: 1 1 0%; }
 
-/* نص السؤال: أبيض في الوسط */
-.nrs-q-main { color: #fff; font-size: clamp(1.25rem, 2.3vw, 1.75rem); font-weight: 400; line-height: 1.55; text-align: right; direction: rtl; margin: 0 0 6px; padding: 0 4px; }
-/* كتلة الاختيارات */
-.nrs-block { width: 100%; direction: rtl; }
+/* نص السؤال: أبيض كبير — مثل الصورة الأصلية */
+.nrs-q-main {
+  color: #fff;
+  font-size: clamp(1.3rem, 2.4vw, 1.9rem);
+  font-weight: 700;
+  line-height: 1.5;
+  text-align: right;
+  direction: rtl;
+  margin: 0 0 8px;
+  padding: 4px 2px;
+}
+/* كتلة الاختيارات: تملأ العرض كاملاً */
+.nrs-block { width: 100%; }
 .nrs-opts-list { display: flex; flex-direction: column; gap: 0; }
-.nrs-opts-row { display: grid; grid-template-columns: 1fr 1fr; column-gap: 8%; }
-/* سطر خيار NARSA:  رقم | . . . . . | النص العربي الأزرق
-   DOM order في HTML: [nrs-opt-n] [nrs-opt-dots] [nrs-opt-text]
-   direction:ltr → رقم يسار، نص يمين بـ text-align:right */
+.nrs-opts-row { display: grid; grid-template-columns: 1fr 1fr; column-gap: 6%; }
+
+/* ═══ سطر خيار NARSA الأصلي ═══
+   التصميم: 1  ————————————  نَعَمْ
+   DOM: [nrs-opt-n] [nrs-opt-line] [nrs-opt-text]
+   direction:ltr → رقم يسار | خط يمتد | نص يمين */
 .nrs-opt {
   display: flex;
   flex-direction: row;
   direction: ltr;
-  align-items: baseline;
-  padding: 4px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
-  font-size: clamp(1.15rem, 2vw, 1.6rem);
-  line-height: 1.6;
+  align-items: center;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  font-size: clamp(1.2rem, 2.2vw, 1.75rem);
+  line-height: 1.5;
   color: #fff;
+  cursor: pointer;
 }
 .nrs-opt:last-child { border-bottom: none; }
-/* الرقم: يسار دائماً */
-.nrs-opt-n { color: #fff; font-family: 'Times New Roman', serif; font-size: 1em; font-weight: 700; flex: 0 0 auto; min-width: 1.6em; text-align: left; direction: ltr; padding-left: 2px; }
-/* نقاط ممتدة تملأ الوسط */
-.nrs-opt-dots { flex: 1 1 auto; min-width: 20px; margin: 0 6px; border-bottom: 2px dotted rgba(255,255,255,0.35); transform: translateY(-.3em); align-self: flex-end; margin-bottom: 0.4em; }
-/* النص الأزرق: يمين */
-.nrs-opt-text { color: #6b9bff; flex: 0 1 auto; white-space: normal; word-break: break-word; text-align: right; direction: rtl; min-width: 0; max-width: 80%; }
-.nrs-opt.sub-ok .nrs-opt-text { color: #4ade6e; }
-.nrs-opt.sub-wrong .nrs-opt-text { color: #ff7a70; }
-/* السؤال المزدوج: عنوان كل جزء بالأبيض */
-.nrs-sub-label { color: #fff; font-size: clamp(1.2rem, 2.2vw, 1.7rem); line-height: 1.5; text-align: right; direction: rtl; padding: 4px 0 2px; border-top: 1px solid rgba(255,255,255,0.12); margin-top: 6px; }
+.nrs-opt.sub-on { background: rgba(255,255,255,0.06); border-radius: 3px; }
+
+/* الرقم: يسار — أبيض */
+.nrs-opt-n {
+  color: #fff;
+  font-family: 'Times New Roman', serif;
+  font-size: 1em;
+  font-weight: 700;
+  flex: 0 0 auto;
+  min-width: 1.8em;
+  text-align: left;
+  direction: ltr;
+}
+/* الخط الأفقي الأبيض الممتد — مثل الصورة الأصلية */
+.nrs-opt-dots {
+  flex: 1 1 auto;
+  height: 2px;
+  background: rgba(255,255,255,0.7);
+  margin: 0 8px;
+  border: none;
+  border-bottom: none;
+  transform: none;
+  align-self: center;
+}
+/* النص العربي: أبيض، يمين */
+.nrs-opt-text {
+  color: #fff;
+  flex: 0 1 auto;
+  white-space: normal;
+  word-break: break-word;
+  text-align: right;
+  direction: rtl;
+  min-width: 0;
+  max-width: 75%;
+}
+/* حالة الإجابة الصحيحة/الخاطئة */
+.nrs-opt.sub-ok .nrs-opt-text,
+.nrs-opt.sub-ok .nrs-opt-n { color: #4ade6e; }
+.nrs-opt.sub-wrong .nrs-opt-text,
+.nrs-opt.sub-wrong .nrs-opt-n { color: #ff7a70; }
+
+/* السؤال المزدوج: عنوان كل جزء — مثل الصورة */
+.nrs-sub-label { color: #fff; font-size: clamp(1.2rem, 2.2vw, 1.75rem); font-weight: 700; line-height: 1.4; text-align: right; direction: rtl; padding: 6px 0 2px; border-top: 1px solid rgba(255,255,255,0.15); margin-top: 8px; }
 .nrs-sub-label:first-child { border-top: none; margin-top: 0; }
 /* التصحيح في وضع التمرين: نص بسيط داخل الصندوق الأسود */
 .nrs-fb { margin-top: 8px; padding-top: 6px; border-top: 1px solid #444; font-size: clamp(1.05rem, 1.9vw, 1.35rem); font-weight: 700; text-align: right; }
