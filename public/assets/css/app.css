@@ -2296,15 +2296,30 @@ body.has-side .site-footer { margin-inline-start:230px; }
 .nrs-opts-list { display: flex; flex-direction: column; gap: 2px; }
 .nrs-opts-row { display: grid; grid-template-columns: 1fr 1fr; column-gap: 12%; }
 /* سطر اختيار: -النص (أزرق) ......... الرقم (أبيض) */
-/* RTL: نص (يمين) ← نقاط ← رقم (يسار) */
-.nrs-opt { display: flex; align-items: baseline; flex-direction: row; direction: rtl; font-size: clamp(1.2rem, 2.2vw, 1.7rem); line-height: 1.5; color: #fff; }
-.nrs-opt-text { color: #6b9bff; white-space: normal; word-break: break-word; }
-.nrs-opt-dots { flex: 1; min-width: 20px; margin: 0 4px; border-bottom: 2px dotted #aaa; transform: translateY(-.28em); }
-.nrs-opt-n { color: #fff; font-family: 'Times New Roman', serif; font-size: 1em; font-weight: 700; min-width: 1.1em; text-align: center; flex-shrink: 0; }
+/* سطر خيار: النص يمين | نقاط | رقم يسار — اتجاه RTL */
+.nrs-opt {
+  display: flex;
+  flex-direction: row;         /* أول عنصر DOM (نص) → يمين في RTL */
+  direction: rtl;
+  align-items: baseline;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  font-size: clamp(1.2rem, 2.2vw, 1.7rem);
+  line-height: 1.6;
+  color: #fff;
+}
+.nrs-opt:last-child { border-bottom: none; }
+/* النص الأزرق: يبدأ من اليمين */
+.nrs-opt-text { color: #6b9bff; white-space: normal; word-break: break-word; text-align: right; }
+/* نقاط مائلة تملأ الوسط */
+.nrs-opt-dots { flex: 1; min-width: 16px; margin: 0 6px; border-bottom: 2px dotted rgba(255,255,255,0.4); transform: translateY(-.3em); }
+/* الرقم في اليسار */
+.nrs-opt-n { color: #fff; font-family: 'Times New Roman', serif; font-size: 1em; font-weight: 700; min-width: 1.4em; text-align: left; flex-shrink: 0; direction: ltr; }
 .nrs-opt.sub-ok .nrs-opt-text { color: #4ade6e; }
 .nrs-opt.sub-wrong .nrs-opt-text { color: #ff7a70; }
 /* السؤال المزدوج: عنوان كل جزء بالأبيض */
-.nrs-sub-label { color: #fff; font-size: clamp(1.2rem, 2.2vw, 1.7rem); line-height: 1.5; text-align: right; }
+.nrs-sub-label { color: #fff; font-size: clamp(1.2rem, 2.2vw, 1.7rem); line-height: 1.5; text-align: right; direction: rtl; padding: 4px 0 2px; border-top: 1px solid rgba(255,255,255,0.12); margin-top: 6px; }
+.nrs-sub-label:first-child { border-top: none; margin-top: 0; }
 /* التصحيح في وضع التمرين: نص بسيط داخل الصندوق الأسود */
 .nrs-fb { margin-top: 8px; padding-top: 6px; border-top: 1px solid #444; font-size: clamp(1.05rem, 1.9vw, 1.35rem); font-weight: 700; text-align: right; }
 .nrs-fb.is-ok { color: #4ade6e; } .nrs-fb.is-ko { color: #ff7a70; }

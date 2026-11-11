@@ -328,7 +328,7 @@ export async function quizView(appRoot, { params }) {
   // RTL: النص يمين → نقاط وسط → رقم يسار
   // ترتيب HTML: نص أولاً (يمين في RTL)، ثم نقاط، ثم رقم (يسار في RTL)
   function optHtml(n, text, state) {
-    return `<div class="nrs-opt ${state}"><span class="nrs-opt-text">-${esc(text)}</span><span class="nrs-opt-dots" aria-hidden="true"></span><span class="nrs-opt-n">${n}</span></div>`;
+    return `<div class="nrs-opt ${state}"><span class="nrs-opt-text">${esc(text)}</span><span class="nrs-opt-dots" aria-hidden="true"></span><span class="nrs-opt-n">${n}</span></div>`;
   }
   const optText = (o) => ((o && typeof o === 'object') ? (o.text || '') : String(o ?? ''));
 
@@ -361,7 +361,7 @@ export async function quizView(appRoot, { params }) {
         const labels = (sq.options || []).map(optText);
         // اختيارات قصيرة (نعم / لا) جنباً إلى جنب كما في الامتحان؛ الطويلة كل واحدة في سطر
         const inline = labels.every((l) => l.length <= 14);
-        out += `<div class="nrs-sub-label" dir="rtl">${esc(sq.text)} -</div><div class="${inline ? 'nrs-opts-row' : 'nrs-opts-list'}">`;
+        out += `<div class="nrs-sub-label" dir="rtl">${esc(sq.text)}</div><div class="${inline ? 'nrs-opts-row' : 'nrs-opts-list'}">`;
         labels.forEach((lbl, i) => { out += optHtml(i + 1 + si * 2, lbl, state(sets[si].has(i + 1), corr.has(i + 1))); });
         out += '</div>';
         corr.forEach((n) => corrAll.push(n + si * 2));
