@@ -269,6 +269,11 @@ function renderChampCard(card, ch, user) {
 // ── Modal التحدي ───────────────────────────────────────────────────────────
 let _modal = null;
 
+// export للاستخدام من صفحة /champion
+export function openChallengeFromPage(root) {
+  openChallengeModal(root);
+}
+
 function openChallengeModal(card) {
   if (_modal) return;
   _modal = document.createElement('div');

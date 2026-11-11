@@ -35,6 +35,7 @@ export async function homeView(root) {
         <div class="home-cta">
           <a class="btn btn-primary btn-lg" href="/register">${t('home.cta')}</a>
           <a class="btn btn-secondary btn-lg" href="/lessons">${t('home.ctaLessons')}</a>
+          <a class="btn btn-ghost btn-lg" href="/champion">🏆 ${t('champ.pageTitle')}</a>
         </div>
         <div class="home-stats">
           <div><strong>${s.questionCount}</strong><small>سؤال في الامتحان</small></div>

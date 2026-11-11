@@ -7,6 +7,7 @@ import { t, setLocale, getLocale, applyStaticTranslations } from './i18n.js';
 import { html, raw, esc, toast, sound } from './ui.js';
 
 import { homeView } from './views/home.js';
+import { championView } from './views/champion.js';
 import { loginView, registerView, verifyOtpView, enrollView } from './views/auth.js';
 import { dashboardView } from './views/dashboard.js';
 import { lessonsView, lessonView } from './views/lessons.js';
@@ -52,7 +53,7 @@ const SIDE_ICONS = {
   '/admin/import': '📥', '/admin/storage': '☁️',
 };
 // أيقونة لكل رابط؛ Monitor AI بارز بتنسيق خاص
-const NAV_ICON = { '/': 'home', '/dashboard': 'dashboard', '/lessons': 'book-open', '/practice': 'layers', '/exam': 'clock', '/mistakes': 'restore', '/assistant': 'sparkles', '/bookings': 'calendar', '/login': 'log-in', '/admin': 'bar-chart', '/profile': 'user', '/register': 'user-plus' };
+const NAV_ICON = { '/': 'home', '/dashboard': 'dashboard', '/lessons': 'book-open', '/practice': 'layers', '/exam': 'clock', '/mistakes': 'restore', '/assistant': 'sparkles', '/bookings': 'calendar', '/login': 'log-in', '/admin': 'bar-chart', '/profile': 'user', '/register': 'user-plus', '/champion': 'star' };
 // المتعلم والزائر (الرئيسية، الدروس، الدخول، التسجيل): نفس الشريط الجانبي التفاعلي
 const isLearnerSide = () => !(store.isAdmin() || store.isSchool() || store.isInstructor());
 
@@ -278,6 +279,7 @@ route('/assistant', view(aiTutorView), learner);
 route('/history', view(historyView), learner);
 route('/profile', view(profileView), { auth: true });
 route('/privacy', view(privacyView));
+route('/champion', view(championView));
 // الحجز: للمتعلمين المنتسبين لمدرسة قيادة فقط (school_id != null)
 route('/bookings', (ctx) => {
   if (!store.user) return navigate('/login?next=/bookings', { replace: true });

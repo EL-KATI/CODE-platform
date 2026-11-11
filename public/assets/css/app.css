@@ -3712,3 +3712,465 @@ body.ui-apple .staff-side a.side-ai[aria-current="page"] { background: linear-gr
 .ch-result-score span { font-size:1.6rem; color:var(--muted); }
 .ch-result-label { font-size:.9rem; color:var(--muted); margin:4px 0 10px; }
 .ch-result-time { font-size:.88rem; }
+
+/* ══════════════════════════════════════════════
+   AUTH split-screen layout
+══════════════════════════════════════════════ */
+.auth-layout {
+  display: flex;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Decorative left panel ─────────────────── */
+.auth-panel {
+  position: relative;
+  flex: 0 0 420px;
+  background: linear-gradient(145deg, #0d4f4a 0%, #0a7c6e 50%, #0d6e62 100%);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 40px;
+}
+
+/* Geometric decorative shapes */
+.auth-deco { position: absolute; inset: 0; pointer-events: none; }
+.adeco {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255,255,255,.07);
+}
+.adeco-tl { width: 240px; height: 240px; top: -80px; inset-inline-start: -60px; }
+.adeco-tr { width: 160px; height: 160px; top: 40px; inset-inline-end: -40px; background: rgba(255,255,255,.05); border-radius: 30px; transform: rotate(25deg); }
+.adeco-br { width: 300px; height: 300px; bottom: -100px; inset-inline-end: -80px; }
+.adeco-bl { width: 120px; height: 120px; bottom: 80px; inset-inline-start: 20px; background: rgba(255,255,255,.04); }
+.adeco-c1 { width: 80px; height: 80px; top: 50%; inset-inline-end: 60px; transform: translateY(-50%); background: rgba(255,255,255,.06); border-radius: 16px; rotate: 20deg; }
+.adeco-c2 { width: 50px; height: 50px; top: 30%; inset-inline-start: 60px; border-radius: 50%; background: rgba(255,255,255,.08); }
+.adeco-c3 { width: 200px; height: 200px; top: 50%; left: 50%; transform: translate(-50%,-50%); background: rgba(255,255,255,.03); border-radius: 40px; rotate: 15deg; }
+
+.auth-panel-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  color: #fff;
+  width: 100%;
+}
+
+.auth-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.auth-logo-icon {
+  width: 48px; height: 48px;
+  background: rgba(255,255,255,.18);
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+}
+.auth-logo-name {
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+}
+
+.auth-panel-h {
+  font-size: 1.9rem;
+  font-weight: 800;
+  line-height: 1.25;
+  margin: 0 0 10px;
+}
+.auth-panel-p {
+  font-size: .97rem;
+  opacity: .8;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.auth-stats {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.auth-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(255,255,255,.12);
+  border-radius: 12px;
+  padding: 12px 16px;
+  flex: 1;
+  min-width: 70px;
+  text-align: center;
+}
+.auth-stat strong {
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+.auth-stat span {
+  font-size: .72rem;
+  opacity: .75;
+  margin-top: 2px;
+}
+
+/* Tab switch on panel */
+.auth-panel-switch {
+  display: flex;
+  gap: 8px;
+  background: rgba(0,0,0,.2);
+  border-radius: 12px;
+  padding: 5px;
+}
+.auth-sw-btn {
+  flex: 1;
+  text-align: center;
+  padding: 8px 10px;
+  border-radius: 9px;
+  font-size: .88rem;
+  font-weight: 600;
+  color: rgba(255,255,255,.65);
+  text-decoration: none;
+  transition: background .2s, color .2s;
+}
+.auth-sw-btn.active {
+  background: rgba(255,255,255,.22);
+  color: #fff;
+}
+.auth-sw-btn:hover:not(.active) {
+  color: #fff;
+}
+
+/* ── Right form side ───────────────────────── */
+.auth-form-side {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+.auth-form-box {
+  width: 100%;
+  max-width: 400px;
+}
+
+.auth-form-title {
+  font-size: 1.7rem;
+  font-weight: 800;
+  margin: 0 0 4px;
+}
+.auth-form-sub {
+  margin: 0 0 20px;
+  font-size: .9rem;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.auth-submit {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 18px 0;
+  color: var(--muted);
+  font-size: .82rem;
+}
+.auth-divider hr {
+  flex: 1;
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0;
+}
+
+.auth-google-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 11px 16px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: var(--surface-1);
+  font-size: .95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+  color: var(--text);
+}
+.auth-google-btn:hover {
+  background: var(--surface-2);
+  border-color: var(--accent);
+}
+
+.auth-switch-link {
+  text-align: center;
+  margin-top: 20px;
+  font-size: .88rem;
+  color: var(--muted);
+}
+.auth-switch-link a { color: var(--accent); font-weight: 600; }
+
+.auth-name-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.auth-pass-hint {
+  font-size: .78rem;
+  color: var(--muted);
+  background: var(--surface-2);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+
+.auth-otp-icon {
+  font-size: 3rem;
+  text-align: center;
+  margin-bottom: 12px;
+}
+.auth-otp-input {
+  font-size: 1.5rem !important;
+  letter-spacing: .3em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Mobile: stack vertically */
+@media (max-width: 768px) {
+  .auth-layout { flex-direction: column; }
+  .auth-panel {
+    flex: none;
+    padding: 32px 24px;
+    min-height: 220px;
+  }
+  .auth-panel-h { font-size: 1.3rem; }
+  .auth-stats { gap: 10px; }
+  .auth-stat { padding: 8px 10px; }
+  .auth-name-row { grid-template-columns: 1fr; }
+  .auth-form-side { padding: 28px 16px 40px; }
+  .auth-panel-switch { display: none; }
+}
+
+/* ══════════════════════════════════════════════
+   CHAMPION public page
+══════════════════════════════════════════════ */
+.champ-page { max-width: 740px; margin: 0 auto; padding: 32px 16px 60px; }
+
+/* hero */
+.champ-page-hero {
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #0d4f4a 0%, #0a7c6e 60%, #12a089 100%);
+  color: #fff;
+  padding: 48px 40px 40px;
+  margin-bottom: 28px;
+  text-align: center;
+}
+.champ-page-hero .adeco { pointer-events:none; }
+.champ-page-hero-icon {
+  font-size: 3.5rem;
+  margin-bottom: 10px;
+  position: relative;
+  z-index:1;
+}
+.champ-page-hero h1 {
+  font-size: 2rem;
+  font-weight: 900;
+  margin: 0 0 8px;
+  position: relative;
+  z-index:1;
+}
+.champ-page-hero p {
+  opacity: .82;
+  font-size: .97rem;
+  margin: 0 0 24px;
+  position: relative;
+  z-index:1;
+}
+.champ-page-hero-btns {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  position: relative;
+  z-index:1;
+}
+.btn-champ-hero {
+  padding: 12px 28px;
+  border-radius: 12px;
+  font-size: .97rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 2px solid rgba(255,255,255,.5);
+  background: rgba(255,255,255,.18);
+  color: #fff;
+  text-decoration: none;
+  transition: background .15s;
+}
+.btn-champ-hero.primary {
+  background: #fff;
+  color: #0a7c6e;
+  border-color: #fff;
+}
+.btn-champ-hero:hover { background: rgba(255,255,255,.3); }
+.btn-champ-hero.primary:hover { background: #e8f8f5; }
+
+/* today's champion block */
+.champ-page-winner {
+  background: var(--surface-1);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 20px;
+  border: 1px solid var(--border);
+}
+.champ-page-winner-title {
+  font-size: .78rem;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.champ-page-winner-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.champ-page-av {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--surface-2);
+  display: flex; align-items:center; justify-content:center;
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+.champ-page-winner-name {
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+.champ-page-winner-school {
+  font-size: .82rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.champ-page-winner-score {
+  margin-inline-start: auto;
+  text-align: center;
+}
+.champ-page-winner-score strong { font-size: 1.5rem; color: var(--accent); }
+.champ-page-winner-score span { font-size: .78rem; color: var(--muted); display:block; }
+
+/* my result (after completing) */
+.champ-page-mine {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 14px;
+  padding: 18px 20px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.champ-page-mine-score { font-size: 1.8rem; font-weight: 900; color: var(--accent); }
+.champ-page-mine-label { font-size: .85rem; color: var(--muted); }
+
+/* leaderboard */
+.champ-page-board {
+  background: var(--surface-1);
+  border-radius: 16px;
+  padding: 20px;
+  border: 1px solid var(--border);
+}
+.champ-page-board-title {
+  font-size: .78rem;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.champ-page-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: .9rem;
+}
+.champ-page-row:last-child { border-bottom: none; }
+.champ-page-row.is-me {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border-radius: 10px;
+  padding-inline: 10px;
+  margin-inline: -10px;
+}
+.champ-page-rk { min-width: 28px; font-weight: 800; font-size: .88rem; text-align:center; }
+.champ-page-pav {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--surface-2);
+  display:flex; align-items:center; justify-content:center;
+  font-size: .95rem;
+  flex-shrink:0;
+}
+.champ-page-pname { flex: 1; font-weight: 500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.champ-page-pschool { font-size: .78rem; color: var(--muted); }
+.champ-page-pscore { font-weight: 800; color: var(--accent); }
+.champ-page-ptime { font-size: .78rem; color: var(--muted); margin-inline-start: 4px; }
+
+/* champion.js extra classes */
+.champ-page-wrap { min-height: 60vh; }
+.champ-page-loading { text-align:center; padding:60px 20px; }
+.champ-page-hero-deco { position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+.cpd { position:absolute; border-radius:50%; background:rgba(255,255,255,.07); }
+.cpd-1 { width:200px; height:200px; top:-60px; right:-40px; }
+.cpd-2 { width:120px; height:120px; bottom:20px; left:-30px; }
+.cpd-3 { width:80px; height:80px; top:40%; right:60px; border-radius:20px; rotate:20deg; }
+.cpd-4 { width:50px; height:50px; top:20%; left:80px; }
+.champ-page-hero-content { position:relative; z-index:1; }
+.champ-page-badge { font-size:.85rem; font-weight:700; opacity:.8; letter-spacing:.05em; margin-bottom:8px; }
+.champ-page-title { font-size:2rem; font-weight:900; margin:0 0 8px; }
+.champ-page-sub { opacity:.8; font-size:.97rem; margin:0 0 6px; }
+.champ-page-date { font-size:.82rem; opacity:.65; margin-bottom:20px; }
+.champ-page-winner {
+  display:flex; align-items:center; gap:14px;
+  background:rgba(255,255,255,.12); border-radius:14px; padding:14px 16px;
+  margin-bottom:16px;
+}
+.champ-page-av-ph { background:rgba(255,255,255,.15); }
+.champ-page-crown { font-size:.75rem; font-weight:700; opacity:.75; letter-spacing:.04em; }
+.champ-page-wname { font-size:1.1rem; font-weight:800; }
+.champ-page-school { }
+.champ-page-wscore { font-size:.85rem; opacity:.75; margin-top:2px; }
+.champ-page-nochamp { background:rgba(255,255,255,.1); border-radius:12px; padding:12px 16px; font-size:.9rem; opacity:.8; margin-bottom:16px; }
+.champ-page-cta { text-align:center; padding:8px 0; }
+.champ-page-cta-hint { margin:0 0 14px; opacity:.8; font-size:.9rem; }
+.champ-page-cta-btns { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+.champ-page-mine {
+  background:rgba(255,255,255,.12); border-radius:12px; padding:12px 16px;
+  margin-bottom:16px; font-size:.92rem;
+}
+.champ-page-lb { margin-top:8px; }
+.champ-page-lb-title { font-size:1.1rem; font-weight:800; margin:0 0 16px; }
+.champ-page-lb-list { }
+.champ-page-empty { padding:24px; text-align:center; }
