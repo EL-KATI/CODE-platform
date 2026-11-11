@@ -82,9 +82,44 @@ function createApp() {
       }
     },
   }));
-  app.use(express.static(pub, { maxAge: config.isProd ? '1h' : 0, index: 'index.html' }));
+  // index.html: مُولَّد ديناميكياً مع version لكسر كاش المتصفح
+  const fs = require('fs');
+  const BUILD_VERSION = Date.now().toString(36); // يتغير مع كل إعادة تشغيل
+  // بناء import map لكسر كاش ES modules في المتصفح
+  function buildImportMap(assetsDir, version) {
+    const imports = {};
+    function walk(dir, base) {
+      try {
+        fs.readdirSync(dir).forEach(f => {
+          const full = path.join(dir, f);
+          const rel = base + '/' + f;
+          if (fs.statSync(full).isDirectory()) walk(full, rel);
+          else if (f.endsWith('.js')) imports[rel] = `${rel}?v=${version}`;
+        });
+      } catch {}
+    }
+    walk(path.join(assetsDir, 'js'), '/assets/js');
+    return JSON.stringify({ imports }, null, 2);
+  }
+  let _indexHtml = null;
+  function getIndexHtml() {
+    if (!_indexHtml) {
+      const raw = fs.readFileSync(path.join(pub, 'index.html'), 'utf8');
+      const importMapScript = `<script type="importmap">\n${buildImportMap(path.join(pub, 'assets'), BUILD_VERSION)}\n</script>`;
+      _indexHtml = raw
+        .replace(/(src="\/assets\/js\/[^"]+\.js)(")/g, `$1?v=${BUILD_VERSION}$2`)
+        .replace(/(href="\/assets\/css\/[^"]+\.css)(")/g, `$1?v=${BUILD_VERSION}$2`)
+        .replace('<script type="module"', `${importMapScript}\n  <script type="module"`);
+    }
+    return _indexHtml;
+  }
+  app.use(express.static(pub, { maxAge: config.isProd ? '1h' : 0, index: false }));
   // Application monopage : toutes les autres URL renvoient index.html (routage côté client).
-  app.get(/^\/(?!api\/|uploads\/|assets\/).*/, (req, res) => res.sendFile(path.join(pub, 'index.html')));
+  app.get(/^\/(?!api\/|uploads\/|assets\/).*/, (req, res) => {
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    res.set('Cache-Control', 'no-store');
+    res.send(getIndexHtml());
+  });
 
   // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, next) => {
