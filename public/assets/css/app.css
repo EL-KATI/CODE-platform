@@ -3186,6 +3186,47 @@ body.ui-apple .main-nav a.nav-ai[aria-current="page"], body.ui-apple .mobile-nav
   body.ui-apple .ai-quick .ic { width: 1.2em; height: 1.2em; }
   body.ui-apple .mobile-nav a.nav-link { display: flex; }
 }
+
+/* ── زر تحدي اليوم في الهيدر ── */
+.hdr-challenge-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 14px;
+  height: 36px;
+  border-radius: 999px;
+  font-size: .82rem;
+  font-weight: 700;
+  text-decoration: none;
+  color: #fff;
+  background: linear-gradient(135deg, #f97316 0%, #ef4444 100%);
+  border: none;
+  box-shadow: 0 2px 10px rgb(249 115 22 / .4);
+  transition: box-shadow .2s, transform .15s;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.hdr-challenge-btn:hover {
+  box-shadow: 0 4px 16px rgb(249 115 22 / .6);
+  transform: translateY(-1px);
+  color: #fff;
+}
+.hdr-challenge-btn[aria-current="page"] {
+  background: linear-gradient(135deg, #c2410c 0%, #b91c1c 100%);
+}
+.hdr-ch-ic {
+  font-size: 1em;
+  animation: hdr-ch-pulse 2s ease-in-out infinite;
+}
+@keyframes hdr-ch-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.25); }
+}
+/* الهاتف الصغير: أيقونة فقط */
+@media (max-width: 540px) {
+  .hdr-ch-lbl { display: none; }
+  .hdr-challenge-btn { padding: 0 10px; }
+}
 /* حاسوب صغير / تابلت أفقي: أيقونات فقط (الاسم في التلميح)، إلا الصفحة الحالية و Monitor AI */
 @media (min-width: 961px) and (max-width: 1180px) {
   body.ui-apple .main-nav a.nav-link:not(.nav-ai):not([aria-current="page"]) .nav-lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

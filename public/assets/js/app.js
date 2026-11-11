@@ -162,6 +162,7 @@ export function renderShell() {
     <button class="icon-btn" id="theme-btn" type="button" aria-label="${t('a11y.theme')}" aria-pressed="${theme === 'dark'}">${theme === 'dark' ? '☀️' : '🌙'}</button>
     <button class="icon-btn" id="sound-btn" type="button" aria-label="${t('a11y.sound')}" aria-pressed="${sound.enabled}">${sound.enabled ? '🔊' : '🔇'}</button>
     ${store.user && !store.isStaff() ? html`<a class="icon-btn ai-quick" href="/assistant" title="${t('nav.ai')}" ${location.pathname === '/assistant' ? html`aria-current="page"` : ''}>${raw(iconSvg('sparkles'))}<span class="sr-only">${t('nav.ai')}</span></a>` : ''}
+    ${store.user && !store.isStaff() ? html`<a class="hdr-challenge-btn" href="/champion" title="${t('champ.title')}" ${location.pathname === '/champion' ? html`aria-current="page"` : ''}><span class="hdr-ch-ic" aria-hidden="true">⚡</span><span class="hdr-ch-lbl">${t('champ.title')}</span></a>` : ''}
     ${store.user
       ? html`<a class="icon-btn" href="/profile" title="${store.user.name}"><span aria-hidden="true">👤</span><span class="sr-only">${t('nav.profile')}</span></a>
              <button class="icon-btn" id="logout-btn" type="button">${t('nav.logout')}</button>`
