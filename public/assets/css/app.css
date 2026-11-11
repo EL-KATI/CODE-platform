@@ -4557,3 +4557,121 @@ body.ui-apple .staff-side a.side-ai[aria-current="page"] { background: linear-gr
 }
 .err-legend-item { display: flex; align-items: center; gap: 5px; }
 .err-legend-item i { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Live Sessions — SSE / Leaderboard UI  (Phase 1)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Top bar ─────────────────────────────────────────────────────────────── */
+.live-top-bar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px; background: var(--surface);
+  border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10;
+}
+.live-prog-wrap { flex: 1; display: flex; align-items: center; gap: 8px; }
+.live-q-num { font-weight: 600; font-size: .9rem; white-space: nowrap; color: var(--text); min-width: 80px; }
+
+/* Connection dot */
+.live-connection-dot { font-size: .65rem; cursor: default; transition: color .3s; color: var(--muted); }
+.live-connection-dot.connected   { color: #22c55e; }
+.live-connection-dot.error       { color: #ef4444; }
+
+/* ── Leaderboard toggle button ───────────────────────────────────────────── */
+.live-lb-toggle {
+  background: none; border: 1.5px solid var(--border); border-radius: 8px;
+  padding: 4px 10px; font-size: 1.1rem; cursor: pointer; line-height: 1;
+  transition: border-color .2s, background .2s;
+}
+.live-lb-toggle:hover { border-color: var(--accent); background: var(--orange-50); }
+
+/* ── Leaderboard panel (slide-in overlay) ───────────────────────────────── */
+.live-lb-panel {
+  position: fixed; inset-block: 0; inset-inline-end: 0;
+  width: min(320px, 90vw);
+  background: var(--surface); border-inline-start: 1.5px solid var(--border);
+  box-shadow: -4px 0 24px rgba(0,0,0,.1);
+  display: flex; flex-direction: column; z-index: 200;
+  transition: transform .3s cubic-bezier(.4,0,.2,1);
+}
+.live-lb-panel.hidden { transform: translateX(-110%); }
+[dir="rtl"] .live-lb-panel.hidden { transform: translateX(110%); }
+
+.live-lb-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px; border-bottom: 1px solid var(--border);
+  font-weight: 700; font-size: 1rem;
+}
+.live-lb-close {
+  background: none; border: none; font-size: 1.1rem; cursor: pointer;
+  color: var(--muted); line-height: 1; padding: 2px 6px; border-radius: 6px;
+}
+.live-lb-close:hover { background: var(--surface-2); color: var(--text); }
+
+.live-lb-list {
+  flex: 1; overflow-y: auto; list-style: none; padding: 8px 0; margin: 0;
+}
+.lb-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px; border-bottom: 1px solid var(--border);
+  transition: background .15s;
+}
+.lb-row:hover { background: var(--surface-2); }
+.lb-row.is-me { background: var(--orange-50); }
+
+.lb-medal { font-size: 1.3rem; min-width: 28px; text-align: center; }
+.lb-name  { flex: 1; font-size: .92rem; }
+.lb-score { font-weight: 700; color: var(--accent); font-size: .92rem; }
+.lb-empty { padding: 24px 16px; text-align: center; color: var(--muted); font-size: .9rem; }
+
+/* Entry animation for new leaderboard rows */
+@keyframes lb-pop {
+  from { opacity: 0; transform: scale(.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.lb-row { animation: lb-pop .22s ease both; }
+
+/* ── Waiting room ────────────────────────────────────────────────────────── */
+.live-waiting-room {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px; padding: 60px 20px; text-align: center; min-height: 300px;
+}
+.live-pulse {
+  font-size: 3rem; animation: live-pulse 2s ease-in-out infinite;
+}
+.live-waiting-room h2 { font-size: 1.3rem; margin: 0; }
+.live-waiting-room p  { color: var(--muted); margin: 0; }
+
+/* ── Ended screen ────────────────────────────────────────────────────────── */
+.live-ended-wrap {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px; padding: 60px 20px; text-align: center;
+}
+.live-ended-ic { font-size: 3.5rem; }
+.live-ended-wrap h2 { font-size: 1.4rem; margin: 0; }
+.live-ended-wrap p  { color: var(--muted); margin: 0; }
+
+/* ── Selected pending (waiting for ack) ─────────────────────────────────── */
+.live-opt.selected-pending {
+  border-color: #a78bfa;
+  background: rgba(167,139,250,.1);
+  animation: opt-pending .8s ease infinite alternate;
+}
+@keyframes opt-pending {
+  from { opacity: .7; } to { opacity: 1; }
+}
+.live-opt-tick { margin-inline-start: auto; color: #22c55e; font-weight: 700; }
+
+/* ── Instructor preview (admin view, inside active card) ─────────────────── */
+.instructor-q-preview {
+  background: var(--surface-2); border-radius: 10px;
+  padding: 14px 16px; margin-bottom: 14px;
+}
+.live-opts.readonly .live-opt { cursor: default; }
+.live-opts.readonly .live-opt:hover { transform: none; border-color: var(--border); }
+.live-opts.readonly .live-opt.correct { border-color: #22c55e; background: rgba(34,197,94,.08); }
+
+/* ── Admin live panel (leaderboard card) ─────────────────────────────────── */
+.live-admin-lb {
+  margin-top: 20px;
+  .live-lb-list { max-height: 320px; overflow-y: auto; }
+}

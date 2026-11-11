@@ -24,7 +24,7 @@ function createApp() {
         'img-src': ["'self'", 'data:', 'https:'],
         'media-src': ["'self'", 'https:'],
         'frame-src': ['https://www.youtube-nocookie.com'],
-        'connect-src': ["'self'", 'https://fonts.googleapis.com', 'https://fonts.gstatic.com'],
+        'connect-src': ["'self'", 'https://fonts.googleapis.com', 'https://fonts.gstatic.com', 'https://libretranslate.com'],
         'object-src': ["'none'"],
         'frame-ancestors': ["'none'"],
         'upgrade-insecure-requests': config.isProd ? [] : null,
