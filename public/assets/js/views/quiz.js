@@ -378,6 +378,79 @@ export async function quizView(appRoot, { params }) {
       if (reveal) out += feedbackHtml(ans.isCorrect, [...correct], cur.explanation);
     }
     el.innerHTML = `${out}</div>`;
+
+    // ── زر الترجمة ───────────────────────────────────────────────────
+    renderTranslateBar(el, main || cur.text || '');
+  }
+
+  // ── شريط الترجمة ─────────────────────────────────────────────────
+  let _translateCache = {};  // { 'fr:نص': 'résultat' }
+
+  function renderTranslateBar(panel, sourceText) {
+    // نزيل شريط سابق إذا وُجد
+    panel.querySelector('.translate-bar')?.remove();
+    panel.querySelector('.translate-result')?.remove();
+    if (!sourceText || sourceText.trim().length < 5) return;
+
+    const bar = document.createElement('div');
+    bar.className = 'translate-bar';
+    bar.innerHTML = `
+      <span style="font-size:.78rem;color:rgba(255,255,255,.55);flex:1">${t('translate.btn')}: </span>
+      <button class="translate-btn" data-tgt="fr">🇫🇷 ${t('translate.fr')}</button>
+      <button class="translate-btn" data-tgt="darija">🇲🇦 ${t('translate.darija')}</button>`;
+    panel.appendChild(bar);
+
+    bar.querySelectorAll('.translate-btn').forEach(btn => {
+      btn.onclick = async () => {
+        const tgt = btn.dataset.tgt;
+        const cacheKey = `${tgt}:${sourceText}`;
+
+        // تبديل التنشيط
+        const wasActive = btn.classList.contains('active');
+        bar.querySelectorAll('.translate-btn').forEach(b => b.classList.remove('active'));
+        panel.querySelector('.translate-result')?.remove();
+        if (wasActive) return; // إخفاء إذا ضغط مرة ثانية
+
+        btn.classList.add('active');
+
+        // من الكاش
+        if (_translateCache[cacheKey]) {
+          showTranslation(panel, _translateCache[cacheKey]);
+          return;
+        }
+
+        // تحميل
+        btn.disabled = true;
+        const loadEl = document.createElement('div');
+        loadEl.className = 'translate-loading';
+        loadEl.textContent = t('translate.loading');
+        panel.appendChild(loadEl);
+
+        try {
+          const data = await api.post('/translate', { text: sourceText, target: tgt });
+          loadEl.remove();
+          if (data?.translated) {
+            _translateCache[cacheKey] = data.translated;
+            showTranslation(panel, data.translated);
+          } else {
+            showTranslation(panel, t('translate.error'));
+          }
+        } catch {
+          loadEl.remove();
+          showTranslation(panel, t('translate.error'));
+        } finally {
+          btn.disabled = false;
+        }
+      };
+    });
+  }
+
+  function showTranslation(panel, text) {
+    panel.querySelector('.translate-result')?.remove();
+    const div = document.createElement('div');
+    div.className = 'translate-result';
+    div.textContent = text;
+    panel.appendChild(div);
   }
 
   // ── تحديث الشريط السفلي ───────────────────────────────────────────

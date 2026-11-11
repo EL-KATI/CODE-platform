@@ -305,6 +305,22 @@ CREATE TABLE IF NOT EXISTS booking_notifications (
   read        INTEGER NOT NULL DEFAULT 0,
   created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
 );
+
+-- إشعارات عامة للمنصة (تحديات، نتائج، رسائل الإدارة...)
+CREATE TABLE IF NOT EXISTS notifications (
+  id          INTEGER PRIMARY KEY,
+  user_id     INTEGER REFERENCES users(id) ON DELETE CASCADE, -- NULL = للجميع (broadcast)
+  type        TEXT    NOT NULL DEFAULT 'info',  -- info | success | warning | challenge | result | admin
+  title_ar    TEXT    NOT NULL DEFAULT '',
+  title_fr    TEXT    NOT NULL DEFAULT '',
+  body_ar     TEXT    NOT NULL DEFAULT '',
+  body_fr     TEXT    NOT NULL DEFAULT '',
+  link        TEXT    DEFAULT NULL,            -- رابط اختياري (مثل /champion)
+  read        INTEGER NOT NULL DEFAULT 0,
+  created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id, read, created_at DESC);
 `;
 
 let db;

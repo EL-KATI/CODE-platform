@@ -18,6 +18,7 @@ import { resultsView } from './views/results.js';
 import { mistakesView, historyView } from './views/mistakes.js';
 import { profileView } from './views/profile.js';
 import { privacyView, notFoundView } from './views/static.js';
+import { mountNotifications } from './notifications.js';
 import * as admin from './views/admin.js';
 import { bookingsView, adminBookingsView } from './views/bookings.js';
 import { schoolStudentsView, schoolInstructorsView, enrollmentsView } from './views/school.js';
@@ -163,11 +164,18 @@ export function renderShell() {
     <button class="icon-btn" id="sound-btn" type="button" aria-label="${t('a11y.sound')}" aria-pressed="${sound.enabled}">${sound.enabled ? '🔊' : '🔇'}</button>
     ${store.user && !store.isStaff() ? html`<a class="icon-btn ai-quick" href="/assistant" title="${t('nav.ai')}" ${location.pathname === '/assistant' ? html`aria-current="page"` : ''}>${raw(iconSvg('sparkles'))}<span class="sr-only">${t('nav.ai')}</span></a>` : ''}
     ${store.user && !store.isStaff() ? html`<a class="hdr-challenge-btn" href="/champion" title="${t('champ.title')}" ${location.pathname === '/champion' ? html`aria-current="page"` : ''}><span class="hdr-ch-ic" aria-hidden="true">⚡</span><span class="hdr-ch-lbl">${t('champ.title')}</span></a>` : ''}
+    ${store.user ? html`<span id="notif-mount"></span>` : ''}
     ${store.user
       ? html`<a class="icon-btn" href="/profile" title="${store.user.name}"><span aria-hidden="true">👤</span><span class="sr-only">${t('nav.profile')}</span></a>
              <button class="icon-btn" id="logout-btn" type="button">${t('nav.logout')}</button>`
       : html`<a class="icon-btn" href="/register">${t('nav.register')}</a>`}
     <button class="icon-btn menu-toggle" id="menu-btn" type="button" aria-expanded="false" aria-controls="mobile-nav" aria-label="${t('a11y.menu')}">☰</button>`.s;
+
+  // تركيب نظام الإشعارات للمستخدمين المسجلين فقط
+  const notifMount = document.getElementById('notif-mount');
+  if (notifMount && store.user) {
+    mountNotifications(notifMount);
+  }
 
   document.getElementById('site-footer').innerHTML = html`
     <div style="max-width:1240px;margin:0 auto;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px">

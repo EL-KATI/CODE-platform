@@ -59,6 +59,8 @@ function createApp() {
   api.use('/ai', require('./routes/ai'));
   api.use('/bookings', require('./routes/bookings'));
   api.use('/exams', require('./routes/exams'));
+  api.use('/notifications', require('./routes/notifications'));
+  api.use('/translate', require('./routes/translate'));
   api.use((req, res) => res.status(404).json({ error: 'not_found' }));
   app.use('/api', api);
 
