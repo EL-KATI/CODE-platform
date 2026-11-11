@@ -197,7 +197,7 @@ router.get('/:id/stream', wrap(async (req, res) => {
 router.get('/school', auth.requireRole('school', 'instructor', 'admin'), wrap(async (req, res) => {
   const d   = db.get();
   const sid = req.user.school_id;
-  if (!sid && req.user.role !== 'admin') return bad(res, 'no school');
+  if (!sid && req.user.role !== 'admin') throw bad('no school');
 
   const rows = d.prepare(`
     SELECT ls.*, u.name AS creator_name
@@ -213,16 +213,16 @@ router.get('/school', auth.requireRole('school', 'instructor', 'admin'), wrap(as
 router.post('/school', auth.requireRole('school', 'instructor', 'admin'), wrap(async (req, res) => {
   const d   = db.get();
   const sid = req.user.school_id;
-  if (!sid && req.user.role !== 'admin') return bad(res, 'no school');
+  if (!sid && req.user.role !== 'admin') throw bad('no school');
 
   const { title = 'حصة جماعية', mode = 'exam', count = 40, school_id } = req.body;
   const targetSchool = req.user.role === 'admin' ? (school_id || sid) : sid;
-  if (!targetSchool) return bad(res, 'school_id required');
-  if (!['exam', 'practice'].includes(mode)) return bad(res, 'invalid mode');
+  if (!targetSchool) throw bad('school_id required');
+  if (!['exam', 'practice'].includes(mode)) throw bad('invalid mode');
 
   const qCount = Math.min(Math.max(Number(count) || 40, 5), 46);
   const questionIds = drawExamPublic(qCount);
-  if (!questionIds.length) return bad(res, 'no_questions');
+  if (!questionIds.length) throw bad('no_questions');
 
   const info = d.prepare(`
     INSERT INTO live_sessions (school_id, created_by, title, mode, status, question_ids)
@@ -238,7 +238,7 @@ router.post('/school/:id/start', auth.requireRole('school', 'instructor', 'admin
   const sess = getSession(int(req.params.id));
   if (!sess) return res.status(404).json({ error: 'not_found' });
   if (!sameSchool(req, sess.school_id)) return res.status(403).json({ error: 'forbidden' });
-  if (sess.status !== 'waiting') return bad(res, 'already_started');
+  if (sess.status !== 'waiting') throw bad('already_started');
 
   d.prepare(`UPDATE live_sessions SET status='live', started_at=datetime('now'), current_q=0 WHERE id=?`).run(sess.id);
 
@@ -266,11 +266,11 @@ router.post('/school/:id/next', auth.requireRole('school', 'instructor', 'admin'
   const sess = getSession(int(req.params.id));
   if (!sess) return res.status(404).json({ error: 'not_found' });
   if (!sameSchool(req, sess.school_id)) return res.status(403).json({ error: 'forbidden' });
-  if (sess.status !== 'live') return bad(res, 'not_live');
+  if (sess.status !== 'live') throw bad('not_live');
 
   const ids   = tryJson(sess.question_ids, []);
   const nextQ = sess.current_q + 1;
-  if (nextQ >= ids.length) return bad(res, 'no_more_questions');
+  if (nextQ >= ids.length) throw bad('no_more_questions');
 
   d.prepare('UPDATE live_sessions SET current_q=? WHERE id=?').run(nextQ, sess.id);
 
@@ -387,7 +387,7 @@ router.post('/:id/join', wrap(async (req, res) => {
   const sess = getSession(int(req.params.id));
   if (!sess) return res.status(404).json({ error: 'not_found' });
   if (!sameSchool(req, sess.school_id)) return res.status(403).json({ error: 'forbidden' });
-  if (sess.status === 'ended') return bad(res, 'session_ended');
+  if (sess.status === 'ended') throw bad('session_ended');
 
   d.prepare('INSERT OR IGNORE INTO live_session_access (user_id, school_id) VALUES (?,?)')
     .run(req.user.id, sess.school_id);
@@ -453,7 +453,7 @@ router.post('/:id/answer', wrap(async (req, res) => {
   const d    = db.get();
   const sess = getSession(int(req.params.id));
   if (!sess) return res.status(404).json({ error: 'not_found' });
-  if (sess.status !== 'live') return bad(res, 'not_live');
+  if (sess.status !== 'live') throw bad('not_live');
 
   const access = d.prepare('SELECT 1 FROM live_session_access WHERE user_id=? AND school_id=?')
     .get(req.user.id, sess.school_id);
@@ -461,16 +461,16 @@ router.post('/:id/answer', wrap(async (req, res) => {
 
   const ids = tryJson(sess.question_ids, []);
   const qid = ids[sess.current_q];
-  if (!qid) return bad(res, 'no_question');
+  if (!qid) throw bad('no_question');
 
   const { selected = [] } = req.body;
-  if (!Array.isArray(selected)) return bad(res, 'selected must be array');
+  if (!Array.isArray(selected)) throw bad('selected must be array');
 
   // هل سبق وأجاب؟
   const existing = d.prepare(
     'SELECT 1 FROM live_session_answers WHERE session_id=? AND user_id=? AND question_id=?'
   ).get(sess.id, req.user.id, qid);
-  if (existing) return bad(res, 'already_answered');
+  if (existing) throw bad('already_answered');
 
   // حساب الصواب
   const qRow    = d.prepare('SELECT correct FROM questions WHERE id=?').get(qid);
