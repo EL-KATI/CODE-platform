@@ -3289,9 +3289,30 @@ body.ui-apple .staff-side a.side-ai[aria-current="page"] { background: linear-gr
   .staff-side.open .side-title { display: block; margin: 4px 10px 10px; }
   body .staff-side.open a, body.ui-apple .staff-side.open a { justify-content: flex-start; padding-inline: 12px; }
   .staff-side.open a > span:last-child { display: inline; }
-  body.has-side main, body.has-side .site-footer { margin-inline-start: 60px !important; }
+
+  /* ── إصلاح RTL: الـ sidebar على اليمين في العربية ── */
+  body.has-side main, body.has-side .site-footer {
+    margin-inline-start: 60px !important;
+    margin-inline-end: 0 !important;
+    max-width: calc(100vw - 60px) !important;
+    overflow-x: hidden;
+  }
+  /* منع تجاوز المحتوى من تحت الـ sidebar */
+  body.has-side main > * { max-width: 100%; }
   body.has-side .menu-toggle { display: none !important; }
   body.has-side .mobile-nav { display: none !important; }
+
+  /* الـ page-header لا يتداخل مع الـ sidebar */
+  .page-header { flex-wrap: wrap; gap: 10px; }
+  .page-header-actions { flex-wrap: wrap; gap: 6px; }
+}
+/* على الهواتف الصغيرة جداً (< 480px): نقلل عرض الـ sidebar أكثر */
+@media (max-width: 480px) {
+  body.ui-apple .staff-side, .staff-side, .staff-side.learner { width: 52px; }
+  body.has-side main, body.has-side .site-footer {
+    margin-inline-start: 52px !important;
+    max-width: calc(100vw - 52px) !important;
+  }
 }
 @media (prefers-reduced-motion: reduce) { .staff-side { transition: none; } }
 
@@ -4065,18 +4086,38 @@ body.ui-apple .staff-side a.side-ai[aria-current="page"] { background: linear-gr
 
 /* Mobile: stack vertically */
 @media (max-width: 768px) {
-  .auth-layout { flex-direction: column; }
+  .auth-layout {
+    flex-direction: column;
+    min-height: 100dvh;
+    overflow-x: hidden;
+  }
   .auth-panel {
     flex: none;
-    padding: 32px 24px;
-    min-height: 220px;
+    padding: 28px 20px 24px;
+    min-height: auto;
   }
-  .auth-panel-h { font-size: 1.3rem; }
-  .auth-stats { gap: 10px; }
-  .auth-stat { padding: 8px 10px; }
-  .auth-name-row { grid-template-columns: 1fr; }
-  .auth-form-side { padding: 28px 16px 40px; }
+  .auth-panel-content { gap: 16px; }
+  .auth-panel-h { font-size: 1.25rem; margin-bottom: 4px; }
+  .auth-panel-p { font-size: .88rem; }
+  .auth-stats { gap: 8px; }
+  .auth-stat { padding: 8px 10px; min-width: 60px; }
+  .auth-stat strong { font-size: 1.1rem; }
+  .auth-name-row { grid-template-columns: 1fr; gap: 0; }
+  .auth-form-side {
+    flex: 1;
+    padding: 24px 16px 48px;
+    align-items: flex-start;
+    overflow-y: auto;
+  }
+  .auth-form-box { max-width: 100%; }
   .auth-panel-switch { display: none; }
+  /* اللوغو المخفي على الموبايل يظهر مصغراً */
+  .auth-logo-name { font-size: 1.1rem; }
+}
+@media (max-width: 400px) {
+  .auth-panel { padding: 20px 14px 18px; }
+  .auth-stats { display: none; } /* نخفي الإحصائيات على الشاشات الصغيرة جداً */
+  .auth-form-side { padding: 18px 12px 40px; }
 }
 
 /* ══════════════════════════════════════════════
