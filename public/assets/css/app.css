@@ -3526,36 +3526,76 @@ body.ui-apple .staff-side a.side-ai[aria-current="page"] { background: linear-gr
   .nrs-topbar { display: flex; }
   .nrs-overlay {
     padding: 0;
-    background: #000;
+    background: #111;
     align-items: stretch;
   }
   .nrs-overlay .nrs-window {
     flex-flow: column nowrap;
-    height: 100%;
     height: 100dvh;
     border-radius: 0;
-    background: #000;
+    background: #111;
   }
+  /* ═══ التخطيط الرئيسي: topbar → محتوى → أزرار (من فوق لأسفل) ═══
+     nrs-content-row يصبح column-reverse حتى الـ aside (أزرار) يظهر في الأسفل
+     لأن HTML: <aside nrs-side> أولاً ثم <div nrs-main> */
   .nrs-overlay .nrs-content-row {
-    flex-direction: column;
+    display: flex;
+    flex-direction: column;   /* main فوق، side أسفل */
     gap: 0;
     padding: 0;
     flex: 1 1 0%;
-    height: auto;
+    min-height: 0;
     overflow: hidden;
   }
-  /* اللوحة الجانبية → أسفل الشاشة */
+  /* nrs-side → أسفل الشاشة (order يجعله يظهر بعد nrs-main) */
   .nrs-overlay .nrs-side {
+    order: 2;                  /* ← الأسفل */
     width: 100%;
     max-width: none;
     height: auto;
     flex: 0 0 auto;
-    background: #000;
+    background: #1a1a2e;
     border-radius: 0;
     box-shadow: none;
-    padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px));
-    border-top: 1px solid rgb(255 255 255 / .08);
+    padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+    border-top: 2px solid rgb(95,87,229);
   }
+  /* nrs-main → فوق (يأخذ المساحة المتبقية) */
+  .nrs-overlay .nrs-main {
+    order: 1;                  /* ← الأعلى */
+    flex: 1 1 0%;
+    min-height: 0;
+    overflow: hidden;
+    background: #000;
+    display: flex;
+    flex-direction: column;
+  }
+  /* الصورة: ارتفاع ثابت 42% من nrs-main */
+  .nrs-overlay .nrs-media {
+    flex: 0 0 42%;
+    min-height: 0;
+    overflow: hidden;
+    background: #fff;
+  }
+  .nrs-overlay .nrs-media img,
+  .nrs-overlay .nrs-media video { width: 100%; height: 100%; object-fit: cover; }
+  /* لوحة النص: تأخذ الباقي مع تمرير */
+  .nrs-overlay .nrs-text-panel,
+  .nrs-overlay .nrs-text-panel.has-result {
+    flex: 1 1 0%;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 12px 14px 10px;
+    background: rgb(34,34,34);
+  }
+  /* عناصر مخفية على الموبايل */
+  .nrs-overlay .nrs-info-box { display: none; }
+  .nrs-overlay .nrs-btn-stop { display: none; }
+  .nrs-overlay .nrs-indicators { display: none; }
+  .nrs-overlay .nrs-footer { display: none; }
+  .nrs-overlay .nrs-btn-close { display: none; }
+
+  /* كولومن التحكم: أفقي */
   .nrs-overlay .nrs-ctrl-col {
     flex: 1 1 auto;
     background: none;
@@ -3563,79 +3603,117 @@ body.ui-apple .staff-side a.side-ai[aria-current="page"] { background: linear-gr
     border-radius: 0;
     padding: 0;
     flex-flow: row nowrap;
-    gap: 6px;
-    align-items: center;
-  }
-  .nrs-overlay .nrs-info-box { display: none; }
-  .nrs-overlay .nrs-btn-stop {
-    display: none;
-  }
-  .nrs-overlay .nrs-indicators { display: none; }
-  .nrs-overlay .nrs-footer { display: none; }
-  .nrs-overlay .nrs-btn-close { display: none; }
-
-  /* الشاشة الرئيسية */
-  .nrs-overlay .nrs-main {
-    flex: 1 1 0%;
-    height: auto;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-    background: #000;
-  }
-  .nrs-overlay .nrs-media { flex: none; }
-  .nrs-overlay .nrs-text-panel, .nrs-overlay .nrs-text-panel.has-result {
-    flex: 1 0 auto; flex-basis: auto; overflow: visible; padding: 14px 16px 18px;
+    gap: 8px;
+    align-items: stretch;
+    min-height: 0;
   }
 
-  /* اللوحة البنفسجية كـ grid أفقي */
+  /* ═══ لوحة الأزرار: grid 2×2 + تصحيح + موافق ═══ */
   .nrs-overlay .nrs-panel {
-    direction: ltr; width: 100%; flex: 1 1 auto; height: clamp(140px, 28vh, 260px);
-    display: grid; grid-template-columns: minmax(56px, 18%) 1fr minmax(56px, 18%); grid-template-areas: "clear choices ok";
-    gap: 6px; padding: 4px; border-radius: 10px; background: none; box-shadow: none;
+    direction: ltr;
+    width: 100%;
+    flex: 1 1 auto;
+    height: clamp(110px, 22vw, 160px);
+    display: grid;
+    grid-template-columns: minmax(52px, 15%) 1fr minmax(52px, 15%);
+    grid-template-areas: "clear choices ok";
+    gap: 6px;
+    padding: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
   }
+
+  /* زر تصحيح */
   .nrs-overlay .nrs-btn-correct {
     grid-area: clear;
-    width: 100%; height: 100%; border-radius: 14px;
-    font-size: 1.5vh; padding: 0 4px;
+    width: 100%; height: 100%;
+    border-radius: 12px;
+    font-size: clamp(0.7rem, 3.5vw, 1rem);
+    font-weight: 900;
+    padding: 4px 2px;
     background: linear-gradient(180deg, #ff5a4f 0%, #d6271d 100%);
-    border-color: transparent;
+    border: none;
+    color: #fff;
     display: flex; align-items: center; justify-content: center;
+    text-align: center;
+    box-shadow: 0 4px 12px rgb(214,39,29 / .4);
   }
+
+  /* شبكة أزرار 1-4 */
   .nrs-overlay .nrs-choices {
-    grid-area: choices; direction: rtl; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; gap: 6px; width: auto; height: 100%; padding: 0;
+    grid-area: choices;
+    direction: rtl;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-auto-rows: 1fr;
+    gap: 6px;
+    width: 100%;
+    height: 100%;
+    padding: 0;
   }
+
+  /* كل زر رقم */
   .nrs-overlay .nrs-choice-btn {
-    width: 100%; height: 100%; min-height: 0; min-width: 0; padding: 0; margin: 0; border: 0; border-radius: 14px;
-    display: grid; place-items: center; cursor: pointer; -webkit-tap-highlight-color: transparent;
-    background: linear-gradient(180deg, #2a7ff0 0%, #1459c9 100%); color: #fff;
-    box-shadow: 0 1px 0 rgb(255 255 255 / .25) inset, 0 -3px 0 rgb(0 0 0 / .18) inset, 0 4px 10px rgb(0 0 0 / .35);
-    transition: transform .12s ease, filter .2s ease, background .2s ease;
-    font-size: clamp(1.6rem, 7vw, 2.8rem);
+    width: 100%; height: 100%;
+    min-height: 0; min-width: 0;
+    padding: 0; margin: 0;
+    border: none;
+    border-radius: 12px;
+    display: grid; place-items: center;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    background: linear-gradient(180deg, #3a5fe0 0%, #1a3abf 100%);
+    color: #fff;
+    box-shadow: 0 1px 0 rgb(255 255 255 / .2) inset,
+                0 -3px 0 rgb(0 0 0 / .2) inset,
+                0 4px 10px rgb(0 0 0 / .3);
+    transition: transform .1s ease, filter .15s ease;
+    font-size: clamp(1.6rem, 6vw, 2.4rem);
+    font-weight: 900;
   }
   .nrs-overlay .nrs-choice-sep { margin: 0; }
-  .nrs-overlay .nrs-choice-btn:active:not([disabled]) { transform: scale(.96); filter: brightness(1.1); }
-  .nrs-overlay .nrs-choice-num { font-family: var(--nrs-ui); font-size: 1em; font-weight: 800; line-height: 1; color: inherit; text-shadow: 0 2px 6px rgb(0 0 0 / .3); }
-  .nrs-overlay .nrs-choice-sq { display: none; }
-  .nrs-overlay .nrs-choice-btn.choice-on { background: linear-gradient(180deg, #ffd34d 0%, #ffb020 100%); color: #1a1300; box-shadow: 0 0 0 3px #fff inset, 0 6px 16px rgb(255 176 32 / .45); }
-  .nrs-overlay .nrs-choice-btn.choice-on .nrs-choice-num { text-shadow: none; }
-  .nrs-overlay .nrs-choice-btn.choice-correct { background: linear-gradient(180deg, #3ad16b 0%, #1f9d4b 100%); color: #fff; }
-  .nrs-overlay .nrs-choice-btn.choice-wrong { background: linear-gradient(180deg, #ff5a4f 0%, #d6271d 100%); color: #fff; }
-  .nrs-overlay .nrs-choice-btn[disabled]:not(.choice-correct):not(.choice-wrong) { filter: saturate(.4) brightness(.6); }
-
-  .nrs-overlay .nrs-btn-ok {
-    grid-area: ok; display: grid; place-items: center; align-content: center; gap: 4px;
-    width: 100%; height: 100%; min-height: 0; min-width: 0; margin: 0; padding: 0;
-    border: 0; border-radius: 14px; color: #fff; cursor: pointer; -webkit-tap-highlight-color: transparent;
-    background: linear-gradient(180deg, #3ad16b 0%, #1f9d4b 100%); font-family: var(--nrs-ui);
-    box-shadow: 0 1px 0 rgb(255 255 255 / .25) inset, 0 -3px 0 rgb(0 0 0 / .2) inset, 0 4px 10px rgb(0 0 0 / .35);
-    transition: transform .12s ease, filter .2s ease;
+  .nrs-overlay .nrs-choice-num {
+    font-family: var(--nrs-ui);
+    font-size: 1em; font-weight: 900;
+    line-height: 1; color: inherit;
   }
-  .nrs-overlay .nrs-btn-ok.is-next { background: linear-gradient(180deg, #2a7ff0 0%, #1459c9 100%); }
+  .nrs-overlay .nrs-choice-sq { display: none; }
+  .nrs-overlay .nrs-choice-btn:active:not([disabled]) { transform: scale(.93); filter: brightness(1.15); }
+  .nrs-overlay .nrs-choice-btn.choice-on {
+    background: linear-gradient(180deg, #ffd34d 0%, #f59e0b 100%);
+    color: #1a1300;
+    box-shadow: 0 0 0 3px #fff inset, 0 6px 16px rgb(245 158 11 / .4);
+  }
+  .nrs-overlay .nrs-choice-btn.choice-on .nrs-choice-num { color: #1a1300; }
+  .nrs-overlay .nrs-choice-btn.choice-correct { background: linear-gradient(180deg, #3ad16b 0%, #16a34a 100%); color: #fff; }
+  .nrs-overlay .nrs-choice-btn.choice-wrong { background: linear-gradient(180deg, #ff5a4f 0%, #d6271d 100%); color: #fff; }
+  .nrs-overlay .nrs-choice-btn[disabled]:not(.choice-correct):not(.choice-wrong) { filter: saturate(.3) brightness(.55); }
+
+  /* زر موافق */
+  .nrs-overlay .nrs-btn-ok {
+    grid-area: ok;
+    display: grid; place-items: center; align-content: center;
+    gap: 4px;
+    width: 100%; height: 100%;
+    min-height: 0; min-width: 0;
+    margin: 0; padding: 4px 2px;
+    border: none;
+    border-radius: 12px;
+    color: #fff; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    background: linear-gradient(180deg, #22c55e 0%, #15803d 100%);
+    font-family: var(--nrs-ui);
+    box-shadow: 0 1px 0 rgb(255 255 255 / .2) inset,
+                0 -3px 0 rgb(0 0 0 / .2) inset,
+                0 4px 12px rgb(21 128 61 / .4);
+    transition: transform .1s ease, filter .15s ease;
+  }
+  .nrs-overlay .nrs-btn-ok.is-next { background: linear-gradient(180deg, #3a5fe0 0%, #1a3abf 100%); }
   .nrs-overlay .nrs-btn-ok .ok-ic { display: block; line-height: 0; }
-  .nrs-overlay .nrs-btn-ok .ok-ic svg { width: clamp(28px, 8vw, 44px); height: clamp(28px, 8vw, 44px); }
-  .nrs-overlay .nrs-btn-ok .ok-lbl { font-size: .75rem; font-weight: 700; opacity: .9; }
-  .nrs-overlay .nrs-btn-ok:active { transform: scale(.96); filter: brightness(1.1); }
+  .nrs-overlay .nrs-btn-ok .ok-ic svg { width: clamp(24px, 7vw, 36px); height: clamp(24px, 7vw, 36px); }
+  .nrs-overlay .nrs-btn-ok .ok-lbl { font-size: clamp(.6rem, 3vw, .85rem); font-weight: 800; }
+  .nrs-overlay .nrs-btn-ok:active { transform: scale(.93); filter: brightness(1.15); }
 }
 
 /* اللوحة: صورة أوسع وأزرار أقل ارتفاعاً */
@@ -3680,106 +3758,17 @@ body.ui-apple .staff-side a.side-ai[aria-current="page"] { background: linear-gr
    NRS RESPONSIVE — جميع الأجهزة
    ══════════════════════════════════════════════════════ */
 
-/* ── تابلت عمودي (700px – 1024px) ── */
+/* ── تابلت عمودي (700px – 1024px): تعديلات طفيفة فوق الموبايل ── */
 @media (min-width: 700px) and (max-width: 1024px) and (orientation: portrait) {
-  .nrs-overlay { padding: 0; background: #000; }
-  .nrs-overlay .nrs-window {
-    flex-flow: column nowrap; height: 100dvh; border-radius: 0;
-    background: #000;
-  }
-  .nrs-overlay .nrs-content-row {
-    flex-direction: column; gap: 0; padding: 0;
-    flex: 1 1 0%; height: auto; overflow: hidden;
-  }
-  /* الشاشة الرئيسية تأخذ كل المساحة المتبقية */
-  .nrs-overlay .nrs-main {
-    flex: 1 1 0%; height: auto; overflow-y: auto;
-    overscroll-behavior: contain; background: #000;
-  }
-  /* الصورة تأخذ 38% من ارتفاع nrs-main */
-  .nrs-overlay .nrs-media {
-    flex: 0 0 38%; max-height: 38%; overflow: hidden;
-  }
-  .nrs-overlay .nrs-media img,
-  .nrs-overlay .nrs-media video {
-    width: 100%; height: 100%; object-fit: cover;
-  }
-  /* نص السؤال والإجابات */
   .nrs-overlay .nrs-text-panel,
   .nrs-overlay .nrs-text-panel.has-result {
-    flex: 1 0 auto; overflow: visible;
     padding: 18px 24px 20px;
   }
   .nrs-overlay .nrs-q-main { font-size: clamp(1.4rem, 2.8vw, 2rem); }
   .nrs-overlay .nrs-opt { font-size: clamp(1.3rem, 2.5vw, 1.8rem); }
-  /* الشريط الجانبي → أسفل */
-  .nrs-overlay .nrs-side {
-    width: 100%; max-width: none; height: auto; flex: 0 0 auto;
-    background: #000; border-radius: 0; box-shadow: none;
-    padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
-    border-top: 1px solid rgb(255 255 255 / .08);
-  }
-  .nrs-overlay .nrs-ctrl-col {
-    flex-flow: row nowrap; gap: 8px; align-items: center;
-    background: none; box-shadow: none; border-radius: 0; padding: 0;
-  }
-  .nrs-overlay .nrs-info-box { display: none; }
-  .nrs-overlay .nrs-btn-stop { display: none; }
-  .nrs-overlay .nrs-indicators { display: none; }
-  .nrs-overlay .nrs-footer { display: none; }
-  .nrs-overlay .nrs-btn-close { display: none; }
-  /* اللوحة البنفسجية — أفقية */
   .nrs-overlay .nrs-panel {
-    direction: ltr; width: 100%; flex: 1 1 auto;
-    height: clamp(140px, 24vh, 230px);
-    display: grid;
-    grid-template-columns: minmax(60px, 16%) 1fr minmax(60px, 16%);
-    grid-template-areas: "clear choices ok";
-    gap: 8px; padding: 4px; border-radius: 10px;
-    background: none; box-shadow: none;
+    height: clamp(150px, 26vh, 240px);
   }
-  .nrs-overlay .nrs-btn-correct {
-    grid-area: clear; width: 100%; height: 100%;
-    border-radius: 14px; font-size: 1.5vh; padding: 0 4px;
-    background: linear-gradient(180deg, #ff5a4f 0%, #d6271d 100%);
-    border-color: transparent;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .nrs-overlay .nrs-choices {
-    grid-area: choices; direction: rtl;
-    display: grid; grid-template-columns: 1fr 1fr;
-    grid-auto-rows: 1fr; gap: 8px; width: auto; height: 100%; padding: 0;
-  }
-  .nrs-overlay .nrs-choice-btn {
-    width: 100%; height: 100%; min-height: 0; min-width: 0; padding: 0; margin: 0;
-    border: 0; border-radius: 14px; display: grid; place-items: center;
-    cursor: pointer; -webkit-tap-highlight-color: transparent;
-    background: linear-gradient(180deg, #2a7ff0 0%, #1459c9 100%); color: #fff;
-    box-shadow: 0 1px 0 rgb(255 255 255 / .25) inset, 0 -3px 0 rgb(0 0 0 / .18) inset, 0 4px 10px rgb(0 0 0 / .35);
-    transition: transform .12s ease, filter .2s ease, background .2s ease;
-    font-size: clamp(2rem, 5vw, 3.2rem);
-  }
-  .nrs-overlay .nrs-choice-num { font-family: var(--nrs-ui); font-size: 1em; font-weight: 800; line-height: 1; color: inherit; }
-  .nrs-overlay .nrs-choice-sq { display: none; }
-  .nrs-overlay .nrs-choice-btn.choice-on { background: linear-gradient(180deg, #ffd34d 0%, #ffb020 100%); color: #1a1300; box-shadow: 0 0 0 3px #fff inset, 0 6px 16px rgb(255 176 32 / .45); }
-  .nrs-overlay .nrs-choice-btn.choice-correct { background: linear-gradient(180deg, #3ad16b 0%, #1f9d4b 100%); color: #fff; }
-  .nrs-overlay .nrs-choice-btn.choice-wrong { background: linear-gradient(180deg, #ff5a4f 0%, #d6271d 100%); color: #fff; }
-  .nrs-overlay .nrs-choice-btn[disabled]:not(.choice-correct):not(.choice-wrong) { filter: saturate(.4) brightness(.6); }
-  .nrs-overlay .nrs-btn-ok {
-    grid-area: ok; display: grid; place-items: center; align-content: center; gap: 4px;
-    width: 100%; height: 100%; min-height: 0; min-width: 0; margin: 0; padding: 0;
-    border: 0; border-radius: 14px; color: #fff; cursor: pointer;
-    background: linear-gradient(180deg, #3ad16b 0%, #1f9d4b 100%);
-    font-family: var(--nrs-ui);
-    box-shadow: 0 1px 0 rgb(255 255 255 / .25) inset, 0 -3px 0 rgb(0 0 0 / .2) inset, 0 4px 10px rgb(0 0 0 / .35);
-    transition: transform .12s ease, filter .2s ease;
-  }
-  .nrs-overlay .nrs-btn-ok.is-next { background: linear-gradient(180deg, #2a7ff0 0%, #1459c9 100%); }
-  .nrs-overlay .nrs-btn-ok .ok-ic { display: block; line-height: 0; }
-  .nrs-overlay .nrs-btn-ok .ok-ic svg { width: clamp(32px, 8vw, 52px); height: clamp(32px, 8vw, 52px); }
-  .nrs-overlay .nrs-btn-ok .ok-lbl { font-size: .85rem; font-weight: 700; opacity: .9; }
-  .nrs-overlay .nrs-btn-ok:active,
-  .nrs-overlay .nrs-choice-btn:active:not([disabled]) { transform: scale(.96); filter: brightness(1.1); }
 }
 
 /* ── حاسوب صغير / لابتوب (1025px – 1280px) ── */
@@ -5229,10 +5218,10 @@ body.live-fullscreen .inst-live-wrap .live-nrs-main {
 
 /* ══════════════════════════════════════════════════════════════════════════════
    تصميم الموبايل / التابلت للحصة الجماعية
-   الأزرار (1-4) + موافق في الأعلى — صورة + سؤال + خيارات في الأسفل
+   صورة + سؤال في الأعلى — أزرار (1-4) + موافق في الأسفل
    ══════════════════════════════════════════════════════════════════════════════ */
 @media (max-width: 768px) {
-  /* nrs-content-row: عمودي — aside (أزرار) أعلى، nrs-main (صورة+سؤال) أسفل */
+  /* nrs-content-row: عمودي — nrs-main (صورة+سؤال) أعلى، aside (أزرار) أسفل */
   #live-student-wrap .live-nrs-main,
   #live-student-wrap .live-nrs-main .nrs-content-row,
   #live-student-wrap #live-q-wrap {
@@ -5244,17 +5233,19 @@ body.live-fullscreen .inst-live-wrap .live-nrs-main {
     min-height: 0 !important;
   }
 
-  /* aside (الأزرار) — يظهر أولاً في الأعلى */
+  /* aside (الأزرار) — يظهر في الأسفل عبر order */
   #live-student-wrap .nrs-side {
     width: 100% !important;
     max-width: none !important;
     min-height: auto !important;
     flex-direction: row !important;
     align-items: center !important;
-    padding: 8px 10px !important;
+    padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px)) !important;
     gap: 8px !important;
-    order: -1;
+    order: 2;                  /* ← الأسفل دائماً */
     flex-shrink: 0;
+    border-top: 2px solid rgb(95,87,229) !important;
+    background: #1a1a2e !important;
   }
 
   /* nrs-ctrl-col: كل شيء في صف واحد */
@@ -5327,8 +5318,9 @@ body.live-fullscreen .inst-live-wrap .live-nrs-main {
     display: none !important;
   }
 
-  /* nrs-main: يأخذ المساحة المتبقية — overflow:hidden لأن nrs-text-panel تتمرر داخلياً */
+  /* nrs-main: يأخذ المساحة المتبقية في الأعلى */
   #live-student-wrap .nrs-main {
+    order: 1;                  /* ← الأعلى دائماً */
     flex: 1 1 0% !important;
     display: flex !important;
     flex-direction: column !important;
