@@ -5026,9 +5026,12 @@ body.ui-apple .staff-side a.side-ai[aria-current="page"] { background: linear-gr
    ══════════════════════════════════════════════════════════════════════════ */
 
 /* Wrapper: use full NARSA window layout */
+/* nrs-window للحصة: ارتفاع ثابت = 100dvh — شاشة واحدة لا تتمدد */
 #live-student-wrap.nrs-window {
   max-width: 100%;
-  min-height: 100dvh;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
@@ -5037,16 +5040,46 @@ body.ui-apple .staff-side a.side-ai[aria-current="page"] { background: linear-gr
 .live-conn-wrap { display: flex; align-items: center; justify-content: center; width: 40px; }
 .live-conn-wrap .live-connection-dot { font-size: .65rem; }
 
-/* Main content area for NARSA layout */
+/* Main content area for NARSA layout — ارتفاع ثابت لا يتغير */
 .live-nrs-main {
-  flex: 1;
+  flex: 1 1 0%;
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 .live-nrs-main .nrs-content-row {
-  flex: 1;
+  flex: 1 1 0%;
   display: flex;
   min-height: 0;
+  overflow: hidden;
+}
+
+/* nrs-side: ثابتة — لا تتمدد ولا تُزاح */
+#live-student-wrap .nrs-side {
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+/* nrs-main: لا تتجاوز حدودها */
+#live-student-wrap .nrs-main {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* الصورة: ارتفاع ثابت 48% من nrs-main — لا تتغير بالمحتوى */
+#live-student-wrap .nrs-media {
+  flex: 0 0 48%;
+  min-height: 0;
+  max-height: none;
+}
+
+/* لوحة النص: تأخذ الباقي مع تمرير داخلي */
+#live-student-wrap .nrs-text-panel {
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 /* Waiting / launching screens inside NARSA shell */
@@ -5150,22 +5183,29 @@ body.live-fullscreen #app {
   padding: 0 !important;
   inset-inline-start: 0 !important;
   width: 100% !important;
-  min-height: 100dvh;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
-/* nrs-window يملأ الشاشة كاملاً */
+/* nrs-window يملأ الشاشة كاملاً — ارتفاع ثابت */
 body.live-fullscreen .nrs-window {
-  min-height: 100dvh;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
   max-width: 100% !important;
   border-radius: 0 !important;
   border: none !important;
 }
 
-/* padding للشريط السفلي للمؤسسة (live-instructor-bar) */
-body.live-fullscreen .inst-live-wrap #live-main {
-  padding-bottom: 72px;
+/* شريط المؤسسة: ثابت في الأسفل — live-nrs-main يأخذ المساحة المتبقية */
+body.live-fullscreen .inst-live-wrap .live-nrs-main {
+  /* الارتفاع = 100dvh - topbar(≈52px) - instructor-bar(≈64px) */
+  height: calc(100dvh - 52px - 64px);
+  max-height: calc(100dvh - 52px - 64px);
+  overflow: hidden;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════
@@ -5180,8 +5220,9 @@ body.live-fullscreen .inst-live-wrap #live-main {
     flex-direction: column !important;
     gap: 0 !important;
     padding: 0 !important;
-    overflow-y: auto !important;
-    flex: 1;
+    overflow: hidden !important;
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
   }
 
   /* aside (الأزرار) — يظهر أولاً في الأعلى */
@@ -5267,21 +5308,22 @@ body.live-fullscreen .inst-live-wrap #live-main {
     display: none !important;
   }
 
-  /* nrs-main: يأخذ المساحة المتبقية */
+  /* nrs-main: يأخذ المساحة المتبقية — overflow:hidden لأن nrs-text-panel تتمرر داخلياً */
   #live-student-wrap .nrs-main {
-    flex: 1 !important;
+    flex: 1 1 0% !important;
     display: flex !important;
     flex-direction: column !important;
-    min-height: 0;
-    overflow-y: auto;
+    min-height: 0 !important;
+    overflow: hidden !important;
   }
 
-  /* الصورة: واضحة وكاملة */
+  /* الصورة: ارتفاع ثابت — لا تتغير */
   #live-student-wrap .nrs-media {
     width: 100% !important;
-    min-height: 160px !important;
-    max-height: 42vw !important;
-    flex-shrink: 0;
+    flex: 0 0 auto !important;
+    height: 38vw !important;
+    min-height: 130px !important;
+    max-height: 220px !important;
   }
 
   #live-student-wrap .nrs-media img {
@@ -5292,20 +5334,23 @@ body.live-fullscreen .inst-live-wrap #live-main {
   }
 
   #live-student-wrap .nrs-no-media {
+    height: 38vw !important;
     min-height: 100px !important;
+    max-height: 220px !important;
     font-size: 2.5rem !important;
   }
 
-  /* لوحة النص: تأخذ المساحة الباقية */
+  /* لوحة النص: تأخذ الباقي مع تمرير داخلي */
   #live-student-wrap .nrs-text-panel {
-    flex: 1 !important;
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
     overflow-y: auto !important;
     padding: 12px 14px !important;
     font-size: 1rem !important;
   }
 
   /* نص السؤال: واضح وكبير */
-  #live-student-wrap .nrs-q-text {
+  #live-student-wrap .nrs-q-main {
     font-size: 1.05rem !important;
     line-height: 1.65 !important;
     margin-bottom: 10px !important;

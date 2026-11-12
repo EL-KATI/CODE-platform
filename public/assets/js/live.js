@@ -456,10 +456,13 @@ function _liveRenderMedia(el, question) {
   }
 }
 
-// ── رسم لوحة النص (سؤال + خيارات نصية) ──────────────────────────────────────
+// ── رسم لوحة النص — نفس quiz.js بالضبط: nrs-q-main + nrs-block + nrs-opts-list ──
 function _liveRenderTextPanel(el, question, opts, selected, answered) {
   const container = el.querySelector('#nrs-text-panel');
   if (!container) return;
+
+  const main = question.text || '';
+
   const rows = Array.from({ length: 4 }, (_, i) => {
     const n = i + 1;
     const hasOpt = n <= opts.length;
@@ -469,7 +472,8 @@ function _liveRenderTextPanel(el, question, opts, selected, answered) {
     return `<div class="nrs-opt ${state}" data-n="${n}"><span class="nrs-opt-n">${n}</span><div class="nrs-opt-dots" aria-hidden="true"></div><span class="nrs-opt-text">${esc(optText(opts[i]))}</span></div>`;
   }).join('');
 
-  container.innerHTML = `<p class="nrs-q-text">${esc(question.text || '')}</p><div class="nrs-opts-list" id="nrs-opts-list">${rows}</div>`;
+  // نفس بنية quiz.js: nrs-q-main → nrs-block → nrs-opts-list
+  container.innerHTML = `${main ? `<div class="nrs-q-main" dir="rtl">${esc(main)}</div>` : ''}<div class="nrs-block" dir="rtl"><div class="nrs-opts-list" id="nrs-opts-list">${rows}</div></div>`;
 }
 
 // ── إظهار رسالة "تم التسجيل" بدون كشف النتيجة ──────────────────────────────
@@ -828,13 +832,15 @@ function _renderInstructorQuestion(el, _sessionId, data) {
           : html`<div class="nrs-no-media"><span>🚗</span></div>`}
       </div>
       <div class="nrs-text-panel" id="nrs-text-panel">
-        <p class="nrs-q-text">${esc(question.text || '')}</p>
-        <div class="nrs-opts-list" id="nrs-opts-list">
-          ${opts.map((o, i) => html`<div class="nrs-opt" data-idx="${i}">
-            <span class="nrs-opt-n">${i + 1}</span>
-            <div class="nrs-opt-dots" aria-hidden="true"></div>
-            <span class="nrs-opt-text">${esc(typeof o === 'object' ? o.text || '' : String(o ?? ''))}</span>
-          </div>`)}
+        ${question.text ? html`<div class="nrs-q-main" dir="rtl">${esc(question.text)}</div>` : ''}
+        <div class="nrs-block" dir="rtl">
+          <div class="nrs-opts-list" id="nrs-opts-list">
+            ${opts.map((o, i) => html`<div class="nrs-opt" data-n="${i+1}">
+              <span class="nrs-opt-n">${i + 1}</span>
+              <div class="nrs-opt-dots" aria-hidden="true"></div>
+              <span class="nrs-opt-text">${esc(typeof o === 'object' ? o.text || '' : String(o ?? ''))}</span>
+            </div>`)}
+          </div>
         </div>
         <!-- الإجابة الصحيحة والشرح: يظهران بعد انتهاء الحصة فقط — لا شيء هنا -->
       </div>
