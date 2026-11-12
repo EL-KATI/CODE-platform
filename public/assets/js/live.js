@@ -120,9 +120,29 @@ function _connectSSE(el, sessionId, isInstructor) {
       const main = el.querySelector('#live-main');
       if (main) main.innerHTML = _endedHtml(data.finalBoard);
       _closeSSE();
+      // المؤسسة: إخفاء شريط التحكم عند الانتهاء
+      const bar = el.querySelector('#live-instructor-bar');
+      if (bar) bar.style.display = 'none';
     } else if (data.status === 'live') {
       const main = el.querySelector('#live-main');
       if (main) main.innerHTML = '';
+      // المؤسسة: تبديل زر "بدء" → زر "التالي" في الشريط
+      if (isInstructor) {
+        const bar = el.querySelector('#live-instructor-bar');
+        if (bar) {
+          const badge = bar.querySelector('.live-badge');
+          if (badge) { badge.className = 'live-badge live'; badge.textContent = t('live.admin.live'); }
+          const startBtn = bar.querySelector('#start-live-btn');
+          if (startBtn) {
+            const nextBtn = document.createElement('button');
+            nextBtn.className = 'btn btn-primary';
+            nextBtn.id = 'next-q-btn';
+            nextBtn.textContent = `⏭ ${t('live.admin.next')}`;
+            nextBtn.addEventListener('click', () => _doAction(el, sessionId, 'next'));
+            startBtn.replaceWith(nextBtn);
+          }
+        }
+      }
     } else if (data.status === 'waiting') {
       const main = el.querySelector('#live-main');
       if (main) main.innerHTML = _waitingRoomHtml();
@@ -336,22 +356,26 @@ export async function adminLiveView(el) {
 function _renderAdminPanel(el, sessions) {
   const activeSess = sessions.find(s => s.status === 'live' || s.status === 'waiting');
 
+  if (activeSess) {
+    // ── وضع الحصة النشطة: نفس shell الطالب + شريط تحكم ──
+    _buildInstructorShell(el, activeSess);
+    _connectSSE(el, activeSess.id, true);
+    api.get(`/live/${activeSess.id}/state`).then(r => {
+      if (r.board) _updateLeaderboard(el, r.board, null);
+      if (r.question && activeSess.status === 'live') {
+        _renderInstructorQuestion(el, activeSess.id, r);
+        _updateProgress(el, r.current_q, r.total);
+      }
+    }).catch(() => {});
+    return;
+  }
+
+  // ── لا توجد حصة نشطة: عرض لوحة الإدارة العادية ──
   el.innerHTML = html`<div class="page-wrap admin-live-wrap">
     <div class="admin-live-header">
       <h1 class="dash-h">${t('live.admin.title')}</h1>
-      ${!activeSess
-        ? html`<button class="btn btn-primary" id="create-live-btn">+ ${t('live.admin.create')}</button>`
-        : ''}
+      <button class="btn btn-primary" id="create-live-btn">+ ${t('live.admin.create')}</button>
     </div>
-
-    <div id="active-sess-wrap">
-      ${activeSess ? raw(_renderActiveCard(activeSess)) : ''}
-    </div>
-
-    ${activeSess ? html`<div class="card live-admin-lb" id="admin-lb-wrap">
-      <h2 class="dash-h">🏆 ${t('live.leaderboard')} · <span id="live-connected-count">0</span> متصل</h2>
-      <ol class="live-lb-list" id="live-lb-list"></ol>
-    </div>` : ''}
 
     <div class="live-sessions-list">
       <h2 class="dash-h" style="margin-bottom:12px">${t('live.admin.history')}</h2>
@@ -370,41 +394,66 @@ function _renderAdminPanel(el, sessions) {
   </div>`.s;
 
   el.querySelector('#create-live-btn')?.addEventListener('click', () => _showCreateModal(el).catch(() => {}));
-  el.querySelector('#start-live-btn')?.addEventListener('click', () => _doAction(el, activeSess?.id, 'start'));
-  el.querySelector('#next-q-btn')?.addEventListener('click',  () => _doAction(el, activeSess?.id, 'next'));
-  el.querySelector('#end-live-btn')?.addEventListener('click', () => _doAction(el, activeSess?.id, 'end'));
-
-  if (activeSess) {
-    _connectSSE(el, activeSess.id, true);
-    api.get(`/live/${activeSess.id}/state`).then(r => {
-      if (r.board) _updateLeaderboard(el, r.board, null);
-    }).catch(() => {});
-  }
 }
 
-function _renderActiveCard(sess) {
+// ── Shell الحصة النشطة للمؤسسة (نفس تصميم الطالب + شريط تحكم) ───────────────
+function _buildInstructorShell(el, sess) {
   const isWaiting = sess.status === 'waiting';
-  const isLive    = sess.status === 'live';
   const qCount    = (sess.question_ids || []).length;
 
-  return html`<div class="live-active-card" id="live-active-card">
-    <div class="live-active-header">
-      <span class="live-badge ${sess.status}">${isLive ? t('live.admin.live') : t('live.admin.waiting')}</span>
-      <strong>${esc(sess.title)}</strong>
-      <span class="muted small">${qCount} ${t('live.admin.questions')}</span>
-    </div>
-    ${isLive ? html`<div class="live-active-progress" id="live-instructor-q">
-      ${t('live.question')} ${sess.current_q + 1} / ${qCount}
-    </div>` : ''}
+  el.innerHTML = html`<div class="page-wrap live-page" id="live-student-wrap">
 
-    <div id="instructor-q-wrap"></div>
-
-    <div class="live-active-actions">
-      ${isWaiting ? html`<button class="btn btn-primary" id="start-live-btn">▶ ${t('live.admin.start')}</button>` : ''}
-      ${isLive ? html`<button class="btn btn-primary" id="next-q-btn">⏭ ${t('live.admin.next')}</button>` : ''}
-      <button class="btn btn-danger" id="end-live-btn">⏹ ${t('live.admin.end')}</button>
+    <!-- شريط التقدم (نفس الطالب) -->
+    <div class="live-top-bar">
+      <div class="live-connection-dot" id="live-conn-dot" title="${t('live.connecting')}">●</div>
+      <div class="live-prog-wrap" id="live-prog-wrap">
+        <span class="live-q-num" id="live-q-num"></span>
+        <div class="live-prog-bar"><div class="live-prog-fill" id="live-prog-fill" style="width:0%"></div></div>
+        <span class="live-answered-label">${t('live.answered')}: <strong id="live-ans-count">0</strong></span>
+      </div>
+      <button class="live-lb-toggle" id="live-lb-btn" title="${t('live.leaderboard')}">🏆</button>
     </div>
+
+    <!-- منطقة السؤال الرئيسية -->
+    <div id="live-main">
+      ${raw(isWaiting ? _waitingRoomHtml() : '')}
+    </div>
+
+    <!-- شريط تحكم المؤسسة (ثابت في الأسفل) -->
+    <div class="live-instructor-bar" id="live-instructor-bar">
+      <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
+        <span class="live-badge ${sess.status}" style="flex-shrink:0">${isWaiting ? t('live.admin.waiting') : t('live.admin.live')}</span>
+        <strong style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.9rem">${esc(sess.title)}</strong>
+        <span class="muted small" style="flex-shrink:0">${qCount} ${t('live.admin.questions')}</span>
+        <span class="muted small" style="flex-shrink:0">· <span id="live-connected-count">0</span> متصل</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-shrink:0">
+        ${isWaiting ? html`<button class="btn btn-primary" id="start-live-btn">▶ ${t('live.admin.start')}</button>` : ''}
+        ${!isWaiting ? html`<button class="btn btn-primary" id="next-q-btn">⏭ ${t('live.admin.next')}</button>` : ''}
+        <button class="btn btn-danger" id="end-live-btn">⏹ ${t('live.admin.end')}</button>
+      </div>
+    </div>
+
+    <!-- لوحة الترتيب -->
+    <aside class="live-lb-panel hidden" id="live-lb-panel" aria-label="${t('live.leaderboard')}">
+      <div class="live-lb-header">
+        <span>🏆 ${t('live.leaderboard')}</span>
+        <button class="live-lb-close" id="live-lb-close">✕</button>
+      </div>
+      <ol class="live-lb-list" id="live-lb-list"></ol>
+    </aside>
+
   </div>`.s;
+
+  el.querySelector('#live-lb-btn')?.addEventListener('click', () => {
+    el.querySelector('#live-lb-panel')?.classList.toggle('hidden');
+  });
+  el.querySelector('#live-lb-close')?.addEventListener('click', () => {
+    el.querySelector('#live-lb-panel')?.classList.add('hidden');
+  });
+  el.querySelector('#start-live-btn')?.addEventListener('click', () => _doAction(el, sess.id, 'start'));
+  el.querySelector('#next-q-btn')?.addEventListener('click',    () => _doAction(el, sess.id, 'next'));
+  el.querySelector('#end-live-btn')?.addEventListener('click',  () => _doAction(el, sess.id, 'end'));
 }
 
 function _renderInstructorQuestion(el, _sessionId, data) {
@@ -412,22 +461,26 @@ function _renderInstructorQuestion(el, _sessionId, data) {
   if (!question) return;
   _updateProgress(el, current_q, total);
 
-  const wrap = el.querySelector('#instructor-q-wrap');
-  if (!wrap) return;
+  const main = el.querySelector('#live-main');
+  if (!main) return;
 
   const opts    = question.options || [];
   const correct = (question.correct || []).map(Number);
 
-  wrap.innerHTML = html`<div class="instructor-q-preview">
-    ${question.image_url ? html`<img class="live-q-img" src="${question.image_url}" alt="" style="max-height:120px">` : ''}
-    <p class="live-q-text" style="font-size:.95rem">${esc(question.text || '')}</p>
-    <div class="live-opts readonly">
-      ${opts.map((o, i) => html`<div class="live-opt ${correct.includes(i) ? 'correct' : ''}" style="cursor:default">
+  // نفس بنية HTML الطالب — الخيارات الصحيحة مميزة بلون أخضر
+  main.innerHTML = html`<div class="live-q-wrap" id="live-q-wrap">
+    ${question.image ? html`<img class="live-q-img" src="${question.image}" alt="${question.image_alt || ''}" loading="lazy">` : ''}
+    <p class="live-q-text">${esc(question.text || '')}</p>
+    <div class="live-opts" id="live-opts">
+      ${opts.map((o, i) => html`<div class="live-opt ${correct.includes(i) ? 'correct' : ''}" style="cursor:default" tabindex="-1">
         <span class="live-opt-letter">${String.fromCharCode(0x0041 + i)}</span>
         <span>${esc(o)}</span>
         ${correct.includes(i) ? html`<span class="live-opt-tick">✓</span>` : ''}
       </div>`)}
     </div>
+    ${question.explanation ? html`<div class="live-feedback correct" style="margin-top:12px;font-size:.85rem">
+      <span class="live-fb-ic">💡</span> <span>${esc(question.explanation)}</span>
+    </div>` : ''}
   </div>`.s;
 }
 

@@ -4563,6 +4563,18 @@ body.ui-apple .staff-side a.side-ai[aria-current="page"] { background: linear-gr
 .live-active-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .live-active-progress { font-size: 1.1rem; font-weight: 600; margin-bottom: 14px; color: var(--accent); }
 .live-active-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* شريط تحكم المؤسسة الثابت أسفل الشاشة */
+.live-instructor-bar {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
+  background: var(--surface);
+  border-top: 2px solid var(--border);
+  padding: 12px 20px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  box-shadow: 0 -4px 20px rgba(0,0,0,.12);
+}
+/* padding للمحتوى كي لا يختبئ خلف الشريط */
+#live-student-wrap:has(.live-instructor-bar) #live-main { padding-bottom: 80px; }
 .live-badge {
   padding: 3px 10px; border-radius: 20px; font-size: .78rem; font-weight: 700;
 }
