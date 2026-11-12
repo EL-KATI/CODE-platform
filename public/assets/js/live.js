@@ -350,6 +350,7 @@ function _closeSSE() {
 let _studentAnswered = false;
 let _studentSelected = new Set(); // 1-based (نفس quiz.js)
 let _currentOptCount = 4;         // عدد الخيارات الحقيقي للسؤال الحالي
+let _activeSessionId = null;      // يُخزَّن عند رسم سؤال المؤسسة
 
 function _renderQuestion(el, sessionId, data) {
   _studentAnswered = false;
@@ -372,6 +373,8 @@ function _renderQuestion(el, sessionId, data) {
   if (!main) return;
   const wrap = main;
 
+  const isLast = total > 0 && (current_q + 1) >= total;
+
   // نستبدل محتوى #live-main بمحتوى السؤال
   wrap.innerHTML = `
     <div class="nrs-content-row" id="live-q-wrap">
@@ -380,9 +383,18 @@ function _renderQuestion(el, sessionId, data) {
           <div class="nrs-indicators" id="nrs-indicators" aria-hidden="true"></div>
           <div class="nrs-panel">
             <div class="nrs-choices" id="nrs-choices"></div>
-            <button class="nrs-btn-ok" id="btn-ok" type="button" disabled>
+            <button class="nrs-btn-ok" id="btn-ok" type="button" disabled data-last="${isLast ? '1' : '0'}">
               <span class="ok-ic" aria-hidden="true">${IC.check}</span>
-              <span class="ok-lbl">موافق</span>
+              <span class="ok-lbl">${isLast ? 'إنهاء' : 'موافق'}</span>
+            </button>
+          </div>
+          <!-- أزرار تحكم الطالب -->
+          <div class="live-student-ctrl-btns">
+            <button class="live-ctrl-btn live-ctrl-stop" id="btn-stop-student" type="button" title="إنهاء الحصة">
+              <span class="live-ctrl-ic">⏹</span><span class="live-ctrl-lbl">Stop</span>
+            </button>
+            <button class="live-ctrl-btn live-ctrl-reset" id="btn-reset-student" type="button" title="حذف الإجابة وإعادة الاختيار">
+              <span class="live-ctrl-ic">✏️</span><span class="live-ctrl-lbl">تصحيح</span>
             </button>
           </div>
         </div>
@@ -406,9 +418,161 @@ function _renderQuestion(el, sessionId, data) {
 
   if (answered) _liveShowRecorded(el);
 
+  // ── ربط أزرار الحصة للطالب ───────────────────────────────────────────────
+  // زر Stop: ينهي الامتحان ويعرض نتيجة الطالب
+  const stopBtn = el.querySelector('#btn-stop-student');
+  if (stopBtn) {
+    stopBtn.addEventListener('click', () => _studentStop(el, sessionId));
+  }
+
+  // زر تصحيح: يحذف الإجابة المسجّلة ويعيد الاختيار
+  const resetBtn = el.querySelector('#btn-reset-student');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => _studentReset(el, sessionId, question, opts, current_q, total));
+  }
+
+  // زر موافق: يُرسل الإجابة (أو ينهي إذا كان آخر سؤال)
+  const okBtn = el.querySelector('#btn-ok');
+  if (okBtn) {
+    okBtn.addEventListener('click', () => _studentOkClick(el, sessionId, isLast));
+  }
+
   // ربط أحداث الأزرار (فقط إذا لم يُجب بعد)
   if (!answered) {
     _liveBtnBindEvents(el, sessionId);
+  }
+}
+
+// ── زر Stop للطالب: إنهاء وعرض النتيجة ──────────────────────────────────────
+async function _studentStop(el, sessionId) {
+  if (!confirm('هل تريد إنهاء الحصة وعرض نتيجتك؟')) return;
+  _closeSSE();
+  const main = el.querySelector('#live-main');
+  if (main) main.innerHTML = `<div class="nrs-content-row">${_endedSide()}</div>`;
+  try {
+    const r = await api.get(`/live/${sessionId}/results`);
+    _showStudentResults(el, r);
+  } catch {
+    toast('تعذّر جلب النتائج', 'error');
+  }
+}
+
+// ── زر تصحيح للطالب: حذف الإجابة وإعادة الاختيار ────────────────────────────
+function _studentReset(el, sessionId, question, opts, current_q, total) {
+  // إعادة الحالة
+  _studentAnswered = false;
+  _studentSelected = new Set();
+
+  // إعادة رسم الأزرار بدون تعطيل
+  _liveRenderChoices(el, _currentOptCount, _studentSelected, false);
+  _liveRenderIndicators(el, _currentOptCount, _studentSelected);
+  _liveRenderTextPanel(el, question, opts, _studentSelected, false);
+
+  // تعطيل زر موافق حتى يختار مجدداً
+  const okBtn = el.querySelector('#btn-ok');
+  if (okBtn) okBtn.disabled = true;
+
+  // إزالة رسالة "تم التسجيل"
+  el.querySelectorAll('.live-recorded').forEach(e => e.remove());
+
+  // إعادة ربط أحداث الأزرار
+  _liveBtnBindEvents(el, sessionId);
+
+  // ربط زر موافق مجدداً
+  if (okBtn) {
+    // إزالة listener القديم بإعادة clone
+    const newOk = okBtn.cloneNode(true);
+    okBtn.replaceWith(newOk);
+    newOk.addEventListener('click', () => _studentOkClick(el, sessionId, (current_q + 1) >= total));
+  }
+
+  // ربط زر تصحيح مجدداً
+  const resetBtn = el.querySelector('#btn-reset-student');
+  if (resetBtn) {
+    const newReset = resetBtn.cloneNode(true);
+    resetBtn.replaceWith(newReset);
+    newReset.addEventListener('click', () => _studentReset(el, sessionId, question, opts, current_q, total));
+  }
+}
+
+// ── زر موافق للطالب: لا يعمل إلا بعد الاختيار ───────────────────────────────
+async function _studentOkClick(el, sessionId, isLast) {
+  if (_studentSelected.size === 0) {
+    toast('اختر إجابة أولاً', 'error');
+    return;
+  }
+
+  if (!_studentAnswered) {
+    // إرسال الإجابة أولاً إذا لم تُرسل بعد
+    _studentAnswered = true;
+    el.querySelectorAll('.nrs-choice-btn').forEach(b => b.disabled = true);
+    try {
+      await api.post(`/live/${sessionId}/answer`, { selected: [..._studentSelected] });
+    } catch {
+      _studentAnswered = false;
+      el.querySelectorAll('.nrs-choice-btn[data-n]').forEach(b => b.disabled = false);
+      toast(t('err.server_error'), 'error');
+      return;
+    }
+  }
+
+  if (isLast) {
+    // آخر سؤال → عرض النتيجة
+    _closeSSE();
+    const main = el.querySelector('#live-main');
+    if (main) main.innerHTML = `<div class="nrs-content-row">${_endedSide()}</div>`;
+    try {
+      const r = await api.get(`/live/${sessionId}/results`);
+      _showStudentResults(el, r);
+    } catch {
+      toast('تعذّر جلب النتائج', 'error');
+    }
+  }
+  // إذا لم يكن آخر سؤال، يبقى في انتظار حدث SSE question التالي
+}
+
+// ── عرض نتيجة الطالب بعد الانتهاء ──────────────────────────────────────────
+function _showStudentResults(el, r) {
+  const panel = el.querySelector('#nrs-text-panel');
+  const { answers = [] } = r || {};
+  const correct = answers.filter(a => a.isCorrect).length;
+  const wrong   = answers.length - correct;
+
+  const html2 = `<div class="live-results-full">
+    <div class="live-results-score">
+      <div class="live-score-row">
+        <span class="live-score-ic">🏁</span>
+        <span class="live-results-num">${correct} / ${answers.length}</span>
+      </div>
+      <span class="live-results-label">إجابات صحيحة</span>
+      ${wrong > 0 ? `<div class="live-wrong-count">❌ ${wrong} سؤال خاطئ</div>` : '<div class="live-wrong-count correct-all">✅ أحسنت! جميع الإجابات صحيحة</div>'}
+    </div>
+    ${answers.map((a, qi) => `<div class="live-results-q ${a.isCorrect ? 'correct' : 'wrong'}">
+      <div class="live-results-q-header">
+        <span class="live-results-q-num">${qi + 1}.</span>
+        <span class="live-results-q-ic">${a.isCorrect ? '✅' : '❌'}</span>
+        <span class="live-results-q-text">${esc(a.text || '')}</span>
+      </div>
+      ${(a.options || []).map((o, i) => {
+        const isCorrectOpt  = (a.correct  || []).map(Number).includes(i);
+        const isSelectedOpt = (a.selected || []).map(Number).includes(i);
+        let cls = 'live-results-opt';
+        if (isCorrectOpt)  cls += ' correct';
+        if (isSelectedOpt && !isCorrectOpt) cls += ' wrong';
+        return `<div class="${cls}">
+          <span class="live-opt-letter">${i + 1}</span>
+          <span>${esc(typeof o === 'object' ? o.text || '' : String(o ?? ''))}</span>
+          ${isCorrectOpt ? '<span style="margin-inline-start:auto">✓</span>' : ''}
+        </div>`;
+      }).join('')}
+    </div>`).join('')}
+  </div>`;
+
+  if (panel) {
+    panel.innerHTML = html2;
+  } else {
+    const main = el.querySelector('#live-main');
+    if (main) main.insertAdjacentHTML('beforeend', html2);
   }
 }
 
@@ -429,10 +593,25 @@ function _liveRenderChoices(el, optCount, selected, answered) {
     let cls = 'nrs-choice-btn';
     if (!hasOpt)       cls += ' choice-inactive';
     else if (pressed)  cls += ' choice-on';
+    // إذا أجاب الطالب، الأزرار تصبح disabled (لا يمكن التغيير — يجب استخدام زر تصحيح)
     return `<button class="${cls}" data-n="${n}" ${(answered || !hasOpt) ? 'disabled' : ''} type="button">
       <span class="nrs-choice-num">${n}</span><span class="nrs-choice-sq"></span>
     </button>`;
   }).join('');
+}
+
+// ── تحديث زر موافق: نهاية → إنهاء في السؤال الأخير ──────────────────────────
+function _updateOkBtn(el, current_q, total, isLast) {
+  const btn = el.querySelector('#btn-ok');
+  if (!btn) return;
+  if (isLast) {
+    btn.querySelector('.ok-lbl').textContent = 'إنهاء';
+    btn.dataset.last = '1';
+  } else {
+    btn.querySelector('.ok-lbl').textContent = 'موافق';
+    btn.dataset.last = '0';
+  }
+
 }
 
 // ── رسم المؤشرات (1–4) ───────────────────────────────────────────────────────
@@ -490,11 +669,11 @@ function _handleStudentClick(el, sessionId, btn) {
   const n = Number(btn.dataset.n);
   if (!n) return;
 
-  // toggle الاختيار (للأسئلة ذات إجابات متعددة مستقبلاً — حالياً إجابة واحدة)
+  // toggle الاختيار (1-4، متعدد الاختيارات مدعوم)
   if (_studentSelected.has(n)) _studentSelected.delete(n);
-  else { _studentSelected.clear(); _studentSelected.add(n); }
+  else _studentSelected.add(n); // لا clear — يدعم متعدد الاختيارات
 
-  // تحديث واجهة الاختيار (نستخدم _currentOptCount لا عدد الأزرار)
+  // تحديث واجهة الاختيار
   _liveRenderChoices(el, _currentOptCount, _studentSelected, false);
   _liveRenderIndicators(el, _currentOptCount, _studentSelected);
 
@@ -503,22 +682,14 @@ function _handleStudentClick(el, sessionId, btn) {
     o.classList.toggle('sub-on', _studentSelected.has(Number(o.dataset.n)));
   });
 
-  // ربط أحداث الأزرار بعد re-render
+  // ربط أحداث الأزرار بعد re-render (نعيد الاستماع)
   _liveBtnBindEvents(el, sessionId);
 
-  if (_studentSelected.size === 0) return;
+  // تفعيل زر موافق إذا تم الاختيار، تعطيله إذا ألغي الكل
+  const okBtn = el.querySelector('#btn-ok');
+  if (okBtn) okBtn.disabled = (_studentSelected.size === 0);
 
-  // إرسال الإجابة وقفل الواجهة
-  _studentAnswered = true;
-  el.querySelectorAll('.nrs-choice-btn').forEach(b => b.disabled = true);
-
-  const selectedArr = [..._studentSelected]; // 1-based
-  api.post(`/live/${sessionId}/answer`, { selected: selectedArr })
-    .catch(() => {
-      _studentAnswered = false;
-      el.querySelectorAll('.nrs-choice-btn[data-n]').forEach(b => b.disabled = false);
-      toast(t('err.server_error'), 'error');
-    });
+  // ⚠️ لا نرسل الإجابة هنا — يُرسل عند ضغط "موافق"
 }
 
 function _showAnswerFeedback(el, data) {
@@ -787,6 +958,7 @@ function _buildInstructorShell(el, sess) {
 
 // ── رسم سؤال المؤسسة — تصميم NARSA بدون كشف الإجابة الصحيحة أثناء الحصة ──────
 function _renderInstructorQuestion(el, _sessionId, data) {
+  _activeSessionId = _sessionId; // حفظ للاستخدام في أحداث الأزرار
   const { question, current_q, total } = data;
   if (!question) return;
   _updateProgress(el, current_q, total);
@@ -797,6 +969,8 @@ function _renderInstructorQuestion(el, _sessionId, data) {
   const opts = question.options || [];
   // ⚠️ لا نكشف correct ولا explanation أثناء الحصة — يظهران فقط بعد session ended
   // question_full يحتوي على correct لكن لا نستخدمه هنا عمداً
+
+  const isLast = data.total > 0 && (current_q + 1) >= data.total;
 
   main.innerHTML = html`<div class="nrs-content-row" id="live-q-wrap">
 
@@ -815,6 +989,20 @@ function _renderInstructorQuestion(el, _sessionId, data) {
             </button>`)}
             ${opts.length < 4 ? Array.from({length: 4 - opts.length}, () => html`<button class="nrs-choice-btn choice-inactive" disabled type="button"><span class="nrs-choice-num"></span><span class="nrs-choice-sq"></span></button>`) : ''}
           </div>
+          <!-- زر موافق/إنهاء للمؤسسة -->
+          <button class="nrs-btn-ok inst-ok-btn" id="inst-btn-ok" type="button">
+            <span class="ok-ic" aria-hidden="true">✓</span>
+            <span class="ok-lbl">${isLast ? 'إنهاء' : 'موافق'}</span>
+          </button>
+        </div>
+        <!-- أزرار Stop وتصحيح للمؤسسة -->
+        <div class="live-student-ctrl-btns">
+          <button class="live-ctrl-btn live-ctrl-stop" id="inst-btn-stop" type="button" title="إنهاء الحصة وعرض التصحيح">
+            <span class="live-ctrl-ic">⏹</span><span class="live-ctrl-lbl">Stop</span>
+          </button>
+          <button class="live-ctrl-btn live-ctrl-reset" id="inst-btn-next" type="button" title="السؤال التالي">
+            <span class="live-ctrl-ic">⏭</span><span class="live-ctrl-lbl">تصحيح</span>
+          </button>
         </div>
       </div>
       <div class="nrs-info-box">
@@ -847,6 +1035,31 @@ function _renderInstructorQuestion(el, _sessionId, data) {
     </div>
 
   </div>`.s;
+
+  // ── ربط أحداث أزرار المؤسسة ──────────────────────────────────────────────
+  // زر Stop: إنهاء الحصة وعرض صفحة التصحيح
+  main.querySelector('#inst-btn-stop')?.addEventListener('click', async () => {
+    if (!confirm('إنهاء الحصة وعرض صفحة التصحيح؟')) return;
+    await _doAction(el, _sessionId, 'end');
+    // _doAction('end') يعيد رسم لوحة الإدارة — navigate لصفحة النتائج
+    if (_sessionId) navigate(`/admin/live/${_sessionId}/results`);
+  });
+
+  // زر تصحيح (= السؤال التالي)
+  main.querySelector('#inst-btn-next')?.addEventListener('click', () => {
+    _doAction(el, _sessionId, 'next');
+  });
+
+  // زر موافق: نفس السؤال التالي (أو إنهاء إذا آخر سؤال)
+  main.querySelector('#inst-btn-ok')?.addEventListener('click', () => {
+    if (isLast) {
+      if (!confirm('هذا آخر سؤال — إنهاء الحصة؟')) return;
+      _doAction(el, _sessionId, 'end');
+      if (_sessionId) navigate(`/admin/live/${_sessionId}/results`);
+    } else {
+      _doAction(el, _sessionId, 'next');
+    }
+  });
 }
 
 async function _showCreateModal(el) {

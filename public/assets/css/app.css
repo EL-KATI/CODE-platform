@@ -5397,3 +5397,73 @@ body.live-fullscreen .inst-live-wrap .live-nrs-main {
     font-size: 1.5rem !important;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   أزرار Stop / تصحيح — الحصص الجماعية (طالب + مؤسسة)
+   ════════════════════════════════════════════════════════════════════════ */
+.live-student-ctrl-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  width: 100%;
+}
+
+.live-ctrl-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 4px;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  cursor: pointer;
+  width: 100%;
+  min-height: 44px;
+  transition: background 0.15s, transform 0.1s;
+  line-height: 1.2;
+}
+.live-ctrl-btn:active { transform: scale(0.95); }
+
+.live-ctrl-ic { font-size: 1rem; }
+.live-ctrl-lbl { font-size: 0.6rem; letter-spacing: 0.03em; }
+
+/* Stop — أحمر */
+.live-ctrl-stop {
+  background: #d32f2f;
+  color: #fff;
+}
+.live-ctrl-stop:hover { background: #b71c1c; }
+
+/* تصحيح — برتقالي */
+.live-ctrl-reset {
+  background: #e65100;
+  color: #fff;
+}
+.live-ctrl-reset:hover { background: #bf360c; }
+
+/* زر موافق المؤسسة — مشابه للطالب لكن دائماً مفعّل */
+.inst-ok-btn {
+  opacity: 1 !important;
+  cursor: pointer !important;
+}
+
+/* نتيجة الطالب بعد انتهاء الحصة */
+.live-score-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.live-score-ic { font-size: 2rem; }
+.live-wrong-count {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 6px;
+  color: #ef4444;
+}
+.live-wrong-count.correct-all { color: #22c55e; }
