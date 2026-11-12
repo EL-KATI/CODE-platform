@@ -406,12 +406,11 @@ function _launchingHtml() {
   </div>`.s;
 }
 
-function _endedHtml(finalBoard) {
+function _endedHtml() {
   return html`<div class="live-ended-wrap">
     <div class="live-ended-ic">🏁</div>
     <h2>${t('live.ended')}</h2>
     <p>${t('live.endedDesc')}</p>
-    ${finalBoard ? html`<p class="muted small">${t('live.checkLeaderboard')}</p>` : ''}
     <a class="btn" href="/dashboard">${t('nav.dashboard')}</a>
   </div>`.s;
 }
@@ -522,45 +521,49 @@ function _renderAdminPanel(el, sessions) {
   el.querySelector('#create-live-btn')?.addEventListener('click', () => _showCreateModal(el).catch(() => {}));
 }
 
-// ── Shell الحصة النشطة للمؤسسة (نفس تصميم الطالب + شريط تحكم) ───────────────
+// ── Shell الحصة النشطة للمؤسسة — تصميم NARSA الأصلي + شريط تحكم ─────────────
 function _buildInstructorShell(el, sess) {
   const isWaiting = sess.status === 'waiting';
   const qCount    = (sess.question_ids || []).length;
 
-  el.innerHTML = html`<div class="page-wrap live-page" id="live-student-wrap">
+  el.innerHTML = html`<div class="nrs-window inst-live-wrap" id="live-student-wrap">
 
-    <!-- شريط التقدم (نفس الطالب) -->
-    <div class="live-top-bar">
-      <div class="live-connection-dot" id="live-conn-dot" title="${t('live.connecting')}">●</div>
-      <div class="live-prog-wrap" id="live-prog-wrap">
-        <span class="live-q-num" id="live-q-num"></span>
-        <div class="live-prog-bar"><div class="live-prog-fill" id="live-prog-fill" style="width:0%"></div></div>
-        <span class="live-answered-label">${t('live.answered')}: <strong id="live-ans-count">0</strong></span>
+    <!-- شريط علوي: مؤشر اتصال + رقم السؤال + التقدم + leaderboard -->
+    <header class="nrs-topbar">
+      <div class="live-conn-wrap">
+        <span class="live-connection-dot" id="live-conn-dot" title="${t('live.connecting')}">●</span>
       </div>
-      <button class="live-lb-toggle" id="live-lb-btn" title="${t('live.leaderboard')}">🏆</button>
-    </div>
+      <div class="nrs-tb-pills">
+        <span class="nrs-tb-pill nrs-tb-title">📡 ${t('live.liveSession')}</span>
+        <span class="nrs-tb-pill nrs-tb-count" id="live-q-num">— / —</span>
+        <span class="nrs-tb-pill nrs-tb-count">${t('live.answered')}: <strong id="live-ans-count">0</strong></span>
+        <span class="nrs-tb-pill nrs-tb-count"><span id="live-connected-count">0</span> متصل</span>
+      </div>
+      <!-- زر لوحة الترتيب — للمؤسسة فقط -->
+      <button class="live-lb-toggle-btn" id="live-lb-btn" title="${t('live.leaderboard')}">🏆</button>
+      <div class="nrs-tb-progress" aria-hidden="true"><i id="tb-progress" style="width:0%"></i></div>
+    </header>
 
-    <!-- منطقة السؤال الرئيسية -->
-    <div id="live-main">
+    <!-- المحتوى الرئيسي -->
+    <div id="live-main" class="live-nrs-main">
       ${raw(isWaiting ? _waitingRoomHtml() : '')}
     </div>
 
     <!-- شريط تحكم المؤسسة (ثابت في الأسفل) -->
     <div class="live-instructor-bar" id="live-instructor-bar">
-      <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
-        <span class="live-badge ${sess.status}" style="flex-shrink:0">${isWaiting ? t('live.admin.waiting') : t('live.admin.live')}</span>
-        <strong style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.9rem">${esc(sess.title)}</strong>
-        <span class="muted small" style="flex-shrink:0">${qCount} ${t('live.admin.questions')}</span>
-        <span class="muted small" style="flex-shrink:0">· <span id="live-connected-count">0</span> متصل</span>
+      <div class="inst-bar-info">
+        <span class="live-badge ${sess.status}">${isWaiting ? t('live.admin.waiting') : t('live.admin.live')}</span>
+        <strong class="inst-bar-title">${esc(sess.title)}</strong>
+        <span class="muted small">${qCount} ${t('live.admin.questions')}</span>
       </div>
-      <div style="display:flex;gap:8px;flex-shrink:0">
+      <div class="inst-bar-actions">
         ${isWaiting ? html`<button class="btn btn-primary" id="start-live-btn">▶ ${t('live.admin.start')}</button>` : ''}
         ${!isWaiting ? html`<button class="btn btn-primary" id="next-q-btn">⏭ ${t('live.admin.next')}</button>` : ''}
         <button class="btn btn-danger" id="end-live-btn">⏹ ${t('live.admin.end')}</button>
       </div>
     </div>
 
-    <!-- لوحة الترتيب -->
+    <!-- لوحة الترتيب — مخفية افتراضياً، تُفتح بالزر فقط -->
     <aside class="live-lb-panel hidden" id="live-lb-panel" aria-label="${t('live.leaderboard')}">
       <div class="live-lb-header">
         <span>🏆 ${t('live.leaderboard')}</span>
@@ -571,6 +574,7 @@ function _buildInstructorShell(el, sess) {
 
   </div>`.s;
 
+  // أحداث الأزرار
   el.querySelector('#live-lb-btn')?.addEventListener('click', () => {
     el.querySelector('#live-lb-panel')?.classList.toggle('hidden');
   });
@@ -582,6 +586,7 @@ function _buildInstructorShell(el, sess) {
   el.querySelector('#end-live-btn')?.addEventListener('click',  () => _doAction(el, sess.id, 'end'));
 }
 
+// ── رسم سؤال المؤسسة — تصميم NARSA بدون كشف الإجابة الصحيحة أثناء الحصة ──────
 function _renderInstructorQuestion(el, _sessionId, data) {
   const { question, current_q, total } = data;
   if (!question) return;
@@ -590,23 +595,56 @@ function _renderInstructorQuestion(el, _sessionId, data) {
   const main = el.querySelector('#live-main');
   if (!main) return;
 
-  const opts    = question.options || [];
-  const correct = (question.correct || []).map(Number);
+  const opts = question.options || [];
+  // ⚠️ لا نكشف correct ولا explanation أثناء الحصة — يظهران فقط بعد session ended
+  // question_full يحتوي على correct لكن لا نستخدمه هنا عمداً
 
-  // نفس بنية HTML الطالب — الخيارات الصحيحة مميزة بلون أخضر
-  main.innerHTML = html`<div class="live-q-wrap" id="live-q-wrap">
-    ${question.image ? html`<img class="live-q-img" src="${question.image}" alt="${question.image_alt || ''}" loading="lazy">` : ''}
-    <p class="live-q-text">${esc(question.text || '')}</p>
-    <div class="live-opts" id="live-opts">
-      ${opts.map((o, i) => html`<div class="live-opt ${correct.includes(i) ? 'correct' : ''}" style="cursor:default" tabindex="-1">
-        <span class="live-opt-letter">${String.fromCharCode(0x0041 + i)}</span>
-        <span>${esc(o)}</span>
-        ${correct.includes(i) ? html`<span class="live-opt-tick">✓</span>` : ''}
-      </div>`)}
+  main.innerHTML = html`<div class="nrs-content-row" id="live-q-wrap">
+
+    <!-- الجانب الأيسر: أزرار الأرقام (للمؤسسة: غير قابلة للنقر) -->
+    <aside class="nrs-side">
+      <div class="nrs-ctrl-col">
+        <div class="nrs-indicators" id="nrs-indicators" aria-hidden="true">
+          ${opts.map((_, i) => html`<span class="nrs-ind"></span>`)}
+          ${opts.length < 4 ? Array.from({length: 4 - opts.length}, () => html`<span class="nrs-ind"></span>`) : ''}
+        </div>
+        <div class="nrs-panel">
+          <div class="nrs-choices" id="nrs-choices">
+            ${opts.map((_, i) => html`<button class="nrs-choice-btn inst-choice" data-idx="${i}" data-n="${i+1}" disabled type="button">
+              <span class="nrs-choice-num">${i + 1}</span>
+              <span class="nrs-choice-sq"></span>
+            </button>`)}
+            ${opts.length < 4 ? Array.from({length: 4 - opts.length}, () => html`<button class="nrs-choice-btn choice-inactive" disabled type="button"><span class="nrs-choice-num"></span><span class="nrs-choice-sq"></span></button>`) : ''}
+          </div>
+        </div>
+      </div>
+      <div class="nrs-info-box">
+        <div class="nrs-info-school">${esc(store.user?.school_name || store.user?.name || '')}</div>
+        <div class="nrs-info-cat">${store.user?.license_cat || 'B'}</div>
+        <div class="nrs-info-num">#${question.id || (current_q + 1)}</div>
+      </div>
+    </aside>
+
+    <!-- الجانب الأيمن: الصورة + السؤال والخيارات -->
+    <div class="nrs-main">
+      <div class="nrs-media" id="nrs-media">
+        ${question.image
+          ? html`<div class="nrs-img-wrap"><img src="${question.image}" alt="${question.image_alt || ''}" loading="lazy" style="max-width:100%;max-height:100%;object-fit:contain"></div>`
+          : html`<div class="nrs-no-media"><span>🚗</span></div>`}
+      </div>
+      <div class="nrs-text-panel" id="nrs-text-panel">
+        <p class="nrs-q-text">${esc(question.text || '')}</p>
+        <div class="nrs-opts-list" id="nrs-opts-list">
+          ${opts.map((o, i) => html`<div class="nrs-opt" data-idx="${i}">
+            <span class="nrs-opt-n">${i + 1}</span>
+            <div class="nrs-opt-dots" aria-hidden="true"></div>
+            <span class="nrs-opt-text">${esc(typeof o === 'object' ? o.text || '' : String(o ?? ''))}</span>
+          </div>`)}
+        </div>
+        <!-- الإجابة الصحيحة والشرح: يظهران بعد انتهاء الحصة فقط — لا شيء هنا -->
+      </div>
     </div>
-    ${question.explanation ? html`<div class="live-feedback correct" style="margin-top:12px;font-size:.85rem">
-      <span class="live-fb-ic">💡</span> <span>${esc(question.explanation)}</span>
-    </div>` : ''}
+
   </div>`.s;
 }
 

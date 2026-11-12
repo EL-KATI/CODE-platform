@@ -5088,3 +5088,44 @@ body.ui-apple .staff-side a.side-ai[aria-current="page"] { background: linear-gr
   padding: 16px;
   overflow-y: auto;
 }
+
+/* ── واجهة المؤسسة في الحصة الجماعية (NARSA shell) ─────────────────────── */
+
+/* padding إضافي لتعويض شريط التحكم الثابت أسفل الشاشة */
+.inst-live-wrap #live-main { padding-bottom: 80px; }
+
+/* زر لوحة الترتيب في الشريط العلوي */
+.live-lb-toggle-btn {
+  background: none;
+  border: 1px solid rgba(255,255,255,.25);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 1.1rem;
+  width: 36px; height: 36px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: background .15s;
+}
+.live-lb-toggle-btn:hover { background: rgba(255,255,255,.12); }
+
+/* معلومات وأزرار شريط المؤسسة */
+.inst-bar-info {
+  display: flex; align-items: center; gap: 8px;
+  flex: 1; min-width: 0; overflow: hidden;
+}
+.inst-bar-title {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: .9rem;
+}
+.inst-bar-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+/* أزرار NARSA للمؤسسة: غير قابلة للنقر (عرض فقط) */
+.nrs-choice-btn.inst-choice {
+  opacity: .7;
+  cursor: default !important;
+  pointer-events: none;
+}
+
+/* الشريط العلوي للمؤسسة: pills قابلة للالتفاف */
+.inst-live-wrap .nrs-tb-pills { flex-wrap: wrap; justify-content: flex-start; }
