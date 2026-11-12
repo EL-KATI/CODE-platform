@@ -300,12 +300,14 @@ function _connectSSE(el, sessionId, isInstructor) {
   });
 
   _sse.addEventListener('question', (e) => {
+    if (isInstructor) return; // المؤسسة تستخدم question_full فقط
     const data = JSON.parse(e.data);
     _renderQuestion(el, sessionId, data);
     _updateProgress(el, data.current_q, data.total);
   });
 
   _sse.addEventListener('answer_ack', (e) => {
+    if (isInstructor) return; // المؤسسة لا تُجيب
     const data = JSON.parse(e.data);
     _showAnswerFeedback(el, data);
   });
@@ -549,7 +551,10 @@ function _feedbackHtml(isCorrect) {
 function _updateProgress(el, current, total) {
   const qNum = el.querySelector('#live-q-num');
   const fill = el.querySelector('#tb-progress');
-  if (qNum) qNum.textContent = `${(current ?? 0) + 1} / ${total}`;
+  const footerCounter = el.querySelector('#nrs-footer-counter');
+  const label = `${(current ?? 0) + 1} / ${total}`;
+  if (qNum) qNum.textContent = label;
+  if (footerCounter) footerCounter.textContent = label;
   if (fill) fill.style.width = `${total ? Math.round(100 * ((current ?? 0) + 1) / total) : 0}%`;
 }
 
