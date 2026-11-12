@@ -2242,6 +2242,7 @@ body.has-side .site-footer { margin-inline-start:230px; }
   padding: 1rem;
   --nrs-serif: 'Traditional Arabic', 'Amiri', 'Scheherazade New', 'Noto Naskh Arabic', 'Times New Roman', serif;
   --nrs-ui: Tahoma, 'Segoe UI', Arial, sans-serif;
+  --exam-font-size: clamp(1.2rem, 2.2vw, 1.75rem);
 }
 .nrs-window {
   direction: ltr;                        /* نبقيو LTR على المستوى العلوي — RTL يتطبق فقط على nrs-content-row */
@@ -2271,36 +2272,36 @@ body.has-side .site-footer { margin-inline-start:230px; }
 }
 
 /* ── الشاشة الرئيسية: الصورة ثم لوحة الأسئلة ── */
-.nrs-main { display: flex; flex-direction: column; flex: 1 1 0%; min-width: 0; min-height: 0; overflow: hidden; background: #0d1b3e; border-radius: 0.4rem; }
-/* الصورة: تملأ النصف العلوي بالكامل */
-.nrs-media { flex: 0 0 48%; min-height: 80px; display: flex; align-items: stretch; overflow: hidden; background: #000; }
+.nrs-main { display: flex; flex-direction: column; flex: 1 1 0%; min-width: 0; min-height: 0; overflow: hidden; background: rgb(255,255,255); border-radius: 0.4rem; }
+/* الصورة: 55% من الارتفاع — مثل التصميم المرجعي (apprtl-1wn4oww) */
+.nrs-media { flex: 0 0 auto; height: calc(55% - 1.25rem); min-height: 80px; display: flex; align-items: stretch; overflow: hidden; background: rgb(255,255,255); }
 .nrs-media img, .nrs-media video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .nrs-media.has-video > * { width: 100%; height: 100%; margin: 0 !important; max-height: none !important; }
 .nrs-img-wrap { width: 100%; height: 100%; display: flex; }
 .nrs-img-wrap img { width: 100%; height: 100%; object-fit: cover; }
 .nrs-img-wrap svg { width: 100%; height: 100%; }
-.nrs-no-media { display: flex; align-items: center; justify-content: center; color: #555; font-size: 5rem; width: 100%; }
+.nrs-no-media { display: flex; align-items: center; justify-content: center; color: #aaa; font-size: 5rem; width: 100%; height: 100%; background: rgb(255,255,255); }
 
-/* لوحة النص: خلفية navy blue مثل NARSA الأصلي */
+/* لوحة النص: خلفية رمادية داكنة (apprtl-875zbh) — 45% من الارتفاع مثل التصميم المرجعي */
 .nrs-text-panel {
-  flex: 1 1 0%; min-height: 0;
-  background: #0d1b3e;
+  flex: 0 0 auto; height: calc(45% - 1.25rem); min-height: 0;
+  background: rgb(34,34,34);
   padding: 10px 16px 10px;
   overflow-y: auto;
-  scrollbar-width: thin; scrollbar-color: #1e3a6e #0d1b3e;
+  scrollbar-width: thin; scrollbar-color: #555 rgb(34,34,34);
   font-family: var(--nrs-serif);
 }
-.nrs-text-panel.has-result { flex: 1 1 0%; }
+.nrs-text-panel.has-result { flex: 1 1 0%; height: auto; }
 
-/* نص السؤال: أبيض كبير — مثل الصورة الأصلية */
+/* نص السؤال: أبيض — مثل التصميم المرجعي (apprtl-jh3tz4) */
 .nrs-q-main {
   color: #fff;
-  font-size: clamp(1.3rem, 2.4vw, 1.9rem);
+  font-size: var(--exam-font-size);
   font-weight: 700;
-  line-height: 1.5;
+  line-height: 1.6;
   text-align: right;
   direction: rtl;
-  margin: 0 0 8px;
+  margin: 0 0 0.2rem;
   padding: 4px 2px;
 }
 /* كتلة الاختيارات: تملأ العرض كاملاً */
@@ -2312,6 +2313,7 @@ body.has-side .site-footer { margin-inline-start:230px; }
    التصميم: 1  ————————————  نَعَمْ
    DOM: [nrs-opt-n] [nrs-opt-line] [nrs-opt-text]
    direction:ltr → رقم يسار | خط يمتد | نص يمين */
+/* سطر الخيار — مطابق للتصميم المرجعي (apprtl-1ik1p1f) */
 .nrs-opt {
   display: flex;
   flex-direction: row;
@@ -2319,10 +2321,12 @@ body.has-side .site-footer { margin-inline-start:230px; }
   align-items: center;
   padding: 5px 0;
   border-bottom: 1px solid rgba(255,255,255,0.08);
-  font-size: clamp(1.2rem, 2.2vw, 1.75rem);
+  font-size: var(--exam-font-size);
+  font-weight: 600;
   line-height: 1.5;
   color: #fff;
   cursor: pointer;
+  overflow: hidden;
 }
 .nrs-opt:last-child { border-bottom: none; }
 .nrs-opt.sub-on { background: rgba(255,255,255,0.06); border-radius: 3px; }
@@ -2429,17 +2433,26 @@ body.has-side .site-footer { margin-inline-start:230px; }
   padding: 0.3rem 0.2rem;
   overflow: hidden;
 }
+/* اسم المدرسة — مثل التصميم المرجعي (apprtl-7ghk5w) */
 .nrs-info-school {
-  font-size: 0.5rem; font-weight: 800; color: #111;
+  font-size: 2vh; font-weight: 800; color: #111;
   word-break: break-word; text-align: center; line-height: 1.2;
   text-transform: uppercase; letter-spacing: 0.01em;
 }
+/* فئة الرخصة — أحمر (apprtl-3btdpe) */
 .nrs-info-cat {
-  font-size: 0.7rem; font-weight: 800; color: rgb(211,47,47);
+  font-size: 2vh; font-weight: 800; color: rgb(211,47,47);
   font-style: italic;
 }
+/* رقم السؤال: دائرة حمراء — مثل التصميم المرجعي (apprtl-1fprhpg) */
 .nrs-info-num {
-  font-size: 0.55rem; font-weight: 800; color: #333;
+  font-size: 1rem;
+  font-weight: 800;
+  color: white;
+  background-color: rgb(211,47,47);
+  padding: 0.2rem 1rem;
+  border-radius: 50%;
+  display: inline-block;
 }
 
 /* زر STOP الأحمر فوق المؤشرات (apprtl-1wrav6z) */
@@ -5034,6 +5047,7 @@ body.ui-apple .staff-side a.side-ai[aria-current="page"] { background: linear-gr
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  --exam-font-size: clamp(1.1rem, 2vw, 1.6rem);
 }
 
 /* Connection indicator inside topbar */
@@ -5061,25 +5075,30 @@ body.ui-apple .staff-side a.side-ai[aria-current="page"] { background: linear-gr
   overflow: hidden;
 }
 
-/* nrs-main: لا تتجاوز حدودها */
+/* nrs-main: لا تتجاوز حدودها — خلفية بيضاء (منطقة الصورة) مثل التصميم المرجعي */
 #live-student-wrap .nrs-main {
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  background: rgb(255,255,255);
 }
 
-/* الصورة: ارتفاع ثابت 48% من nrs-main — لا تتغير بالمحتوى */
+/* الصورة: 55% من nrs-main — مطابق للتصميم المرجعي */
 #live-student-wrap .nrs-media {
-  flex: 0 0 48%;
+  flex: 0 0 auto;
+  height: calc(55% - 1.25rem);
   min-height: 0;
   max-height: none;
+  background: rgb(255,255,255);
 }
 
-/* لوحة النص: تأخذ الباقي مع تمرير داخلي */
+/* لوحة النص: 45% من nrs-main — خلفية رمادية داكنة (apprtl-875zbh) */
 #live-student-wrap .nrs-text-panel {
-  flex: 1 1 0%;
+  flex: 0 0 auto;
+  height: calc(45% - 1.25rem);
   min-height: 0;
   overflow-y: auto;
+  background: rgb(34,34,34);
 }
 
 /* Waiting / launching screens inside NARSA shell */
@@ -5315,6 +5334,7 @@ body.live-fullscreen .inst-live-wrap .live-nrs-main {
     flex-direction: column !important;
     min-height: 0 !important;
     overflow: hidden !important;
+    background: rgb(255,255,255) !important;
   }
 
   /* الصورة: ارتفاع ثابت — لا تتغير */
@@ -5324,6 +5344,7 @@ body.live-fullscreen .inst-live-wrap .live-nrs-main {
     height: 38vw !important;
     min-height: 130px !important;
     max-height: 220px !important;
+    background: rgb(255,255,255) !important;
   }
 
   #live-student-wrap .nrs-media img {
@@ -5338,6 +5359,7 @@ body.live-fullscreen .inst-live-wrap .live-nrs-main {
     min-height: 100px !important;
     max-height: 220px !important;
     font-size: 2.5rem !important;
+    background: rgb(255,255,255) !important;
   }
 
   /* لوحة النص: تأخذ الباقي مع تمرير داخلي */
@@ -5347,6 +5369,7 @@ body.live-fullscreen .inst-live-wrap .live-nrs-main {
     overflow-y: auto !important;
     padding: 12px 14px !important;
     font-size: 1rem !important;
+    background: rgb(34,34,34) !important;
   }
 
   /* نص السؤال: واضح وكبير */
