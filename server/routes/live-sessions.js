@@ -502,6 +502,44 @@ router.get('/:id/state', wrap(async (req, res) => {
   });
 }));
 
+// GET /api/live/:id/results — نتائج الطالب بعد انتهاء الحصة (مع كشف الإجابات الصحيحة)
+router.get('/:id/results', wrap(async (req, res) => {
+  const d    = db.get();
+  const sess = getSession(int(req.params.id));
+  if (!sess) return res.status(404).json({ error: 'not_found' });
+  if (sess.status !== 'ended') return res.status(403).json({ error: 'session_not_ended' });
+
+  const access = d.prepare('SELECT 1 FROM live_session_access WHERE user_id=? AND school_id=?')
+    .get(req.user.id, sess.school_id);
+  if (!access && !isStaff(req)) return res.status(403).json({ error: 'forbidden' });
+
+  const ids = tryJson(sess.question_ids, []);
+  const myAnswers = d.prepare(
+    'SELECT question_id, selected, is_correct FROM live_session_answers WHERE session_id=? AND user_id=?'
+  ).all(sess.id, req.user.id);
+  const answerMap = Object.fromEntries(myAnswers.map(a => [a.question_id, a]));
+
+  const answers = ids.map((qid) => {
+    const q = d.prepare(
+      'SELECT id, text, options, correct, explanation FROM questions WHERE id = ?'
+    ).get(qid);
+    if (!q) return null;
+    const myA = answerMap[qid];
+    return {
+      id         : q.id,
+      text       : q.text,
+      options    : tryJson(q.options, []),
+      correct    : tryJson(q.correct, []),      // مكشوف فقط بعد انتهاء الحصة
+      explanation: q.explanation,
+      selected   : myA ? tryJson(myA.selected, []) : [],
+      isCorrect  : myA ? !!myA.is_correct : null,
+    };
+  }).filter(Boolean);
+
+  const correctCount = answers.filter(a => a.isCorrect).length;
+  res.json({ answers, score: correctCount, total: answers.length });
+}));
+
 // POST /api/live/:id/answer
 router.post('/:id/answer', wrap(async (req, res) => {
   const d    = db.get();
@@ -539,11 +577,10 @@ router.post('/:id/answer', wrap(async (req, res) => {
     VALUES (?, ?, ?, ?, ?)
   `).run(sess.id, req.user.id, qid, JSON.stringify(sel), isCorrect);
 
-  // SSE: إعلام الطالب بنتيجة إجابته
+  // SSE: إعلام الطالب بتسجيل إجابته فقط — بدون الكشف عن الإجابة الصحيحة أثناء الحصة
   hub.emitTo(sess.id, req.user.id, 'answer_ack', {
-    isCorrect: !!isCorrect,
     selected : sel,
-    correct,
+    // لا نرسل isCorrect ولا correct للطالب — يُكشف فقط عند انتهاء الحصة
   });
 
   // SSE: تحديث عداد المجيبين للجميع

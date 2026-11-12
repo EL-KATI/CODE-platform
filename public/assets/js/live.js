@@ -123,6 +123,14 @@ function _connectSSE(el, sessionId, isInstructor) {
       // المؤسسة: إخفاء شريط التحكم عند الانتهاء
       const bar = el.querySelector('#live-instructor-bar');
       if (bar) bar.style.display = 'none';
+      // جلب النتائج التفصيلية للطالب (مع الإجابات الصحيحة المكشوفة)
+      if (!isInstructor) {
+        api.get(`/live/${sessionId}/results`).then(r => {
+          if (r?.answers?.length && main) {
+            main.innerHTML += _fullResultsHtml(r);
+          }
+        }).catch(() => {});
+      }
     } else if (data.status === 'live') {
       const main = el.querySelector('#live-main');
       if (main) main.innerHTML = '';
@@ -210,21 +218,20 @@ function _renderQuestion(el, sessionId, data) {
   const alreadyAnswered = !!myAnswer;
 
   main.innerHTML = html`<div class="live-q-wrap" id="live-q-wrap">
-    ${question.image_url ? html`<img class="live-q-img" src="${question.image_url}" alt="" loading="lazy">` : ''}
+    ${question.image ? html`<img class="live-q-img" src="${question.image}" alt="${question.image_alt || ''}" loading="lazy">` : ''}
     <p class="live-q-text">${esc(question.text || '')}</p>
     <div class="live-opts" id="live-opts">
       ${opts.map((o, i) => {
         let cls = 'live-opt';
-        if (alreadyAnswered) {
-          if ((myAnswer?.selected || []).map(Number).includes(i)) cls += myAnswer.isCorrect ? ' correct' : ' wrong';
-        }
+        // الطالب المتأخر: نُظهر فقط الإجابة المحددة بلون محايد — بدون كشف صح/خطأ
+        if (alreadyAnswered && (myAnswer?.selected || []).map(Number).includes(i)) cls += ' selected-confirmed';
         return html`<button class="${cls}" data-idx="${i}" ${alreadyAnswered ? 'disabled' : ''} type="button">
           <span class="live-opt-letter">${String.fromCharCode(0x0041 + i)}</span>
           <span>${esc(o)}</span>
         </button>`;
       })}
     </div>
-    ${alreadyAnswered ? raw(_feedbackHtml(myAnswer.isCorrect)) : ''}
+    ${alreadyAnswered ? raw(_recordedHtml()) : ''}
   </div>`.s;
 
   if (!alreadyAnswered) {
@@ -251,22 +258,30 @@ function _handleStudentClick(el, sessionId, btn, optsCount) {
 }
 
 function _showAnswerFeedback(el, data) {
-  const { isCorrect, selected, correct } = data;
+  // أثناء الحصة: نُظهر فقط أن الإجابة سُجِّلت — بدون كشف الصحيح/الخطأ
+  const { selected } = data;
   const opts = el.querySelectorAll('.live-opt');
 
   opts.forEach((btn, i) => {
     btn.disabled = true;
     btn.classList.remove('selected-pending', 'correct', 'wrong');
-    if (correct?.map(Number).includes(i)) btn.classList.add('correct');
-    else if (selected?.map(Number).includes(i)) btn.classList.add('wrong');
+    if (selected?.map(Number).includes(i)) btn.classList.add('selected-confirmed');
   });
 
   const wrap = el.querySelector('#live-q-wrap');
   if (wrap && !wrap.querySelector('.live-feedback')) {
-    wrap.insertAdjacentHTML('beforeend', _feedbackHtml(isCorrect));
+    wrap.insertAdjacentHTML('beforeend', _recordedHtml());
   }
 }
 
+// رسالة محايدة أثناء الحصة — لا تكشف النتيجة
+function _recordedHtml() {
+  return html`<div class="live-feedback recorded">
+    <span class="live-fb-ic">📝</span> <span>${t('live.recorded')}</span>
+  </div>`.s;
+}
+
+// تُستخدم عند انتهاء الحصة وعرض النتائج الكاملة
 function _feedbackHtml(isCorrect) {
   return html`<div class="live-feedback ${isCorrect ? 'correct' : 'wrong'}">
     ${isCorrect
@@ -319,6 +334,38 @@ function _endedHtml(finalBoard) {
     <p>${t('live.endedDesc')}</p>
     ${finalBoard ? html`<p class="muted small">${t('live.checkLeaderboard')}</p>` : ''}
     <a class="btn" href="/dashboard">${t('nav.dashboard')}</a>
+  </div>`.s;
+}
+
+// عرض نتائج مفصّلة بعد انتهاء الحصة (يُظهر الإجابات الصحيحة والخاطئة)
+function _fullResultsHtml(r) {
+  const { answers = [], score = 0, total = 0 } = r;
+  const correct = answers.filter(a => a.isCorrect).length;
+  return html`<div class="live-results-full">
+    <div class="live-results-score">
+      <span class="live-results-num">${correct}/${answers.length}</span>
+      <span class="live-results-label">${t('live.correct')}</span>
+    </div>
+    ${answers.map((a, qi) => html`<div class="live-results-q ${a.isCorrect ? 'correct' : 'wrong'}">
+      <div class="live-results-q-header">
+        <span class="live-results-q-num">${qi + 1}.</span>
+        <span class="live-results-q-ic">${a.isCorrect ? '✅' : '❌'}</span>
+        <span class="live-results-q-text">${esc(a.text || '')}</span>
+      </div>
+      ${(a.options || []).map((o, i) => {
+        const isCorrectOpt  = (a.correct  || []).map(Number).includes(i);
+        const isSelectedOpt = (a.selected || []).map(Number).includes(i);
+        let cls = 'live-results-opt';
+        if (isCorrectOpt)  cls += ' correct';
+        if (isSelectedOpt && !isCorrectOpt) cls += ' wrong';
+        return html`<div class="${cls}">
+          <span class="live-opt-letter">${String.fromCharCode(0x0041 + i)}</span>
+          <span>${esc(o)}</span>
+          ${isCorrectOpt ? html`<span style="margin-inline-start:auto">✓</span>` : ''}
+        </div>`;
+      })}
+      ${a.explanation ? html`<div class="live-results-explain">💡 ${esc(a.explanation)}</div>` : ''}
+    </div>`)}
   </div>`.s;
 }
 
