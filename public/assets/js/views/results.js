@@ -87,6 +87,33 @@ function scoreRing(correct, total, tone) {
     </div>`;
 }
 
+// ── رسائل التحفيز والتهنئة حسب نقطة الامتحان (40 سؤال) ───────────────────────
+function examScoreFeedback(correct, total) {
+  if (total < 35) return null; // تُطبَّق فقط على الامتحانات الكاملة (≥35 سؤال)
+  if (correct < 32) {
+    return {
+      tone  : 'low',
+      emoji : '💪',
+      title : t('results.sf.low.title'),
+      body  : t('results.sf.low.body', { n: correct, total }),
+    };
+  }
+  if (correct <= 35) {
+    return {
+      tone  : 'mid',
+      emoji : '🎯',
+      title : t('results.sf.mid.title'),
+      body  : t('results.sf.mid.body', { n: correct, total }),
+    };
+  }
+  return {
+    tone  : 'high',
+    emoji : '🏆',
+    title : t('results.sf.high.title'),
+    body  : t('results.sf.high.body', { n: correct, total }),
+  };
+}
+
 export async function resultsView(root, { params }) {
   root.innerHTML = loading().s;
 
@@ -116,6 +143,9 @@ export async function resultsView(root, { params }) {
     : passed === false ? (tone === 'mid' ? t('results.cheerClose', { n: passMark - correct }) : t('results.cheerFail'))
       : missed === 0 ? t('results.cheerPerfect') : t('results.cheerPractice', { n: missed });
 
+  // رسالة التحفيز الخاصة بالامتحان (40 سؤال)
+  const sf = mode === 'exam' ? examScoreFeedback(correct, total) : null;
+
   const byCat = cats.map((c) => {
     const qs = questions.filter((q) => q.categoryId === c.id);
     const ok = qs.filter((q) => statusOf(q) === 'ok').length;
@@ -138,6 +168,14 @@ export async function resultsView(root, { params }) {
           <div class="res-count"><strong>${skipped}</strong><small>${t('results.skipped')}</small></div>
         </div>
       </section>
+
+      ${sf ? html`<section class="score-feedback sf-${sf.tone}" role="status" aria-live="polite">
+        <span class="sf-emoji" aria-hidden="true">${sf.emoji}</span>
+        <div class="sf-text">
+          <strong class="sf-title">${sf.title}</strong>
+          <p class="sf-body">${sf.body}</p>
+        </div>
+      </section>` : ''}
 
       <div class="res-actions">
         ${missed ? html`<button class="btn btn-primary" id="only-wrong">${t('results.reviewOnlyWrong', { n: missed })}</button>` : ''}

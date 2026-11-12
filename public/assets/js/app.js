@@ -20,6 +20,7 @@ import { profileView } from './views/profile.js';
 import { privacyView, notFoundView } from './views/static.js';
 import { mountNotifications } from './notifications.js';
 import { mountLiveJoinBtn } from './live.js';
+import { mountLoginPopup, resetLoginPopup } from './login-popup.js';
 import * as admin from './views/admin.js';
 import { bookingsView, adminBookingsView } from './views/bookings.js';
 import { schoolStudentsView, schoolInstructorsView, enrollmentsView } from './views/school.js';
@@ -227,6 +228,7 @@ export function renderShell() {
   if (lo) lo.onclick = async () => {
     await api.post('/auth/logout');
     store.user = null;
+    resetLoginPopup(); // إعادة ضبط حتى يظهر الترحيب بعد login جديد
     toast(t('auth.loggedOut'));
     navigate('/');
   };
@@ -338,6 +340,8 @@ route('*', view(notFoundView));
   applyStaticTranslations();
   watchIcons(document.body); // أيقونات خطية بدل الإيموجي في كل الواجهات
   await startRouter();
+  // إشعارات ترحيبية عند الدخول (للطلاب فقط)
+  mountLoginPopup();
 })().catch((e) => {
   console.error(e);
   app.innerHTML = `<div class="empty"><p>${esc(t('err.server_error'))}</p></div>`;

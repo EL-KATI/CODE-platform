@@ -4816,3 +4816,116 @@ body.ui-apple .staff-side a.side-ai[aria-current="page"] { background: linear-gr
   0%, 100% { box-shadow: 0 4px 20px rgba(194,65,12,.35); }
   50% { box-shadow: 0 4px 32px rgba(194,65,12,.6), 0 0 0 3px rgba(255,255,255,.2); }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   رسائل التحفيز حسب نقطة الامتحان (Score Feedback Banner)
+   ══════════════════════════════════════════════════════════════════════════════ */
+.score-feedback {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 18px 20px;
+  border-radius: 14px;
+  border: 1.5px solid transparent;
+  margin-bottom: 4px;
+  animation: sf-in .5s cubic-bezier(.22,1,.36,1) both;
+}
+@keyframes sf-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+.score-feedback.sf-low  { background: rgba(239,68,68,.07);  border-color: rgba(239,68,68,.2);  }
+.score-feedback.sf-mid  { background: rgba(234,179,8,.07);  border-color: rgba(234,179,8,.25); }
+.score-feedback.sf-high { background: rgba(34,197,94,.07);  border-color: rgba(34,197,94,.2);  }
+.sf-emoji { font-size: 2.2rem; line-height: 1; flex-shrink: 0; margin-top: 2px; }
+.sf-text  { display: flex; flex-direction: column; gap: 4px; }
+.sf-title { font-size: 1.05rem; font-weight: 700;
+  color: var(--fg); }
+.sf-body  { font-size: .9rem; color: var(--muted); margin: 0; line-height: 1.6; }
+.score-feedback.sf-low  .sf-title { color: #b91c1c; }
+.score-feedback.sf-mid  .sf-title { color: #92400e; }
+.score-feedback.sf-high .sf-title { color: #15803d; }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   إشعارات الترحيب المنبثقة (Login Welcome Popups)
+   ══════════════════════════════════════════════════════════════════════════════ */
+.welcome-popup {
+  position: fixed;
+  bottom: 24px;
+  inset-inline-start: 24px;
+  z-index: 1200;
+  max-width: 340px;
+  width: calc(100vw - 48px);
+  background: var(--surface);
+  border-radius: 16px;
+  border: 1.5px solid var(--border);
+  box-shadow: 0 8px 32px rgba(0,0,0,.18);
+  padding: 16px;
+  animation: wp-in .45s cubic-bezier(.22,1,.36,1) both;
+  transition: opacity .35s, transform .35s;
+}
+@keyframes wp-in {
+  from { opacity: 0; transform: translateY(28px) scale(.95); }
+  to   { opacity: 1; transform: translateY(0)     scale(1);  }
+}
+.welcome-popup--hidden { display: none; }
+.welcome-popup--out    { opacity: 0; transform: translateY(16px) scale(.96); pointer-events: none; }
+
+/* ألوان حسب النوع */
+.welcome-popup.tone-welcome  { border-color: rgba(96,165,250,.4); }
+.welcome-popup.tone-progress { border-color: rgba(167,139,250,.4); }
+.welcome-popup.tone-live     { border-color: rgba(249,115,22,.5);
+  box-shadow: 0 8px 32px rgba(249,115,22,.2); animation: wp-live-pulse 1.8s ease infinite; }
+@keyframes wp-live-pulse {
+  0%,100% { box-shadow: 0 8px 32px rgba(249,115,22,.2); }
+  50%      { box-shadow: 0 8px 48px rgba(249,115,22,.45); }
+}
+
+.wp-close {
+  position: absolute;
+  top: 10px;
+  inset-inline-end: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 6px;
+  transition: background .2s;
+}
+.wp-close:hover { background: var(--surface-2); }
+
+.wp-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.wp-emoji {
+  font-size: 2rem;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.wp-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+.wp-title { font-size: 1rem; font-weight: 700; color: var(--fg); }
+.wp-body  { font-size: .85rem; color: var(--muted); margin: 0; line-height: 1.55; }
+.wp-cta   { margin-top: 10px; font-size: .85rem; padding: 7px 14px; }
+
+/* على الموبايل: في الأسفل وسط الشاشة */
+@media (max-width: 480px) {
+  .welcome-popup {
+    bottom: 16px;
+    inset-inline-start: 50%;
+    transform: translateX(-50%);
+    max-width: calc(100vw - 32px);
+  }
+  .welcome-popup--out { transform: translateX(-50%) translateY(16px) scale(.96); }
+}
