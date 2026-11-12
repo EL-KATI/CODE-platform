@@ -2273,8 +2273,8 @@ body.has-side .site-footer { margin-inline-start:230px; }
 
 /* ── الشاشة الرئيسية: الصورة ثم لوحة الأسئلة ── */
 .nrs-main { display: flex; flex-direction: column; flex: 1 1 0%; min-width: 0; min-height: 0; overflow: hidden; background: rgb(255,255,255); border-radius: 0.4rem; }
-/* الصورة: 55% من الارتفاع — مثل التصميم المرجعي (apprtl-1wn4oww) */
-.nrs-media { flex: 0 0 auto; height: calc(55% - 1.25rem); min-height: 80px; display: flex; align-items: stretch; overflow: hidden; background: rgb(255,255,255); }
+/* الصورة: 50% من الارتفاع */
+.nrs-media { flex: 0 0 50%; min-height: 80px; display: flex; align-items: stretch; overflow: hidden; background: rgb(255,255,255); }
 .nrs-media img, .nrs-media video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .nrs-media.has-video > * { width: 100%; height: 100%; margin: 0 !important; max-height: none !important; }
 .nrs-img-wrap { width: 100%; height: 100%; display: flex; }
@@ -2282,51 +2282,60 @@ body.has-side .site-footer { margin-inline-start:230px; }
 .nrs-img-wrap svg { width: 100%; height: 100%; }
 .nrs-no-media { display: flex; align-items: center; justify-content: center; color: #aaa; font-size: 5rem; width: 100%; height: 100%; background: rgb(255,255,255); }
 
-/* لوحة النص: خلفية رمادية داكنة (apprtl-875zbh) — 45% من الارتفاع مثل التصميم المرجعي */
+/* لوحة النص: تأخذ المساحة المتبقية — بدون تمرير */
 .nrs-text-panel {
-  flex: 0 0 auto; height: calc(45% - 1.25rem); min-height: 0;
+  flex: 1 1 0%; min-height: 0;
   background: rgb(34,34,34);
   padding: 10px 16px 10px;
-  overflow-y: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
   scrollbar-width: thin; scrollbar-color: #555 rgb(34,34,34);
   font-family: var(--nrs-serif);
 }
-.nrs-text-panel.has-result { flex: 1 1 0%; height: auto; }
+.nrs-text-panel.has-result { overflow-y: auto; }
 
-/* نص السؤال: أبيض — مثل التصميم المرجعي (apprtl-jh3tz4) */
+/* نص السؤال: أبيض */
 .nrs-q-main {
   color: #fff;
-  font-size: var(--exam-font-size);
+  font-size: clamp(0.82rem, 1.6vw, 1.1rem);
   font-weight: 700;
-  line-height: 1.6;
+  line-height: 1.45;
   text-align: right;
   direction: rtl;
   margin: 0 0 0.2rem;
-  padding: 4px 2px;
+  padding: 2px 2px;
+  flex-shrink: 0;
 }
 /* كتلة الاختيارات: تملأ العرض كاملاً */
 .nrs-block { width: 100%; }
-.nrs-opts-list { display: flex; flex-direction: column; gap: 0; }
+.nrs-opts-list {
+  display: flex; flex-direction: column;
+  gap: 0; flex: 1 1 0%;
+  justify-content: space-evenly;
+}
 .nrs-opts-row { display: grid; grid-template-columns: 1fr 1fr; column-gap: 6%; }
 
 /* ═══ سطر خيار NARSA الأصلي ═══
    التصميم: 1  ————————————  نَعَمْ
    DOM: [nrs-opt-n] [nrs-opt-line] [nrs-opt-text]
    direction:ltr → رقم يسار | خط يمتد | نص يمين */
-/* سطر الخيار — مطابق للتصميم المرجعي (apprtl-1ik1p1f) */
+/* سطر الخيار */
 .nrs-opt {
   display: flex;
   flex-direction: row;
   direction: ltr;
   align-items: center;
-  padding: 5px 0;
+  padding: 3px 0;
   border-bottom: 1px solid rgba(255,255,255,0.08);
-  font-size: var(--exam-font-size);
+  font-size: clamp(0.78rem, 1.5vw, 1.05rem);
   font-weight: 600;
-  line-height: 1.5;
+  line-height: 1.4;
   color: #fff;
   cursor: pointer;
   overflow: hidden;
+  flex-shrink: 0;
 }
 .nrs-opt:last-child { border-bottom: none; }
 .nrs-opt.sub-on { background: rgba(255,255,255,0.06); border-radius: 3px; }
