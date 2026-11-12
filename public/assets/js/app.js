@@ -25,7 +25,7 @@ import * as admin from './views/admin.js';
 import { bookingsView, adminBookingsView } from './views/bookings.js';
 import { schoolStudentsView, schoolInstructorsView, enrollmentsView } from './views/school.js';
 import { schoolExamsView, studentExamView } from './views/exams.js';
-import { liveSessionView, adminLiveView } from './views/live.js';
+import { liveSessionView, adminLiveView, adminLiveResultsView } from './views/live.js';
 
 const app = document.getElementById('app');
 
@@ -330,6 +330,7 @@ route('/admin/exams', view(schoolExamsView), { auth: true, roles: ['admin', 'sch
 route('/my-exams', view(studentExamView), { auth: true, roles: ['student'] });
 route('/live/:id', view(liveSessionView), learner);
 route('/admin/live', view(adminLiveView), { auth: true, roles: ['admin', 'school', 'instructor'] });
+route('/admin/live/:id/results', view(adminLiveResultsView), { auth: true, roles: ['admin', 'school', 'instructor'] });
 route('*', view(notFoundView));
 
 (async function boot() {

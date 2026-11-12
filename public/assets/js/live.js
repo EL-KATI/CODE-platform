@@ -662,6 +662,95 @@ async function _doAction(el, sessionId, action) {
       adminLiveView(el);
     }
   } catch (e) {
-    toast(e?.data?.error || t('err.server_error'), 'error');
+    const errCode = e?.data?.error;
+    // آخر سؤال — نُنهي الحصة تلقائياً بعد تأكيد المستخدم
+    if (action === 'next' && errCode === 'no_more_questions') {
+      toast(t('live.admin.noMoreQ'), 'info');
+      return;
+    }
+    toast(errCode || t('err.server_error'), 'error');
   }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ADMIN RESULTS VIEW — نتائج الحصة للمؤسسة
+// ══════════════════════════════════════════════════════════════════════════════
+export async function adminLiveResultsView(el, ctx) {
+  const id = Number(ctx.params.id);
+  el.innerHTML = html`<div class="page-wrap"><div class="live-loading">${t('live.loading')}</div></div>`.s;
+
+  let r;
+  try {
+    r = await api.get(`/live/school/${id}/results`);
+  } catch {
+    el.innerHTML = html`<div class="page-wrap"><div class="empty">${t('err.server_error')}</div></div>`.s;
+    return;
+  }
+
+  const { session: sess, participants, questionStats = [], leaderboard = [] } = r;
+
+  el.innerHTML = html`<div class="page-wrap admin-live-results">
+
+    <!-- رأس الصفحة -->
+    <div class="alr-header">
+      <a class="btn btn-sm" href="/admin/live">← ${t('live.admin.title')}</a>
+      <div class="alr-title">
+        <h1>${esc(sess.title)}</h1>
+        <span class="muted small">${sess.started_at ? sess.started_at.slice(0, 16) : ''}</span>
+      </div>
+    </div>
+
+    <!-- إحصاءات سريعة -->
+    <div class="alr-stats">
+      <div class="alr-stat-card">
+        <span class="alr-stat-num">${participants}</span>
+        <span class="alr-stat-label">${t('live.admin.r.participants')}</span>
+      </div>
+      <div class="alr-stat-card">
+        <span class="alr-stat-num">${(sess.question_ids || []).length}</span>
+        <span class="alr-stat-label">${t('live.admin.r.questions')}</span>
+      </div>
+      <div class="alr-stat-card">
+        <span class="alr-stat-num">${leaderboard.length > 0 ? leaderboard[0].score : '—'}</span>
+        <span class="alr-stat-label">${t('live.admin.r.topScore')}</span>
+      </div>
+    </div>
+
+    <!-- لوحة الترتيب النهائية -->
+    <section class="alr-section">
+      <h2 class="alr-section-title">🏆 ${t('live.leaderboard')}</h2>
+      ${leaderboard.length === 0
+        ? html`<div class="empty small">${t('live.admin.r.noData')}</div>`
+        : html`<ol class="alr-lb-list">
+          ${leaderboard.map(p => html`<li class="alr-lb-item ${p.rank <= 3 ? 'top' : ''}">
+            <span class="alr-lb-rank">${p.rank === 1 ? '🥇' : p.rank === 2 ? '🥈' : p.rank === 3 ? '🥉' : p.rank}</span>
+            <span class="alr-lb-name">${t('live.admin.r.candidate')} #${p.user_id}</span>
+            <span class="alr-lb-score">${p.score} ${t('live.admin.r.pts')}</span>
+          </li>`)}
+        </ol>`}
+    </section>
+
+    <!-- تحليل الأسئلة (مرتبة حسب نسبة الخطأ) -->
+    <section class="alr-section">
+      <h2 class="alr-section-title">📊 ${t('live.admin.r.analysis')}</h2>
+      ${questionStats.length === 0
+        ? html`<div class="empty small">${t('live.admin.r.noData')}</div>`
+        : html`<div class="alr-q-list">
+          ${questionStats.map(q => html`<div class="alr-q-item">
+            <div class="alr-q-top">
+              <span class="alr-q-num">${t('live.question')} ${q.idx + 1}</span>
+              <span class="alr-q-rate ${q.errorRate >= 50 ? 'high-err' : q.errorRate >= 25 ? 'mid-err' : 'low-err'}">
+                ${q.errorRate !== null ? q.errorRate + '%' : '—'} ${t('live.admin.r.errors')}
+              </span>
+              <span class="alr-q-count">${q.correct}/${q.total} ${t('live.admin.r.correct')}</span>
+            </div>
+            ${q.wrongStudents.length > 0 ? html`<div class="alr-wrong-list">
+              ${q.wrongStudents.slice(0, 8).map(s => html`<span class="alr-wrong-tag">${esc(s.name)}</span>`)}
+              ${q.wrongStudents.length > 8 ? html`<span class="alr-wrong-more">+${q.wrongStudents.length - 8}</span>` : ''}
+            </div>` : ''}
+          </div>`)}
+        </div>`}
+    </section>
+
+  </div>`.s;
 }
