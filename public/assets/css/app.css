@@ -4687,13 +4687,45 @@ body.ui-apple .staff-side a.side-ai[aria-current="page"] { background: linear-gr
 /* ── Waiting room ────────────────────────────────────────────────────────── */
 .live-waiting-room {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 14px; padding: 60px 20px; text-align: center; min-height: 300px;
+  gap: 16px; padding: 60px 20px; text-align: center; min-height: 320px;
+  animation: wr-in .4s ease;
 }
-.live-pulse {
-  font-size: 3rem; animation: live-pulse 2s ease-in-out infinite;
+@keyframes wr-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+.live-waiting-anim {
+  display: flex; gap: 10px; align-items: center; justify-content: center;
+  margin-bottom: 4px;
 }
-.live-waiting-room h2 { font-size: 1.3rem; margin: 0; }
-.live-waiting-room p  { color: var(--muted); margin: 0; }
+.live-waiting-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--accent, #6366f1); opacity: .3;
+  animation: wd-pulse 1.4s ease-in-out infinite;
+}
+.live-waiting-dot:nth-child(2) { animation-delay: .2s; }
+.live-waiting-dot:nth-child(3) { animation-delay: .4s; }
+@keyframes wd-pulse {
+  0%, 100% { opacity: .25; transform: scale(.85); }
+  50%       { opacity: 1;   transform: scale(1.15); }
+}
+.live-waiting-icon { font-size: 3rem; animation: live-pulse 2.5s ease-in-out infinite; }
+.live-waiting-title { font-size: 1.35rem; font-weight: 700; margin: 0; }
+.live-waiting-desc  { color: var(--muted); margin: 0; max-width: 340px; line-height: 1.6; }
+.live-waiting-hint  {
+  color: var(--accent, #6366f1); font-size: .82rem; font-weight: 600;
+  letter-spacing: .03em; margin: 0;
+  animation: wd-pulse 2s ease-in-out infinite;
+}
+
+/* ── Launching transition ────────────────────────────────────────────────── */
+.live-launching {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px; padding: 60px 20px; text-align: center; min-height: 320px;
+  animation: launch-in .3s ease;
+}
+@keyframes launch-in { from { opacity: 0; transform: scale(.9); } to { opacity: 1; transform: none; } }
+.live-launching-icon { font-size: 3.5rem; animation: launch-bounce .6s ease-in-out infinite alternate; }
+@keyframes launch-bounce { from { transform: translateY(0); } to { transform: translateY(-10px); } }
+.live-launching h2 { font-size: 1.4rem; font-weight: 700; margin: 0; color: var(--accent, #6366f1); }
 
 /* ── Ended screen ────────────────────────────────────────────────────────── */
 .live-ended-wrap {

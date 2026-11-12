@@ -133,7 +133,8 @@ function _connectSSE(el, sessionId, isInstructor) {
       }
     } else if (data.status === 'live') {
       const main = el.querySelector('#live-main');
-      if (main) main.innerHTML = '';
+      // إظهار شاشة انطلاق مؤقتة ريثما يصل حدث `question`
+      if (main) main.innerHTML = _launchingHtml();
       // المؤسسة: تبديل زر "بدء" → زر "التالي" في الشريط
       if (isInstructor) {
         const bar = el.querySelector('#live-instructor-bar');
@@ -321,9 +322,22 @@ function _updateLeaderboard(el, board, myUserId) {
 
 function _waitingRoomHtml() {
   return html`<div class="live-waiting-room">
-    <div class="live-pulse">📡</div>
-    <h2>${t('live.waitingRoom')}</h2>
-    <p>${t('live.waitingDesc')}</p>
+    <div class="live-waiting-anim">
+      <span class="live-waiting-dot"></span>
+      <span class="live-waiting-dot"></span>
+      <span class="live-waiting-dot"></span>
+    </div>
+    <div class="live-waiting-icon">📡</div>
+    <h2 class="live-waiting-title">${t('live.waitingRoom')}</h2>
+    <p class="live-waiting-desc">${t('live.waitingDesc')}</p>
+    <p class="live-waiting-hint">${t('live.waitingHint')}</p>
+  </div>`.s;
+}
+
+function _launchingHtml() {
+  return html`<div class="live-launching">
+    <div class="live-launching-icon">🚀</div>
+    <h2>${t('live.launching')}</h2>
   </div>`.s;
 }
 
