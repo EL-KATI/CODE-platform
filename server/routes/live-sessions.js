@@ -35,7 +35,14 @@ const isStaff = (req) => ['admin', 'school', 'instructor'].includes(req.user.rol
 
 const sameSchool = (req, schoolId) => {
   if (req.user.role === 'admin') return true;
-  return String(req.user.school_id || '') === String(schoolId || '');
+  const userSid = req.user.school_id; // users.school_id (= users.id للمؤسسة أو schools.id)
+  if (!userSid || !schoolId) return false;
+  if (String(userSid) === String(schoolId)) return true;
+  // إذا لم يتطابقا مباشرة، نتحقق إن كان schoolId هو schools.id لمؤسسة owner_id=userSid
+  try {
+    const row = db.get().prepare('SELECT id FROM schools WHERE (owner_id = ? OR id = ?) AND id = ?').get(userSid, userSid, schoolId);
+    return !!row;
+  } catch { return false; }
 };
 
 function getSession(id) {
@@ -404,19 +411,25 @@ router.get('/school/:id/results', auth.requireRole('school', 'instructor', 'admi
 // GET /api/live/active
 router.get('/active', wrap(async (req, res) => {
   const d   = db.get();
-  const sid = req.user.school_id;
-  if (!sid) return res.json({ session: null });
+  const userSchoolId = req.user.school_id;  // users.id للمؤسسة
+  if (!userSchoolId) return res.json({ session: null });
 
+  // live_sessions.school_id = schools.id من جدول schools
+  // نجلب schools.id المرتبط بالمؤسسة (owner_id = userSchoolId)
+  const schoolRow = d.prepare('SELECT id FROM schools WHERE owner_id = ? OR id = ?').get(userSchoolId, userSchoolId);
+  const schoolsId = schoolRow?.id || userSchoolId;  // fallback لـ userSchoolId لو لم توجد في جدول schools
+
+  // نبحث بكلا القيمتين لتغطية كل الحالات
   const sess = d.prepare(`
     SELECT id, title, mode, status, current_q, started_at,
            (SELECT COUNT(*) FROM live_session_answers WHERE session_id=live_sessions.id) AS answer_count
     FROM live_sessions
-    WHERE school_id = ? AND status IN ('waiting','live')
+    WHERE school_id IN (?,?) AND status IN ('waiting','live')
     ORDER BY created_at DESC LIMIT 1
-  `).get(sid) || null;
+  `).get(schoolsId, userSchoolId) || null;
 
   const hasAccess = sess
-    ? !!d.prepare('SELECT 1 FROM live_session_access WHERE user_id=? AND school_id=?').get(req.user.id, sid)
+    ? !!d.prepare('SELECT 1 FROM live_session_access WHERE user_id=? AND school_id=?').get(req.user.id, sess.school_id)
     : false;
 
   res.json({ session: sess, hasAccess });
