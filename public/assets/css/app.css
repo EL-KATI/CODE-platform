@@ -5167,3 +5167,188 @@ body.live-fullscreen .nrs-window {
 body.live-fullscreen .inst-live-wrap #live-main {
   padding-bottom: 72px;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   تصميم الموبايل / التابلت للحصة الجماعية
+   الأزرار (1-4) + موافق في الأعلى — صورة + سؤال + خيارات في الأسفل
+   ══════════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* nrs-content-row: عمودي — aside (أزرار) أعلى، nrs-main (صورة+سؤال) أسفل */
+  #live-student-wrap .live-nrs-main,
+  #live-student-wrap .live-nrs-main .nrs-content-row,
+  #live-student-wrap #live-q-wrap {
+    flex-direction: column !important;
+    gap: 0 !important;
+    padding: 0 !important;
+    overflow-y: auto !important;
+    flex: 1;
+  }
+
+  /* aside (الأزرار) — يظهر أولاً في الأعلى */
+  #live-student-wrap .nrs-side {
+    width: 100% !important;
+    max-width: none !important;
+    min-height: auto !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    padding: 8px 10px !important;
+    gap: 8px !important;
+    order: -1;
+    flex-shrink: 0;
+  }
+
+  /* nrs-ctrl-col: كل شيء في صف واحد */
+  #live-student-wrap .nrs-ctrl-col {
+    flex-direction: row !important;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+  }
+
+  /* المؤشرات: 4 نقاط صغيرة عمودية */
+  #live-student-wrap .nrs-indicators {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 3px !important;
+    flex-shrink: 0;
+  }
+
+  #live-student-wrap .nrs-ind {
+    width: 20px !important;
+    height: 20px !important;
+    font-size: 0.65rem !important;
+  }
+
+  /* لوحة الأزرار: grid 2×2 + موافق جانبه */
+  #live-student-wrap .nrs-panel {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 6px !important;
+  }
+
+  /* nrs-choices: grid 2×2 */
+  #live-student-wrap .nrs-choices {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+    flex: 1;
+  }
+
+  /* أزرار الاختيار: مربعة وكبيرة */
+  #live-student-wrap .nrs-choice-btn {
+    width: 100% !important;
+    min-height: 54px !important;
+    font-size: 1.6rem !important;
+    font-weight: 700 !important;
+    border-radius: 10px !important;
+    aspect-ratio: unset !important;
+  }
+
+  /* موافق: عمودي بجانب الـ grid */
+  #live-student-wrap .nrs-btn-ok {
+    flex-direction: column !important;
+    width: 58px !important;
+    min-height: 116px !important;
+    padding: 6px 4px !important;
+    font-size: 0.72rem !important;
+    gap: 4px !important;
+    flex-shrink: 0;
+  }
+
+  #live-student-wrap .nrs-btn-ok .ok-ic svg {
+    width: 20px !important;
+    height: 20px !important;
+  }
+
+  /* nrs-info-box: مخفية على الموبايل */
+  #live-student-wrap .nrs-info-box {
+    display: none !important;
+  }
+
+  /* nrs-main: يأخذ المساحة المتبقية */
+  #live-student-wrap .nrs-main {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  /* الصورة: واضحة وكاملة */
+  #live-student-wrap .nrs-media {
+    width: 100% !important;
+    min-height: 160px !important;
+    max-height: 42vw !important;
+    flex-shrink: 0;
+  }
+
+  #live-student-wrap .nrs-media img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain !important;
+    border-radius: 0 !important;
+  }
+
+  #live-student-wrap .nrs-no-media {
+    min-height: 100px !important;
+    font-size: 2.5rem !important;
+  }
+
+  /* لوحة النص: تأخذ المساحة الباقية */
+  #live-student-wrap .nrs-text-panel {
+    flex: 1 !important;
+    overflow-y: auto !important;
+    padding: 12px 14px !important;
+    font-size: 1rem !important;
+  }
+
+  /* نص السؤال: واضح وكبير */
+  #live-student-wrap .nrs-q-text {
+    font-size: 1.05rem !important;
+    line-height: 1.65 !important;
+    margin-bottom: 10px !important;
+  }
+
+  /* خيارات النص */
+  #live-student-wrap .nrs-opt {
+    padding: 8px 10px !important;
+    font-size: 0.95rem !important;
+    gap: 8px !important;
+  }
+
+  /* شريط التقدم أسفل الصفحة */
+  #live-student-wrap .nrs-footer {
+    display: flex !important;
+    padding: 6px 12px !important;
+    min-height: 36px !important;
+    flex-shrink: 0;
+  }
+}
+
+/* الهاتف الصغير جداً (< 420px) */
+@media (max-width: 420px) {
+  #live-student-wrap .nrs-choice-btn {
+    min-height: 46px !important;
+    font-size: 1.4rem !important;
+  }
+
+  #live-student-wrap .nrs-btn-ok {
+    width: 50px !important;
+    min-height: 100px !important;
+  }
+
+  #live-student-wrap .nrs-media {
+    min-height: 130px !important;
+    max-height: 38vw !important;
+  }
+}
+
+/* التابلت (769px – 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  #live-student-wrap .nrs-choice-btn {
+    min-height: 60px !important;
+    font-size: 1.5rem !important;
+  }
+}

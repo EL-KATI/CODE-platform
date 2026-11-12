@@ -12,6 +12,23 @@ import { t } from './i18n.js';
 import { store } from './store.js';
 import { navigate } from './router.js';
 
+// ── أيقونات SVG (نفس quiz.js) ────────────────────────────────────────────────
+const _svg = (d, w = 2.2) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const IC = {
+  check: _svg('<path d="M4.5 12.5l5 5L19.5 7"/>', 2.8),
+  next:  _svg('<path d="M15 5l-7 7 7 7"/>', 2.8),
+  x:     _svg('<path d="M6 6l12 12M18 6L6 18"/>', 2.8),
+};
+
+// ── مساعدات (نفس quiz.js) ─────────────────────────────────────────────────────
+/** يُحوّل مصفوفة الإجابات إلى أرقام 1-based */
+const norm = (arr) => (arr || []).map(c =>
+  (typeof c === 'string' && c.startsWith('opt_')) ? Number(c.replace('opt_', '')) : Number(c)
+).filter(Boolean);
+
+/** نص الخيار سواء كان object أو string */
+const optText = (o) => ((o && typeof o === 'object') ? (o.text || '') : String(o ?? ''));
+
 // ══════════════════════════════════════════════════════════════════════════════
 // زر الانضمام في الهيدر (polling خفيف 30s — مجرد وجود حصة لا يحتاج SSE)
 // ══════════════════════════════════════════════════════════════════════════════
@@ -66,10 +83,10 @@ export async function liveSessionView(el, ctx) {
 function _buildStudentShell(el, sessionId, initState) {
   const status = initState?.status || 'waiting';
 
-  // ── واجهة NARSA الأصلية ──────────────────────────────────────────────────
+  // ── واجهة NARSA الكاملة — نفس هيكل الامتحان التجريبي ───────────────────────
   el.innerHTML = html`<div class="nrs-window" id="live-student-wrap">
 
-    <!-- شريط علوي: مؤشر الاتصال + رقم السؤال + التقدم -->
+    <!-- شريط علوي -->
     <header class="nrs-topbar">
       <div class="live-conn-wrap">
         <span class="live-connection-dot" id="live-conn-dot" title="${t('live.connecting')}">●</span>
@@ -82,10 +99,24 @@ function _buildStudentShell(el, sessionId, initState) {
       <div class="nrs-tb-progress" aria-hidden="true"><i id="tb-progress" style="width:0%"></i></div>
     </header>
 
-    <!-- المحتوى الرئيسي: نفس تخطيط NARSA -->
-    <div id="live-main" class="live-nrs-main">
-      ${raw(status === 'waiting' ? _waitingRoomHtml() : status === 'ended' ? _endedHtml() : '')}
+    <!-- الصف الرئيسي: wrapper — المحتوى (nrs-content-row) يُعاد رسمه عند كل سؤال -->
+    <div class="live-nrs-main" id="live-main">
+      <div class="nrs-content-row">
+        ${raw(status === 'waiting' ? _waitingRoomSide() : status === 'ended' ? _endedSide() : _emptySide())}
+      </div>
     </div>
+
+    <!-- شريط سفلي (نفس quiz) -->
+    <footer class="nrs-footer">
+      <div class="nrs-footer-item">
+        <span class="nrs-footer-label">صنف التكوين</span>
+        <span class="nrs-footer-val">${store.user?.license_cat || 'B'}</span>
+      </div>
+      <div class="nrs-footer-item">
+        <span class="nrs-footer-label">سؤال</span>
+        <span class="nrs-footer-val" id="nrs-footer-counter">— / —</span>
+      </div>
+    </footer>
 
   </div>`.s;
 
@@ -93,6 +124,121 @@ function _buildStudentShell(el, sessionId, initState) {
   if (initState?.status === 'live' && initState?.question) {
     _renderQuestion(el, sessionId, initState);
   }
+}
+
+// HTML هيكل اللوحة الجانبية الفارغة — يُوضع مباشرة داخل #live-main
+function _emptySide() {
+  return html`<aside class="nrs-side">
+    <div class="nrs-ctrl-col">
+      <div class="nrs-indicators" id="nrs-indicators" aria-hidden="true">
+        <span class="nrs-ind"></span><span class="nrs-ind"></span>
+        <span class="nrs-ind"></span><span class="nrs-ind"></span>
+      </div>
+      <div class="nrs-panel">
+        <div class="nrs-choices" id="nrs-choices">
+          ${[1,2,3,4].map(n => html`<button class="nrs-choice-btn choice-inactive" disabled type="button"><span class="nrs-choice-num">${n}</span><span class="nrs-choice-sq"></span></button>`).join('')}
+        </div>
+        <button class="nrs-btn-ok" id="btn-ok" type="button" disabled>
+          <span class="ok-ic" aria-hidden="true">✓</span><span class="ok-lbl">موافق</span>
+        </button>
+      </div>
+    </div>
+    <div class="nrs-info-box">
+      <div class="nrs-info-school">${esc(store.user?.school_name || store.user?.name || '')}</div>
+      <div class="nrs-info-cat">${store.user?.license_cat || 'B'}</div>
+      <div class="nrs-info-num" id="nrs-info-num">#—</div>
+    </div>
+  </aside>
+  <div class="nrs-main">
+    <div class="nrs-media"><div class="nrs-no-media"><span>🚗</span></div></div>
+    <div class="nrs-text-panel" id="nrs-text-panel">
+      <div id="live-status-area"></div>
+    </div>
+  </div>`.s;
+}
+
+// الانتظار داخل الهيكل الكامل
+function _waitingRoomSide() {
+  return html`<aside class="nrs-side">
+    <div class="nrs-ctrl-col">
+      <div class="nrs-indicators" aria-hidden="true">
+        <span class="nrs-ind"></span><span class="nrs-ind"></span>
+        <span class="nrs-ind"></span><span class="nrs-ind"></span>
+      </div>
+      <div class="nrs-panel">
+        <div class="nrs-choices">
+          ${[1,2,3,4].map(n => html`<button class="nrs-choice-btn choice-inactive" disabled type="button"><span class="nrs-choice-num">${n}</span><span class="nrs-choice-sq"></span></button>`).join('')}
+        </div>
+        <button class="nrs-btn-ok" disabled type="button">
+          <span class="ok-ic" aria-hidden="true">✓</span><span class="ok-lbl">موافق</span>
+        </button>
+      </div>
+    </div>
+    <div class="nrs-info-box">
+      <div class="nrs-info-school">${esc(store.user?.school_name || store.user?.name || '')}</div>
+      <div class="nrs-info-cat">${store.user?.license_cat || 'B'}</div>
+      <div class="nrs-info-num">#—</div>
+    </div>
+  </aside>
+  <div class="nrs-main">
+    <div class="nrs-media"><div class="nrs-no-media"><span>📡</span></div></div>
+    <div class="nrs-text-panel" id="nrs-text-panel">
+      ${raw(_waitingRoomInner())}
+    </div>
+  </div>`.s;
+}
+
+function _waitingRoomInner() {
+  return html`<div class="live-waiting-room">
+    <div class="live-waiting-anim">
+      <span class="live-waiting-dot"></span>
+      <span class="live-waiting-dot"></span>
+      <span class="live-waiting-dot"></span>
+    </div>
+    <div class="live-waiting-icon">📡</div>
+    <h2 class="live-waiting-title">${t('live.waitingRoom')}</h2>
+    <p class="live-waiting-desc">${t('live.waitingDesc')}</p>
+    <p class="live-waiting-hint">${t('live.waitingHint')}</p>
+  </div>`.s;
+}
+
+function _endedSide() {
+  return html`<aside class="nrs-side">
+    <div class="nrs-ctrl-col">
+      <div class="nrs-indicators" aria-hidden="true">
+        <span class="nrs-ind"></span><span class="nrs-ind"></span>
+        <span class="nrs-ind"></span><span class="nrs-ind"></span>
+      </div>
+      <div class="nrs-panel">
+        <div class="nrs-choices">
+          ${[1,2,3,4].map(n => html`<button class="nrs-choice-btn choice-inactive" disabled type="button"><span class="nrs-choice-num">${n}</span><span class="nrs-choice-sq"></span></button>`).join('')}
+        </div>
+        <button class="nrs-btn-ok" disabled type="button">
+          <span class="ok-ic" aria-hidden="true">✓</span><span class="ok-lbl">موافق</span>
+        </button>
+      </div>
+    </div>
+    <div class="nrs-info-box">
+      <div class="nrs-info-school">${esc(store.user?.school_name || store.user?.name || '')}</div>
+      <div class="nrs-info-cat">${store.user?.license_cat || 'B'}</div>
+      <div class="nrs-info-num">#—</div>
+    </div>
+  </aside>
+  <div class="nrs-main">
+    <div class="nrs-media"><div class="nrs-no-media"><span>🏁</span></div></div>
+    <div class="nrs-text-panel" id="nrs-text-panel">
+      ${raw(_endedInner())}
+    </div>
+  </div>`.s;
+}
+
+function _endedInner() {
+  return html`<div class="live-ended-wrap">
+    <div class="live-ended-ic">🏁</div>
+    <h2>${t('live.ended')}</h2>
+    <p>${t('live.endedDesc')}</p>
+    <a class="btn" href="/dashboard">${t('nav.dashboard')}</a>
+  </div>`.s;
 }
 
 function _connectSSE(el, sessionId, isInstructor) {
@@ -108,24 +254,28 @@ function _connectSSE(el, sessionId, isInstructor) {
   _sse.addEventListener('session', (e) => {
     const data = JSON.parse(e.data);
     if (data.status === 'ended') {
-      const main = el.querySelector('#live-main');
-      if (main) main.innerHTML = _endedHtml();
       _closeSSE();
       // المؤسسة: إخفاء شريط التحكم عند الانتهاء
       const bar = el.querySelector('#live-instructor-bar');
       if (bar) bar.style.display = 'none';
-      // جلب النتائج التفصيلية للطالب (مع الإجابات الصحيحة المكشوفة)
       if (!isInstructor) {
+        // للطالب: نعيد رسم بشاشة الانتهاء
+        const wrap = el.querySelector('#live-main');
+        if (wrap) wrap.innerHTML = `<div class="nrs-content-row">${_endedSide()}</div>`;
         api.get(`/live/${sessionId}/results`).then(r => {
-          if (r?.answers?.length && main) {
-            main.innerHTML += _fullResultsHtml(r);
+          if (r?.answers?.length) {
+            const panel = el.querySelector('#nrs-text-panel');
+            if (panel) panel.insertAdjacentHTML('beforeend', _fullResultsHtml(r));
           }
         }).catch(() => {});
+      } else {
+        const main = el.querySelector('#live-main');
+        if (main) main.innerHTML = _endedHtml();
       }
     } else if (data.status === 'live') {
       const main = el.querySelector('#live-main');
       // إظهار شاشة انطلاق مؤقتة ريثما يصل حدث `question`
-      if (main) main.innerHTML = _launchingHtml();
+      if (main) main.innerHTML = `<div class="nrs-content-row">${_emptySide()}</div>`;
       // المؤسسة: تبديل زر "بدء" → زر "التالي" في الشريط
       if (isInstructor) {
         const bar = el.querySelector('#live-instructor-bar');
@@ -145,7 +295,7 @@ function _connectSSE(el, sessionId, isInstructor) {
       }
     } else if (data.status === 'waiting') {
       const main = el.querySelector('#live-main');
-      if (main) main.innerHTML = _waitingRoomHtml();
+      if (main) main.innerHTML = `<div class="nrs-content-row">${_waitingRoomSide()}</div>`;
     }
   });
 
@@ -194,150 +344,190 @@ function _closeSSE() {
   if (_sse) { _sse.close(); _sse = null; }
 }
 
-// ── رسم السؤال للطالب — تصميم NARSA الأصلي ───────────────────────────────────
+// ── رسم السؤال للطالب — نفس تصميم quiz.js بالكامل ───────────────────────────
 let _studentAnswered = false;
+let _studentSelected = new Set(); // 1-based (نفس quiz.js)
+let _currentOptCount = 4;         // عدد الخيارات الحقيقي للسؤال الحالي
 
 function _renderQuestion(el, sessionId, data) {
   _studentAnswered = false;
+  _studentSelected = new Set();
   const { question, myAnswer, current_q, total } = data;
   if (!question) return;
 
   _updateProgress(el, current_q, total);
+
+  const opts     = question.options || [];
+  const optCount = Math.max(opts.length, 2); // دائماً 2 على الأقل، 4 كحد أقصى
+  _currentOptCount = optCount;
+  const answered = !!myAnswer;
+  // تحويل الإجابة المسجّلة إلى مجموعة 1-based
+  const prevSel  = new Set(norm(myAnswer?.selected || []));
+  if (answered) { _studentSelected = prevSel; _studentAnswered = true; }
+
+  // ── يستبدل محتوى #live-main بالكامل ──────────────────────────────────────
   const main = el.querySelector('#live-main');
   if (!main) return;
+  const wrap = main;
 
-  const opts = question.options || [];
-  const alreadyAnswered = !!myAnswer;
-  const selectedIdxs = alreadyAnswered ? (myAnswer?.selected || []).map(Number) : [];
-
-  // ── بناء HTML بتصميم NARSA ──────────────────────────────────────────────────
-  main.innerHTML = html`<div class="nrs-content-row" id="live-q-wrap">
-
-    <!-- الجانب الأيسر: أزرار الأرقام -->
-    <aside class="nrs-side">
-      <div class="nrs-ctrl-col">
-        <!-- مؤشرات (1-4) -->
-        <div class="nrs-indicators" id="nrs-indicators" aria-hidden="true">
-          ${opts.map((_, i) => {
-            const n = i + 1;
-            const on = selectedIdxs.includes(i);
-            return html`<span class="nrs-ind ${on ? 'nrs-ind-on' : ''}">${on ? n : ''}</span>`;
-          })}
-          ${opts.length < 4 ? Array.from({length: 4 - opts.length}, () => html`<span class="nrs-ind"></span>`) : ''}
-        </div>
-
-        <!-- لوحة الأزرار -->
-        <div class="nrs-panel">
-          <div class="nrs-choices" id="nrs-choices">
-            ${opts.map((_, i) => {
-              const n = i + 1;
-              const on = selectedIdxs.includes(i);
-              let cls = 'nrs-choice-btn' + (on ? ' selected-confirmed' : '');
-              return html`<button class="${cls}" data-idx="${i}" data-n="${n}" ${alreadyAnswered ? 'disabled' : ''} type="button">
-                <span class="nrs-choice-num">${n}</span>
-                <span class="nrs-choice-sq"></span>
-              </button>`;
-            })}
-            ${opts.length < 4 ? Array.from({length: 4 - opts.length}, () => html`<button class="nrs-choice-btn choice-inactive" disabled type="button"><span class="nrs-choice-num"></span><span class="nrs-choice-sq"></span></button>`) : ''}
+  // نستبدل محتوى #live-main بمحتوى السؤال
+  wrap.innerHTML = `
+    <div class="nrs-content-row" id="live-q-wrap">
+      <aside class="nrs-side">
+        <div class="nrs-ctrl-col">
+          <div class="nrs-indicators" id="nrs-indicators" aria-hidden="true"></div>
+          <div class="nrs-panel">
+            <div class="nrs-choices" id="nrs-choices"></div>
+            <button class="nrs-btn-ok" id="btn-ok" type="button" disabled>
+              <span class="ok-ic" aria-hidden="true">${IC.check}</span>
+              <span class="ok-lbl">موافق</span>
+            </button>
           </div>
         </div>
-      </div>
-
-      <!-- معلومات الطالب -->
-      <div class="nrs-info-box">
-        <div class="nrs-info-school">${esc(store.user?.school_name || store.user?.name || '')}</div>
-        <div class="nrs-info-cat">${store.user?.license_cat || 'B'}</div>
-        <div class="nrs-info-num">#${question.id || (current_q + 1)}</div>
-      </div>
-    </aside>
-
-    <!-- الجانب الأيمن: الصورة + السؤال والخيارات -->
-    <div class="nrs-main">
-      <!-- منطقة الوسائط -->
-      <div class="nrs-media" id="nrs-media">
-        ${question.image
-          ? html`<div class="nrs-img-wrap"><img src="${question.image}" alt="${question.image_alt || ''}" loading="lazy" style="max-width:100%;max-height:100%;object-fit:contain"></div>`
-          : html`<div class="nrs-no-media"><span>🚗</span></div>`}
-      </div>
-
-      <!-- لوحة النص الداكنة: السؤال + الخيارات -->
-      <div class="nrs-text-panel" id="nrs-text-panel">
-        <p class="nrs-q-text">${esc(question.text || '')}</p>
-        <div class="nrs-opts-list" id="nrs-opts-list">
-          ${opts.map((o, i) => {
-            const n = i + 1;
-            const on = selectedIdxs.includes(i);
-            const state = on ? 'sub-on' : '';
-            return html`<div class="nrs-opt ${state}" data-idx="${i}">
-              <span class="nrs-opt-n">${n}</span>
-              <div class="nrs-opt-dots" aria-hidden="true"></div>
-              <span class="nrs-opt-text">${esc(typeof o === 'object' ? o.text || '' : String(o ?? ''))}</span>
-            </div>`;
-          })}
+        <div class="nrs-info-box">
+          <div class="nrs-info-school">${esc(store.user?.school_name || store.user?.name || '')}</div>
+          <div class="nrs-info-cat">${store.user?.license_cat || 'B'}</div>
+          <div class="nrs-info-num" id="nrs-info-num">#${question.id || (current_q + 1)}</div>
         </div>
-        ${alreadyAnswered ? raw(_recordedHtml()) : ''}
+      </aside>
+      <div class="nrs-main">
+        <div class="nrs-media" id="nrs-media"></div>
+        <div class="nrs-text-panel" id="nrs-text-panel"></div>
       </div>
-    </div>
+    </div>`;
 
-  </div>`.s;
+  // تحديث المؤشرات والأزرار والنص
+  _liveRenderChoices(el, optCount, _studentSelected, answered);
+  _liveRenderIndicators(el, optCount, _studentSelected);
+  _liveRenderMedia(el, question);
+  _liveRenderTextPanel(el, question, opts, _studentSelected, answered);
 
-  // أحداث الأزرار الرقمية (إذا لم يُجب بعد)
-  if (!alreadyAnswered) {
-    main.querySelectorAll('.nrs-choice-btn:not(.choice-inactive)').forEach(btn => {
-      btn.addEventListener('click', () => _handleStudentClick(el, sessionId, btn));
-    });
+  if (answered) _liveShowRecorded(el);
+
+  // ربط أحداث الأزرار (فقط إذا لم يُجب بعد)
+  if (!answered) {
+    _liveBtnBindEvents(el, sessionId);
+  }
+}
+
+function _liveBtnBindEvents(el, sessionId) {
+  el.querySelectorAll('.nrs-choice-btn[data-n]:not([disabled])').forEach(btn => {
+    btn.addEventListener('click', () => _handleStudentClick(el, sessionId, btn), { once: true });
+  });
+}
+
+// ── رسم أزرار الاختيار (1–4) ─────────────────────────────────────────────────
+function _liveRenderChoices(el, optCount, selected, answered) {
+  const container = el.querySelector('#nrs-choices');
+  if (!container) return;
+  container.innerHTML = Array.from({ length: 4 }, (_, i) => {
+    const n = i + 1;
+    const hasOpt  = n <= optCount;
+    const pressed = selected.has(n);
+    let cls = 'nrs-choice-btn';
+    if (!hasOpt)       cls += ' choice-inactive';
+    else if (pressed)  cls += ' choice-on';
+    return `<button class="${cls}" data-n="${n}" ${(answered || !hasOpt) ? 'disabled' : ''} type="button">
+      <span class="nrs-choice-num">${n}</span><span class="nrs-choice-sq"></span>
+    </button>`;
+  }).join('');
+}
+
+// ── رسم المؤشرات (1–4) ───────────────────────────────────────────────────────
+function _liveRenderIndicators(el, optCount, selected) {
+  const container = el.querySelector('#nrs-indicators');
+  if (!container) return;
+  container.innerHTML = [1, 2, 3, 4].map(n => {
+    const on = selected.has(n) && n <= optCount;
+    return `<span class="nrs-ind${on ? ' nrs-ind-on' : ''}">${on ? n : ''}</span>`;
+  }).join('');
+}
+
+// ── رسم الوسائط ────────────────────────────────────────────────────────────────
+function _liveRenderMedia(el, question) {
+  const container = el.querySelector('#nrs-media');
+  if (!container) return;
+  if (question.image) {
+    container.innerHTML = `<div class="nrs-img-wrap"><img src="${esc(question.image)}" alt="${esc(question.image_alt || '')}" loading="lazy" style="max-width:100%;max-height:100%;object-fit:contain"></div>`;
+  } else {
+    container.innerHTML = `<div class="nrs-no-media"><span>🚗</span></div>`;
+  }
+}
+
+// ── رسم لوحة النص (سؤال + خيارات نصية) ──────────────────────────────────────
+function _liveRenderTextPanel(el, question, opts, selected, answered) {
+  const container = el.querySelector('#nrs-text-panel');
+  if (!container) return;
+  const rows = Array.from({ length: 4 }, (_, i) => {
+    const n = i + 1;
+    const hasOpt = n <= opts.length;
+    if (!hasOpt) return '';
+    const on    = selected.has(n);
+    const state = on ? 'sub-on' : '';
+    return `<div class="nrs-opt ${state}" data-n="${n}"><span class="nrs-opt-n">${n}</span><div class="nrs-opt-dots" aria-hidden="true"></div><span class="nrs-opt-text">${esc(optText(opts[i]))}</span></div>`;
+  }).join('');
+
+  container.innerHTML = `<p class="nrs-q-text">${esc(question.text || '')}</p><div class="nrs-opts-list" id="nrs-opts-list">${rows}</div>`;
+}
+
+// ── إظهار رسالة "تم التسجيل" بدون كشف النتيجة ──────────────────────────────
+function _liveShowRecorded(el) {
+  const panel = el.querySelector('#nrs-text-panel');
+  if (panel && !panel.querySelector('.live-recorded')) {
+    panel.insertAdjacentHTML('beforeend', `<div class="live-recorded"><span>📝</span> <span>${t('live.recorded')}</span></div>`);
   }
 }
 
 function _handleStudentClick(el, sessionId, btn) {
   if (_studentAnswered) return;
-  _studentAnswered = true;
 
-  // تعطيل جميع الأزرار + إظهار المحدد
-  el.querySelectorAll('.nrs-choice-btn').forEach(b => b.disabled = true);
-  el.querySelectorAll('.nrs-opt').forEach(b => b.classList.remove('sub-on'));
+  const n = Number(btn.dataset.n);
+  if (!n) return;
 
-  const idx = Number(btn.dataset.idx);
-  btn.classList.add('selected-confirmed');
+  // toggle الاختيار (للأسئلة ذات إجابات متعددة مستقبلاً — حالياً إجابة واحدة)
+  if (_studentSelected.has(n)) _studentSelected.delete(n);
+  else { _studentSelected.clear(); _studentSelected.add(n); }
 
-  // تحديث المؤشرات
-  const inds = el.querySelectorAll('.nrs-ind');
-  inds.forEach((ind, i) => {
-    ind.className = 'nrs-ind' + (i === idx ? ' nrs-ind-on' : '');
-    ind.textContent = i === idx ? String(idx + 1) : '';
+  // تحديث واجهة الاختيار (نستخدم _currentOptCount لا عدد الأزرار)
+  _liveRenderChoices(el, _currentOptCount, _studentSelected, false);
+  _liveRenderIndicators(el, _currentOptCount, _studentSelected);
+
+  // تحديث الخيار المتني
+  el.querySelectorAll('.nrs-opt[data-n]').forEach(o => {
+    o.classList.toggle('sub-on', _studentSelected.has(Number(o.dataset.n)));
   });
-  // تحديث الخيار المتن
-  const optEl = el.querySelector(`.nrs-opt[data-idx="${idx}"]`);
-  if (optEl) optEl.classList.add('sub-on');
 
-  api.post(`/live/${sessionId}/answer`, { selected: [idx] })
+  // ربط أحداث الأزرار بعد re-render
+  _liveBtnBindEvents(el, sessionId);
+
+  if (_studentSelected.size === 0) return;
+
+  // إرسال الإجابة وقفل الواجهة
+  _studentAnswered = true;
+  el.querySelectorAll('.nrs-choice-btn').forEach(b => b.disabled = true);
+
+  const selectedArr = [..._studentSelected]; // 1-based
+  api.post(`/live/${sessionId}/answer`, { selected: selectedArr })
     .catch(() => {
       _studentAnswered = false;
-      el.querySelectorAll('.nrs-choice-btn:not(.choice-inactive)').forEach(b => b.disabled = false);
-      btn.classList.remove('selected-confirmed');
+      el.querySelectorAll('.nrs-choice-btn[data-n]').forEach(b => b.disabled = false);
       toast(t('err.server_error'), 'error');
     });
 }
 
 function _showAnswerFeedback(el, data) {
-  // أثناء الحصة: نُظهر فقط أن الإجابة سُجِّلت — بدون كشف الصحيح/الخطأ
-  const { selected } = data;
-  const selectedIdxs = (selected || []).map(Number);
+  // SSE answer_ack: تأكيد تسجيل الإجابة بدون كشف الصحيح/الخطأ
+  const confirmed = new Set(norm(data?.selected || []));
 
-  el.querySelectorAll('.nrs-choice-btn').forEach((btn, i) => {
-    btn.disabled = true;
-    btn.classList.remove('selected-pending');
-    if (selectedIdxs.includes(Number(btn.dataset.idx))) btn.classList.add('selected-confirmed');
-  });
-  el.querySelectorAll('.nrs-opt').forEach((opt, i) => {
-    if (selectedIdxs.includes(Number(opt.dataset.idx))) opt.classList.add('sub-on');
+  _liveRenderChoices(el, _currentOptCount, confirmed, true);
+  _liveRenderIndicators(el, _currentOptCount, confirmed);
+
+  // تحديث الخيار المتني
+  el.querySelectorAll('.nrs-opt[data-n]').forEach(o => {
+    o.classList.toggle('sub-on', confirmed.has(Number(o.dataset.n)));
   });
 
-  // إظهار رسالة "تم التسجيل" في لوحة النص
-  const panel = el.querySelector('#nrs-text-panel');
-  if (panel && !panel.querySelector('.live-feedback')) {
-    panel.insertAdjacentHTML('beforeend', _recordedHtml());
-  }
+  _liveShowRecorded(el);
 }
 
 // رسالة محايدة أثناء الحصة — لا تكشف النتيجة
