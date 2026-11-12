@@ -5129,3 +5129,41 @@ body.ui-apple .staff-side a.side-ai[aria-current="page"] { background: linear-gr
 
 /* الشريط العلوي للمؤسسة: pills قابلة للالتفاف */
 .inst-live-wrap .nrs-tb-pills { flex-wrap: wrap; justify-content: flex-start; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Live Session — Fullscreen / Immersive Mode
+   يُفعَّل عبر body.live-fullscreen على routes الحصة الجماعية
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* إخفاء Header + Footer + Sidebar تاماً */
+body.live-fullscreen .site-header,
+body.live-fullscreen .site-footer,
+body.live-fullscreen #staff-side { display: none !important; }
+
+/* إلغاء كل padding/margin ناتج عن الـ sidebar والـ header */
+body.live-fullscreen {
+  --hdr-h: 0px;
+  --side-w: 0px;
+}
+body.live-fullscreen #app {
+  margin: 0 !important;
+  padding: 0 !important;
+  inset-inline-start: 0 !important;
+  width: 100% !important;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* nrs-window يملأ الشاشة كاملاً */
+body.live-fullscreen .nrs-window {
+  min-height: 100dvh;
+  max-width: 100% !important;
+  border-radius: 0 !important;
+  border: none !important;
+}
+
+/* padding للشريط السفلي للمؤسسة (live-instructor-bar) */
+body.live-fullscreen .inst-live-wrap #live-main {
+  padding-bottom: 72px;
+}

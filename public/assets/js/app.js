@@ -269,6 +269,9 @@ setNavigateHook(async ({ route: r, path }) => {
     navigate(defaultRoute(), { replace: true }); return false;
   }
   if (r.opts.guest && store.user) { navigate(defaultRoute(), { replace: true }); return false; }
+  // وضع ملء الشاشة لصفحات الحصة الجماعية (يخفي sidebar + header + footer)
+  const liveFullscreen = /^\/(live\/[^/]+|admin\/live(\/\d+)?$)/.test(location.pathname);
+  document.body.classList.toggle('live-fullscreen', liveFullscreen);
   renderShell();
   app.innerHTML = '';
   window.scrollTo(0, 0);
