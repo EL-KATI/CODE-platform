@@ -87,7 +87,7 @@ function renderStaffSide() {
     }
     side.className = 'staff-side learner';
     const isCur = (href) => (href === '/' ? path === '/' : path === href || path.startsWith(href + '/'));
-    const items = [...navLinks(), u ? ['/profile', 'nav.profile'] : ['/register', 'nav.register']];
+    const items = [...navLinks(), u ? ['/profile', 'nav.profile'] : ['/login', 'nav.login']];
     side.setAttribute('aria-label', t('a11y.menu'));
     side.innerHTML = html`<button class="side-toggle" type="button" aria-expanded="false" aria-label="${t('a11y.menu')}">${raw(iconSvg('menu'))}</button><div class="side-title">${u ? (u.name || '') : t('brand.name')}</div>
       <nav>${items.map(([href, key]) => html`<a href="${href}" class="${href === '/assistant' ? 'side-ai' : ''}" title="${t(key)}" ${isCur(href) ? html`aria-current="page"` : ''}><span aria-hidden="true">${raw(iconSvg(NAV_ICON[href] || 'file'))}</span><span>${t(key)}</span></a>`)}</nav>`.s;
@@ -158,7 +158,7 @@ export function renderShell() {
   // نمط موحّد لكل الواجهات (المترشح، الزائر، المؤسسة، المدرب، الأدمين)
   document.body.classList.add('ui-apple');
   const mobile = document.getElementById('mobile-nav');
-  mobile.innerHTML = html`${linkHtml}${store.user ? navA('/profile', 'nav.profile') : navA('/register', 'nav.register')}`.s;
+  mobile.innerHTML = html`${linkHtml}${store.user ? navA('/profile', 'nav.profile') : navA('/login', 'nav.login')}`.s;
   mobile.classList.remove('open');
 
   const theme = getTheme() || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
@@ -173,7 +173,7 @@ export function renderShell() {
     ${store.user
       ? html`<a class="icon-btn" href="/profile" title="${store.user.name}"><span aria-hidden="true">👤</span><span class="sr-only">${t('nav.profile')}</span></a>
              <button class="icon-btn" id="logout-btn" type="button">${t('nav.logout')}</button>`
-      : html`<a class="icon-btn" href="/register">${t('nav.register')}</a>`}
+      : html``}
     <button class="icon-btn menu-toggle" id="menu-btn" type="button" aria-expanded="false" aria-controls="mobile-nav" aria-label="${t('a11y.menu')}">☰</button>`.s;
 
   // تركيب نظام الإشعارات للمستخدمين المسجلين فقط
