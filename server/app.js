@@ -114,8 +114,21 @@ function createApp() {
     return _indexHtml;
   }
   app.use(express.static(pub, { maxAge: config.isProd ? '1h' : 0, index: false }));
+
+  // React build (vite output) — served at /dist/...
+  const distDir = path.join(pub, 'dist');
+  if (fs.existsSync(distDir)) {
+    app.use('/dist', express.static(distDir, { maxAge: config.isProd ? '1y' : 0, immutable: config.isProd }));
+  }
+
   // Application monopage : toutes les autres URL renvoient index.html (routage côté client).
-  app.get(/^\/(?!api\/|uploads\/|assets\/).*/, (req, res) => {
+  // Si le build React existe (public/dist/index.html), on le sert en priorité.
+  app.get(/^\/(?!api\/|uploads\/|assets\/|dist\/).*/, (req, res) => {
+    const distHtml = path.join(pub, 'dist', 'index.html');
+    if (fs.existsSync(distHtml)) {
+      res.set('Cache-Control', 'no-store');
+      return res.sendFile(distHtml);
+    }
     res.set('Content-Type', 'text/html; charset=utf-8');
     res.set('Cache-Control', 'no-store');
     res.send(getIndexHtml());
