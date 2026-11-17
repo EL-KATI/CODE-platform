@@ -28,51 +28,8 @@ function authPageHtml(tab, query) {
   const nextParam = query.next ? `?next=${encodeURIComponent(query.next)}` : '';
 
   return html`
-    <div class="auth-wrap">
-      <!-- لوحة اليسار / الأعلى (ديكور + إحصائيات) -->
-      <div class="auth-deco-panel">
-        <div class="auth-deco-shapes" aria-hidden="true">
-          <span class="adeco adeco-tl"></span>
-          <span class="adeco adeco-tr"></span>
-          <span class="adeco adeco-br"></span>
-          <span class="adeco adeco-bl"></span>
-          <span class="adeco adeco-c3"></span>
-        </div>
-        <div class="auth-deco-body">
-          <div class="auth-brand">
-            <div class="auth-brand-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24"
-                   fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M5 15.5V12l1.6-4.2A1.5 1.5 0 0 1 8 6.8h8a1.5 1.5 0 0 1 1.4 1l1.6 4.2v3.5"/>
-                <path d="M4.5 15.5h15"/>
-                <circle cx="8"  cy="15.5" r="1.6" fill="#fff" stroke="none"/>
-                <circle cx="16" cy="15.5" r="1.6" fill="#fff" stroke="none"/>
-              </svg>
-            </div>
-            <span class="auth-brand-name">CODE Platform</span>
-          </div>
-          <div class="auth-deco-text">
-            <h2 class="auth-deco-h">${t('auth.panelLoginH')}</h2>
-            <p class="auth-deco-p">${t('auth.panelLoginP')}</p>
-          </div>
-          <div class="auth-feats">
-            <div class="auth-feat">
-              <span class="auth-feat-icon">📚</span>
-              <span>${t('auth.statQuestions')}</span>
-            </div>
-            <div class="auth-feat">
-              <span class="auth-feat-icon">🏆</span>
-              <span>${t('auth.statChamp')}</span>
-            </div>
-            <div class="auth-feat">
-              <span class="auth-feat-icon">✓</span>
-              <span>${t('auth.statFree')}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- منطقة النموذج -->
+    <div class="auth-wrap auth-wrap--simple">
+      <!-- منطقة النموذج فقط، بدون لوحة ديكور -->
       <div class="auth-form-area">
         <div class="auth-card-box">
           <!-- تبويبات الدخول / التسجيل -->
@@ -91,10 +48,7 @@ function authPageHtml(tab, query) {
                        required dir="ltr" placeholder="example@gmail.com">
               </div>
               <div class="field">
-                <label for="login-pass">
-                  ${t('auth.password')}
-                  <a href="/forgot-password" class="auth-forgot-link">${t('auth.forgotPassword')}</a>
-                </label>
+                <label for="login-pass">${t('auth.password')}</label>
                 <input id="login-pass" name="password" type="password"
                        autocomplete="current-password" required dir="ltr" placeholder="••••••••">
               </div>
@@ -150,6 +104,7 @@ function authPageHtml(tab, query) {
         </div>
       </div>
     </div>`;
+
 }
 
 // ── View موحد يخدم /login و /register ────────────────────────────────────────

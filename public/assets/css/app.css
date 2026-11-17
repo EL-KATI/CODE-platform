@@ -3928,6 +3928,22 @@ body.ui-apple .staff-side a.side-ai[aria-current="page"] { background: linear-gr
   background: var(--bg);
   padding: 24px 16px;
 }
+/* صفحة دخول/تسجيل بدون لوحة ديكور جانبية */
+.auth-wrap--simple {
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  padding: 32px 16px 48px;
+}
+.auth-wrap--simple .auth-form-area {
+  width: 100%;
+  max-width: 460px;
+  padding: 0;
+  align-items: center;
+}
+.auth-wrap--simple .auth-card-box {
+  width: 100%;
+}
 
 /* ── لوحة الديكور (يسار/أعلى) ───────────────── */
 .auth-deco-panel {
