@@ -36,12 +36,20 @@ async function managedView(root, role) {
     return html`<span class="pill ${st === 'active' ? 'pill-success' : st === 'archived' ? '' : 'pill-warning'}">${st === 'active' ? 'نشيط' : st === 'archived' ? t('common.archived') : 'موقوف'}</span>`;
   };
 
+  const fmtExamDate = (d) => {
+    if (!d) return '—';
+    return new Date(`${String(d).slice(0, 10)}T00:00:00`).toLocaleDateString(
+      document.documentElement.lang === 'fr' ? 'fr-MA' : 'ar-MA',
+      { day: 'numeric', month: 'long', year: 'numeric' }
+    );
+  };
+
   const render = async () => {
     const shown = list.filter((u) => (filter === 'all' ? true : filter === 'archived' ? u.archived : !u.archived));
     const head = role === 'student'
-      ? html`<th>${t('admin.name')}</th><th>${t('admin.email')}</th><th>${t('admin.exams')}</th><th>التقدم</th><th>${t('admin.lastActivity')}</th><th>${t('admin.status')}</th><th>${t('common.actions')}</th>`
+      ? html`<th>${t('admin.name')}</th><th>${t('admin.email')}</th><th>${t('admin.exams')}</th><th>التقدم</th><th>${t('admin.lastActivity')}</th><th>موعد الامتحان</th><th>${t('admin.status')}</th><th>${t('common.actions')}</th>`
       : html`<th>${t('admin.name')}</th><th>${t('admin.email')}</th><th>الهاتف</th><th>المدينة</th><th>${t('admin.status')}</th><th>${t('common.actions')}</th>`;
-    const cols = role === 'student' ? 7 : 6;
+    const cols = role === 'student' ? 8 : 6;
     shell(root, cfg.path, { action: html`<div class="row" style="gap:8px">
         <select id="u-filter" class="input" style="width:auto" aria-label="${t('admin.status')}">
           <option value="live" ${filter === 'live' ? raw('selected') : ''}>${t('booking.filterActive')}</option>
@@ -56,13 +64,16 @@ async function managedView(root, role) {
             id: u.id, hidden: !u.active, hideLabel: 'إيقاف الحساب', showLabel: 'تفعيل الحساب', del: true,
             extra: html`<button class="act-btn" type="button" data-act="edit" data-id="${u.id}" title="${t('common.edit')}"><span aria-hidden="true">✏️</span><span class="act-lbl">${t('common.edit')}</span></button>
                         <button class="act-btn" type="button" data-act="reset" data-id="${u.id}" ${resetBlocked(u) ? raw('disabled') : ''} title="${resetBlocked(u) ? 'متاح بعد ' + resetWait(u) : 'توليد كلمة سر جديدة'}"><span aria-hidden="true">🔑</span><span class="act-lbl">كلمة سر</span></button>
-                        <button class="act-btn" type="button" data-act="${u.archived ? 'unarchive' : 'archive'}" data-id="${u.id}" title="${u.archived ? t('common.unarchive') : t('common.archive')}"><span aria-hidden="true">${u.archived ? '♻️' : '📦'}</span><span class="act-lbl">${u.archived ? t('common.unarchive') : t('common.archive')}</span></button>`,
+                        <button class="act-btn" type="button" data-act="${u.archived ? 'unarchive' : 'archive'}" data-id="${u.id}" title="${u.archived ? t('common.unarchive') : t('common.archive')}"><span aria-hidden="true">${u.archived ? '♻️' : '📦'}</span><span class="act-lbl">${u.archived ? t('common.unarchive') : t('common.archive')}</span></button>
+                        ${role === 'student' ? html`<button class="act-btn" type="button" data-act="examdate" data-id="${u.id}" data-current="${u.exam_date || ''}" title="تعيين موعد الامتحان"><span aria-hidden="true">📅</span><span class="act-lbl">موعد</span></button>` : ''}`,
           });
           return role === 'student'
             ? html`<tr style="${u.active ? '' : 'opacity:.6'}">
                 <td><a data-view="${u.id}">${u.name}</a></td><td class="small">${u.email}</td><td>${u.exams_passed}/${u.exams}</td>
                 <td style="min-width:110px"><div style="height:8px;border-radius:99px;background:var(--border,#ddd);overflow:hidden"><div style="height:100%;width:${u.progress || 0}%;background:var(--success,#16a34a)"></div></div><span class="small">${u.progress || 0}%</span></td>
-                <td>${u.last_activity ? fmtDate(u.last_activity) : '—'}</td><td>${statePill(u)}</td><td>${acts}</td></tr>`
+                <td>${u.last_activity ? fmtDate(u.last_activity) : '—'}</td>
+                <td class="small" style="white-space:nowrap">${fmtExamDate(u.exam_date)}</td>
+                <td>${statePill(u)}</td><td>${acts}</td></tr>`
             : html`<tr style="${u.active ? '' : 'opacity:.6'}">
                 <td><a data-view="${u.id}">${u.name}</a></td><td class="small">${u.email}</td><td class="small">${u.phone || '—'}</td><td class="small">${u.city || '—'}</td><td>${statePill(u)}</td><td>${acts}</td></tr>`;
         }) : html`<tr><td colspan="${cols}" class="muted">${t('common.none')}</td></tr>`}
@@ -81,12 +92,57 @@ async function managedView(root, role) {
       try { await api.patch(`/admin/users/${id}`, body); toast(t('common.saved')); await refresh(); await render(); }
       catch (err) { toast(errorMessage(err), 'error'); await refresh(); await render(); }
     };
+
+    const patchSchool = async (id, body) => {
+      try { await api.patch(`/admin/school/students/${id}`, body); toast(t('common.saved')); await refresh(); await render(); }
+      catch (err) { toast(errorMessage(err), 'error'); await refresh(); await render(); }
+    };
+
+    const promptExamDate = (id, btn) => {
+      const u = list.find((x) => String(x.id) === String(id));
+      const current = u?.exam_date ? String(u.exam_date).slice(0, 10) : '';
+      // بناء mini-popup مباشرة في الصفحة
+      const existing = document.getElementById('exam-date-popup');
+      if (existing) existing.remove();
+      const popup = document.createElement('div');
+      popup.id = 'exam-date-popup';
+      popup.style.cssText = 'position:fixed;inset:0;z-index:9500;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55)';
+      popup.innerHTML = `
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:24px 28px;width:320px;box-shadow:0 12px 40px rgba(0,0,0,.35)">
+          <p style="margin:0 0 14px;font-weight:700;font-size:.9rem">📅 موعد امتحان: ${u?.name || ''}</p>
+          <label style="font-size:.8rem;color:var(--muted);display:block;margin-bottom:4px">تاريخ الامتحان</label>
+          <input type="date" id="exam-date-inp" value="${current}" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-size:.9rem;box-sizing:border-box">
+          <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+            <button id="exam-date-clear" class="btn btn-sm" style="margin-left:auto">مسح الموعد</button>
+            <button id="exam-date-cancel" class="btn btn-sm">إلغاء</button>
+            <button id="exam-date-save" class="btn btn-primary btn-sm">حفظ</button>
+          </div>
+        </div>`;
+      document.body.appendChild(popup);
+      const inp = popup.querySelector('#exam-date-inp');
+      inp.focus();
+      const close = () => popup.remove();
+      popup.querySelector('#exam-date-cancel').onclick = close;
+      popup.addEventListener('click', (e) => { if (e.target === popup) close(); });
+      popup.querySelector('#exam-date-clear').onclick = async () => {
+        close();
+        await patchSchool(id, { exam_date: null });
+      };
+      popup.querySelector('#exam-date-save').onclick = async () => {
+        const val = inp.value;
+        if (!val) { toast('الرجاء اختيار تاريخ', 'error'); return; }
+        close();
+        await patchSchool(id, { exam_date: val });
+      };
+    };
+
     bindActions(root, {
       hide: (id) => patch(id, { active: false }),
       show: (id) => patch(id, { active: true }),
       archive: async (id) => { if (await confirmDialog('أرشفة هذا الحساب؟ سيُوقف ولا يمكنه الدخول، ويمكن استرجاعه لاحقاً.')) patch(id, { archived: true }); },
       unarchive: (id) => patch(id, { archived: false }),
       edit: (id) => openUserForm({ mode: 'edit', id, onDone: async () => { await refresh(); await render(); } }),
+      examdate: (id, btn) => promptExamDate(id, btn),
       reset: async (id, b) => {
         const u = list.find((x) => String(x.id) === String(id));
         if (!(await confirmDialog(`توليد كلمة سر جديدة لـ ${u?.name}؟ ستُلغى كلمة السر الحالية، ويمكن تكرار ذلك مرة واحدة فقط كل 24 ساعة.`))) return;
