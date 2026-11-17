@@ -294,12 +294,16 @@ router.patch('/school/enrollments/:id', auth.requireRole('school', 'admin'), wra
     return res.status(403).json({ error: 'forbidden' });
   }
 
+  // جلب school_id الحقيقي للمؤسسة (school_id = id في جدول users)
+  const schoolUser = d.prepare("SELECT id, school_id FROM users WHERE id = ?").get(req_row.school_id);
+  const realSchoolId = schoolUser?.school_id || req_row.school_id;
+
   d.transaction(() => {
     d.prepare(`UPDATE school_enrollments SET status=?, reviewed_at=datetime('now'), reviewed_by=? WHERE id=?`)
       .run(action, req.user.id, id);
     if (action === 'approved') {
-      // ربط المتعلم بالمؤسسة
-      d.prepare('UPDATE users SET school_id=? WHERE id=?').run(req_row.school_id, req_row.student_id);
+      // ربط المتعلم بالمؤسسة باستخدام school_id الحقيقي
+      d.prepare('UPDATE users SET school_id=? WHERE id=?').run(realSchoolId, req_row.student_id);
       // إلغاء الطلبات الأخرى لهذا المتعلم
       d.prepare(`UPDATE school_enrollments SET status='rejected', reviewed_at=datetime('now'), reviewed_by=? WHERE student_id=? AND id!=?`)
         .run(req.user.id, req_row.student_id, id);
