@@ -7,11 +7,22 @@ const db = require('./db');
 
 const COOKIE = 'cp_session';
 
-function cookieOptions() {
+/**
+ * هل الطلب قادم من تطبيق Capacitor (Android/iOS)؟
+ * Origin يبدأ بـ capacitor:// أو null مع user-agent يذكر wv (WebView)
+ */
+function isCapacitorRequest(req) {
+  const origin = req.headers.origin || '';
+  return origin.startsWith('capacitor://') || origin.startsWith('http://10.0.2.2');
+}
+
+function cookieOptions(req) {
+  const crossOrigin = req && isCapacitorRequest(req);
   return {
     httpOnly: true,
-    sameSite: 'lax',
-    secure: config.isProd,
+    // Capacitor يحتاج SameSite=None+Secure أو بدون SameSite (dev)
+    sameSite: crossOrigin ? 'none' : 'lax',
+    secure: config.isProd || crossOrigin,
     maxAge: config.sessionDays * 24 * 3600 * 1000,
     path: '/',
   };
@@ -21,11 +32,13 @@ function cookieOptions() {
  * جلسة واحدة لكل حساب: كل تسجيل دخول يولّد session_id جديداً يُخزَّن في users،
  * فتسقط تلقائياً الجلسة على الجهاز السابق (خطأ session_replaced).
  */
-function issueSession(res, user) {
+function issueSession(res, user, req) {
   const sid = crypto.randomBytes(16).toString('hex');
   db.get().prepare('UPDATE users SET session_id = ? WHERE id = ?').run(sid, user.id);
   const token = jwt.sign({ sub: user.id, role: user.role, sid }, config.jwtSecret, { expiresIn: `${config.sessionDays}d` });
-  res.cookie(COOKIE, token, cookieOptions());
+  res.cookie(COOKIE, token, cookieOptions(req));
+  // أيضاً نُرسل الـ token في الـ body لتطبيقات Capacitor التي تحفظه في localStorage
+  res._capacitorToken = token;
 }
 
 /** إنهاء كل جلسات المستخدم (بعد إعادة تعيين كلمة السر مثلاً) */
@@ -39,8 +52,8 @@ function endSession(req) {
     .run(`out-${crypto.randomBytes(8).toString('hex')}`, req.user.id, req.sessionSid || '');
 }
 
-function clearSession(res) {
-  res.clearCookie(COOKIE, { ...cookieOptions(), maxAge: undefined });
+function clearSession(res, req) {
+  res.clearCookie(COOKIE, { ...cookieOptions(req), maxAge: undefined });
 }
 
 const hashPassword = (p) => bcrypt.hash(p, 12);
@@ -74,9 +87,12 @@ function publicUser(u) {
 const ROLES = ['student', 'instructor', 'admin', 'school'];
 module.exports.ROLES = ROLES;
 
-/** Charge l'utilisateur à partir du cookie (si présent et valide). */
+/** Charge l'utilisateur à partir du cookie OU Authorization header (Capacitor). */
 function loadUser(req, _res, next) {
-  const token = req.cookies && req.cookies[COOKIE];
+  // تطبيق Capacitor يرسل: Authorization: Bearer <token>
+  const authHeader = req.headers.authorization;
+  const token = (req.cookies && req.cookies[COOKIE]) ||
+    (authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null);
   if (token) {
     try {
       const payload = jwt.verify(token, config.jwtSecret);
@@ -128,3 +144,20 @@ function csrfGuard(req, res, next) {
 }
 
 module.exports = { issueSession, revokeSessions, endSession, clearSession, hashPassword, checkPassword, publicUser, loadUser, requireAuth, requireRole, csrfGuard, ROLES };
+
+/**
+ * Middleware: يُضيف token إلى JSON response إذا كان الطلب من Capacitor.
+ * يُضاف بعد issueSession في routes/auth.js تلقائياً عبر res.json override.
+ */
+function injectCapacitorToken(req, res, next) {
+  if (!isCapacitorRequest(req)) return next();
+  const origJson = res.json.bind(res);
+  res.json = function(body) {
+    if (res._capacitorToken && body && typeof body === 'object') {
+      body._token = res._capacitorToken;
+    }
+    return origJson(body);
+  };
+  next();
+}
+module.exports.injectCapacitorToken = injectCapacitorToken;

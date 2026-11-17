@@ -71,7 +71,7 @@ router.post('/register', limiter, wrap(async (req, res) => {
   ).run(email, name, hash, locale, 'student', first_name, last_name, phone, city);
 
   const user = d.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
-  auth.issueSession(res, user);
+  auth.issueSession(res, user, req);
   res.status(201).json({ user: auth.publicUser(user), generatedPassword: pw });
 }));
 
@@ -185,7 +185,7 @@ router.get('/google/callback', wrap(async (req, res) => {
   }
 
   d.prepare("UPDATE users SET last_login_at = datetime('now') WHERE id = ?").run(user.id);
-  auth.issueSession(res, user);
+  auth.issueSession(res, user, req);
   // توجيه مباشر للوحة التحكم بعد المصادقة بجوجل
   const dest = user.role === 'admin' || user.role === 'instructor' ? '/admin' : '/dashboard';
   res.redirect(dest);
@@ -211,7 +211,7 @@ router.post('/login', limiter, wrap(async (req, res) => {
     }
   }
   d.prepare("UPDATE users SET last_login_at = datetime('now') WHERE id = ?").run(user.id);
-  auth.issueSession(res, user);
+  auth.issueSession(res, user, req);
   res.json({ user: auth.publicUser(user) });
 }));
 
@@ -246,13 +246,13 @@ router.post('/verify-otp', limiter, wrap(async (req, res) => {
   d.prepare('UPDATE otp_codes SET used = 1 WHERE id = ?').run(otp.id);
   d.prepare("UPDATE users SET last_login_at = datetime('now') WHERE id = ?").run(user.id);
 
-  auth.issueSession(res, user);
+  auth.issueSession(res, user, req);
   res.json({ user: auth.publicUser(user) });
 }));
 
 router.post('/logout', (req, res) => {
   auth.endSession(req);
-  auth.clearSession(res);
+  auth.clearSession(res, req);
   res.json({ ok: true });
 });
 

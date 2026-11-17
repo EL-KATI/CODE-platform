@@ -7,24 +7,47 @@ const config = require('./config');
 const auth = require('./auth');
 const { HttpError } = require('./http');
 
+// Origins مقبولة للتطبيق (Capacitor Android + المتصفح العادي)
+const ALLOWED_ORIGINS = new Set([
+  'http://localhost:3000',
+  'http://localhost',
+  'http://10.0.2.2:3000',   // محاكي Android
+  'capacitor://localhost',   // Capacitor Android
+  'https://localhost',       // Capacitor iOS (مستقبلاً)
+]);
+
 function createApp() {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', 1);
 
+  // CORS — يجب أن يكون قبل helmet حتى يعمل preflight
+  app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (origin && ALLOWED_ORIGINS.has(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type,X-Requested-With,Authorization');
+      res.setHeader('Access-Control-Max-Age', '86400');
+    }
+    if (req.method === 'OPTIONS') return res.sendStatus(204);
+    next();
+  });
+
   app.use(helmet({
     contentSecurityPolicy: {
       useDefaults: true,
       directives: {
-        'default-src': ["'self'"],
-        'script-src': ["'self'"],
-        'style-src': ["'self'", 'https://fonts.googleapis.com', "'unsafe-inline'"],
+        'default-src': ["'self'", 'capacitor://localhost'],
+        'script-src': ["'self'", 'capacitor://localhost'],
+        'style-src': ["'self'", 'capacitor://localhost', 'https://fonts.googleapis.com', "'unsafe-inline'"],
         'style-src-attr': ["'unsafe-inline'"],
-        'font-src': ["'self'", 'https://fonts.gstatic.com'],
-        'img-src': ["'self'", 'data:', 'https:'],
-        'media-src': ["'self'", 'https:'],
+        'font-src': ["'self'", 'capacitor://localhost', 'https://fonts.gstatic.com'],
+        'img-src': ["'self'", 'capacitor://localhost', 'data:', 'https:'],
+        'media-src': ["'self'", 'capacitor://localhost', 'https:'],
         'frame-src': ['https://www.youtube-nocookie.com'],
-        'connect-src': ["'self'", 'https://fonts.googleapis.com', 'https://fonts.gstatic.com', 'https://libretranslate.com'],
+        'connect-src': ["'self'", 'capacitor://localhost', 'http://10.0.2.2:3000', 'https://fonts.googleapis.com', 'https://fonts.gstatic.com', 'https://libretranslate.com'],
         'object-src': ["'none'"],
         'frame-ancestors': ["'none'"],
         'upgrade-insecure-requests': config.isProd ? [] : null,
@@ -36,6 +59,7 @@ function createApp() {
   app.use(express.json({ limit: '4mb' }));
   app.use(cookieParser());
   app.use(auth.loadUser);
+  app.use(auth.injectCapacitorToken);
 
   const api = express.Router();
   api.use(auth.csrfGuard);
