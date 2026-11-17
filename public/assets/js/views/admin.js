@@ -6,6 +6,7 @@ import { store } from '../store.js';
 import { navigate } from '../router.js';
 import { progressBar, videoBlock } from './common.js';
 import { speak } from '../ui.js';
+import { showQuestionCard, showSeriesCard } from './questionCard.js';
 
 /**
  * يُبرز الحقل الخاطئ في النموذج عند وجود خطأ من السيرفر يحتوي على details.field
@@ -289,50 +290,10 @@ export async function questionsView(root, { query }) {
   });
 }
 
-function openPreviewModal(title, bodyHtml) {
-  const existing = document.getElementById('admin-preview-modal');
-  if (existing) existing.remove();
-  const modal = document.createElement('div');
-  modal.id = 'admin-preview-modal';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px';
-  modal.innerHTML = `<div style="background:var(--surface,#fff);border-radius:14px;max-width:680px;width:100%;max-height:90vh;overflow:auto;padding:24px;position:relative">
-    <button id="preview-close" style="position:absolute;top:12px;left:12px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--text-muted)">✕</button>
-    <div style="font-size:.8rem;color:var(--text-muted);margin-bottom:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">${t('admin.preview')}</div>
-    <h2 style="margin:0 0 16px;font-size:1.1rem" dir="rtl">${title}</h2>
-    ${bodyHtml}
-  </div>`;
-  document.body.appendChild(modal);
-  modal.querySelector('#preview-close').onclick = () => modal.remove();
-  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
-}
-
-function showSeriesPreview(title, questions, total) {
-  const items = questions.map((q, i) => `<div style="border:1px solid var(--border,#ddd);border-radius:10px;padding:12px 14px;margin-bottom:10px">
-    <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:6px">${t('admin.question')} ${i + 1}</div>
-    ${q.image ? `<img src="${q.image}" alt="" style="width:100%;max-height:140px;object-fit:contain;border-radius:6px;margin-bottom:8px">` : ''}
-    <p dir="rtl" style="margin:0 0 8px;font-weight:600;font-size:.95rem">${q.text}</p>
-    <div style="display:flex;flex-direction:column;gap:4px">
-      ${(q.options || []).map((o, oi) => `<div dir="rtl" style="padding:5px 10px;border-radius:6px;font-size:.88rem;background:${(q.correct || []).includes(oi + 1) ? 'rgba(22,163,74,.12)' : 'var(--surface2,#f4f4f5)'}">
-        <span style="font-weight:600">${oi + 1}.</span> ${o} ${(q.correct || []).includes(oi + 1) ? '✓' : ''}
-      </div>`).join('')}
-    </div>
-  </div>`).join('');
-  const footer = total > questions.length ? `<p class="muted small" style="text-align:center;margin-top:8px">... و${total - questions.length} سؤال آخر</p>` : '';
-  openPreviewModal(title, items + footer);
-}
-
-function showQuestionPreview(q) {
-  const opts = (q.options || []).map((o, i) => `<div style="padding:8px 12px;border:1px solid var(--border,#ddd);border-radius:8px;margin-bottom:6px;display:flex;gap:10px;align-items:center">
-    <span style="font-weight:700;min-width:20px">${i + 1}</span>
-    <span dir="rtl" style="flex:1">${o}</span>
-    ${(q.correct || []).includes(i + 1) ? '<span style="color:#16a34a">✓</span>' : ''}
-  </div>`).join('');
-  openPreviewModal(`${t('admin.question')} #${q.id}`, `
-    ${q.image ? `<img src="${q.image}" alt="" style="width:100%;max-height:200px;object-fit:contain;border-radius:8px;margin-bottom:12px">` : ''}
-    <p dir="rtl" style="font-size:1.05rem;font-weight:600;margin:0 0 16px;line-height:1.6">${q.text}</p>
-    <div>${opts}</div>
-    ${q.explanation ? `<div style="margin-top:16px;padding:12px;background:var(--surface2,#f4f4f5);border-radius:8px;font-size:.9rem" dir="rtl">💡 ${q.explanation}</div>` : ''}`);
-}
+// openPreviewModal / showSeriesPreview / showQuestionPreview
+// → استُبدلت بـ showQuestionCard / showSeriesCard من questionCard.js
+const showQuestionPreview = (q) => showQuestionCard(q);
+const showSeriesPreview   = (title, questions, total) => showSeriesCard(title, questions, total);
 
 export async function questionEditView(root, { params }) {
   const isNew = params.id === 'new';
