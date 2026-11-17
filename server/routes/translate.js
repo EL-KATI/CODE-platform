@@ -118,6 +118,16 @@ async function translateLibre(text, source, target) {
   return data.translatedText;
 }
 
+/** Google Translate غير رسمي (مجاني بدون مفتاح) */
+async function translateGoogleFree(text, source, target) {
+  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${source}&tl=${target}&dt=t&q=${encodeURIComponent(text)}`;
+  const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
+  if (!resp.ok) throw new Error(`GoogleFree ${resp.status}`);
+  const data = await resp.json();
+  if (!Array.isArray(data) || !Array.isArray(data[0])) throw new Error('GoogleFree: unexpected response');
+  return data[0].map(seg => (Array.isArray(seg) ? seg[0] : '')).filter(Boolean).join('');
+}
+
 /** MyMemory (مجاني بدون مفتاح — 5000 حرف/يوم) */
 async function translateMyMemory(text, source, target) {
   const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${source}|${target}`;
@@ -130,56 +140,49 @@ async function translateMyMemory(text, source, target) {
 
 /** ترجمة batch ذكية — تستخدم أفضل محرك متاح */
 async function translateBatch(texts, source, target) {
-  // Google: يدعم batch مباشرة
+  // 1. Google API رسمي (مدفوع، أسرع وأدق)
   if (GOOGLE_KEY) {
     const results = await translateGoogle(texts, source, target);
     return { translations: results, engine: 'google' };
   }
 
-  // LibreTranslate: نرسل كل نص على حدة (لا يدعم batch في النسخة المجانية)
-  if (LT_URL) {
+  // 2. LibreTranslate (ذاتي الاستضافة أو بمفتاح)
+  if (LT_KEY || LT_URL !== 'https://libretranslate.com') {
     try {
       const translations = [];
       for (const text of texts) {
         if (!text || !text.trim()) { translations.push(text); continue; }
-        const r = await translateLibre(text, source, target);
-        translations.push(r);
+        translations.push(await translateLibre(text, source, target));
       }
       return { translations, engine: 'libretranslate' };
     } catch (e) {
-      console.warn('[translate] LibreTranslate failed, falling back to MyMemory:', e.message);
+      console.warn('[translate] LibreTranslate failed, falling back to Google free:', e.message);
     }
   }
 
-  // MyMemory: fallback مجاني — ندمج النصوص لتقليل الطلبات
-  const SEP = ' ⬥ ';
-  const chunks = [];
-  let cur = [];
-  let curLen = 0;
-  for (const text of texts) {
-    if (curLen + text.length > 400) {
-      chunks.push(cur);
-      cur = [text]; curLen = text.length;
-    } else {
-      cur.push(text); curLen += text.length + SEP.length;
-    }
-  }
-  if (cur.length) chunks.push(cur);
-
-  const allTranslated = [];
-  for (const chunk of chunks) {
-    const joined = chunk.join(SEP);
-    const tr = await translateMyMemory(joined, source, target);
-    const parts = tr.split(SEP);
-    // إذا تغير عدد الأجزاء، نعيد بشكل فردي
-    if (parts.length !== chunk.length) {
-      for (const t of chunk) {
-        try { allTranslated.push(await translateMyMemory(t, source, target)); }
-        catch { allTranslated.push(t); }
+  // 3. Google Translate غير رسمي (مجاني بدون مفتاح — الافتراضي)
+  try {
+    const translations = [];
+    for (const text of texts) {
+      if (!text || !text.trim()) { translations.push(text); continue; }
+      try {
+        translations.push(await translateGoogleFree(text, source, target));
+      } catch {
+        translations.push(text); // fallback للنص الأصلي
       }
-    } else {
-      allTranslated.push(...parts.map(p => p.trim()));
+      // تأخير بسيط لتجنب rate limiting
+      await new Promise(r => setTimeout(r, 50));
     }
+    return { translations, engine: 'google-free' };
+  } catch (e) {
+    console.warn('[translate] Google free failed, falling back to MyMemory:', e.message);
+  }
+
+  // 4. MyMemory: آخر fallback — نص واحد في كل مرة
+  const allTranslated = [];
+  for (const text of texts) {
+    try { allTranslated.push(await translateMyMemory(text, source, target)); }
+    catch { allTranslated.push(text); }
   }
   return { translations: allTranslated, engine: 'mymemory' };
 }

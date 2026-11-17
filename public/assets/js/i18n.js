@@ -780,7 +780,7 @@ export const catName = (c) => (c ? (c[`name_${locale}`] || c.name || c.name_ar |
 
 // ─── API الترجمة الديناميكية ──────────────────────────────────────────────────
 
-const LS_PREFIX = 'cp_tr_v1_';
+const LS_PREFIX = 'cp_tr_v2_'; // v2: بعد إصلاح محرك الترجمة (مسح الكاش القديم)
 const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 أيام
 
 /** تحميل الترجمات من localStorage */
