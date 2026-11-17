@@ -265,35 +265,32 @@ export async function enrollmentsView(root) {
     </div>`.s;
 
   async function load() {
-    const rows = await api.get('/admin/school/enrollments');
+    const allRows = await api.get('/admin/school/enrollments');
+    // عرض الطلبات المعلقة فقط
+    const rows = allRows.filter(r => r.status === 'pending');
     const box = root.querySelector('#enroll-list');
     if (!rows.length) {
       box.innerHTML = `<p class="muted" style="text-align:center;padding:32px">${t('school.enrollments.empty')}</p>`;
       return;
     }
-    const statusColor = { pending: 'var(--orange-500)', approved: 'var(--green-600)', rejected: 'var(--red-600)' };
-    const statusLabel = { pending: t('auth.enrollPending'), approved: t('auth.enrollApproved'), rejected: t('auth.enrollRejected') };
 
     box.innerHTML = html`
       <table class="rtable">
         <thead><tr>
           <th>${t('admin.name')}</th><th>${t('auth.email')}</th>
           <th>${t('auth.phone')}</th><th>${t('auth.city')}</th>
-          <th>الحالة</th><th>التاريخ</th><th>${t('common.actions')}</th>
+          <th>التاريخ</th><th>${t('common.actions')}</th>
         </tr></thead>
         <tbody>
-          ${rows.map((r) => html`<tr data-id="${r.id}" data-status="${r.status}">
+          ${rows.map((r) => html`<tr data-id="${r.id}">
             <td data-label="${t('admin.name')}">${r.name || '—'}</td>
             <td data-label="${t('auth.email')}">${r.email || '—'}</td>
             <td data-label="${t('auth.phone')}">${r.phone || '—'}</td>
             <td data-label="${t('auth.city')}">${r.city || '—'}</td>
-            <td data-label="الحالة"><span style="color:${statusColor[r.status] || 'var(--muted)'}">${statusLabel[r.status] || r.status}</span></td>
             <td data-label="التاريخ" style="font-size:.8rem">${r.created_at ? r.created_at.slice(0,10) : '—'}</td>
             <td data-label="${t('common.actions')}">
-              ${r.status === 'pending' ? html`
-                <button class="btn btn-sm btn-primary" data-action="approved">✓ قبول</button>
-                <button class="btn btn-sm" style="background:var(--red-100);color:var(--red-700);border:none;margin-inline-start:6px" data-action="rejected">✕ رفض</button>
-              ` : html`<span class="small muted">—</span>`}
+              <button class="btn btn-sm btn-primary" data-action="approved">✓ قبول</button>
+              <button class="btn btn-sm" style="background:var(--red-100);color:var(--red-700);border:none;margin-inline-start:6px" data-action="rejected">✕ رفض</button>
             </td>
           </tr>`)}
         </tbody>
@@ -308,8 +305,13 @@ export async function enrollmentsView(root) {
         btn.disabled = true;
         try {
           await api.patch(`/admin/school/enrollments/${id}`, { action });
-          toast(action === 'approved' ? '✅ تم قبول الطلب' : '✕ تم رفض الطلب');
-          await load();
+          toast(action === 'approved' ? '✅ تم قبول الطالب وإضافته للمؤسسة' : '✕ تم رفض الطلب');
+          // إزالة الصف فوراً بدون إعادة تحميل كاملة
+          row.remove();
+          // إذا لم يبق أي صف، أظهر رسالة "لا يوجد"
+          if (!box.querySelector('tbody tr')) {
+            box.innerHTML = `<p class="muted" style="text-align:center;padding:32px">${t('school.enrollments.empty')}</p>`;
+          }
         } catch (ex) {
           toast(errorMessage(ex), 'error');
           btn.disabled = false;

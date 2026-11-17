@@ -262,12 +262,20 @@ router.get('/school/enrollments', auth.requireRole('school', 'admin'), (req, res
   const sid = req.user.role === 'admin' ? (req.query.school_id || null) : req.user.id;
   let rows;
   if (sid) {
-    rows = d.prepare(`
-      SELECT e.id, e.student_id, e.status, e.created_at, e.reviewed_at,
-             u.name, u.email, u.phone, u.city, u.first_name_fr, u.last_name_fr
-      FROM school_enrollments e JOIN users u ON u.id = e.student_id
-      WHERE e.school_id = ? ORDER BY e.status = 'pending' DESC, e.created_at DESC
-    `).all(sid);
+    // المؤسسة ترى فقط الطلبات المعلقة (pending) — المقبولة تظهر في إدارة الطلاب
+    const statusFilter = req.user.role === 'school' ? 'pending' : (req.query.status || null);
+    const sql = statusFilter
+      ? `SELECT e.id, e.student_id, e.status, e.created_at, e.reviewed_at,
+               u.name, u.email, u.phone, u.city, u.first_name_fr, u.last_name_fr
+         FROM school_enrollments e JOIN users u ON u.id = e.student_id
+         WHERE e.school_id = ? AND e.status = ? ORDER BY e.created_at DESC`
+      : `SELECT e.id, e.student_id, e.status, e.created_at, e.reviewed_at,
+               u.name, u.email, u.phone, u.city, u.first_name_fr, u.last_name_fr
+         FROM school_enrollments e JOIN users u ON u.id = e.student_id
+         WHERE e.school_id = ? ORDER BY e.status = 'pending' DESC, e.created_at DESC`;
+    rows = statusFilter
+      ? d.prepare(sql).all(sid, statusFilter)
+      : d.prepare(sql).all(sid);
   } else {
     rows = d.prepare(`
       SELECT e.id, e.student_id, e.school_id, e.status, e.created_at, e.reviewed_at,
