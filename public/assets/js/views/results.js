@@ -4,72 +4,56 @@ import { t, catName } from '../i18n.js';
 import { api } from '../api.js';
 import { store } from '../store.js';
 import { navigate } from '../router.js';
-import { renderVisual } from '../scenario.js';
+import { questionCardHtml } from './questionCard.js';
 
-// ── دالة مشتركة: أجزاء مراجعة سؤال واحد ──
-function reviewParts(q, catMap) {
-  const ok = q.answer?.isCorrect === true;
+// ── بناء اختيارات المترشح من كائن الإجابة ─────────────────────────────────
+function buildSelected(q) {
   const ans = q.answer;
-  const isDouble = q.is_double && Array.isArray(q.sub_questions) && q.sub_questions.length === 2;
-  const c = catMap?.get(q.categoryId);
-
-  const reviewOptions = (opts, correct, selected) => opts.map((o, i) => {
-    const n = i + 1;
-    const isCorrect = correct.includes(n);
-    const isSelected = (selected || []).includes(n);
-    const cls = isCorrect ? 'ans-c' : isSelected && !isCorrect ? 'ans-w' : '';
-    return html`<li class="${cls}">
-      <span class="ans-num">${n}</span>
-      <span>${o}</span>
-      ${isCorrect ? html`<span class="ans-mark" aria-label="${t('quiz.correctAnswer')}">✓</span>` : ''}
-      ${isSelected && !isCorrect ? html`<span class="ans-mark" style="color:var(--danger)" aria-label="${t('quiz.yourAnswer')}">✗</span>` : ''}
-    </li>`;
-  }).join('');
-
-  const body = html`
-        ${q.image || q.visual ? html`<figure class="scene" style="margin:0 0 16px;border-radius:10px;overflow:hidden">${raw(renderVisual(q))}</figure>` : ''}
-        ${isDouble ? html`
-          <p class="q-text" style="font-size:1.05rem" lang="ar" dir="rtl">${q.text}</p>
-          ${q.sub_questions.map((sq, si) => {
-            const selArr = ans?.selected_double?.[si === 0 ? 'a' : 'b'] || [];
-            return html`
-              <div class="sub-q-block" style="margin-bottom:12px">
-                <div class="sub-q-label">
-                  <span class="sub-q-dot">${si === 0 ? 'أ' : 'ب'}</span>
-                  <span>${sq.text}</span>
-                </div>
-                <ul class="ans-list">${raw(reviewOptions(sq.options, sq.correct || [], selArr))}</ul>
-              </div>`;
-          })}`
-        : html`
-          <p class="q-text" style="font-size:1.05rem" lang="ar" dir="rtl">${q.text}</p>
-          <ul class="ans-list">${raw(reviewOptions(q.options, q.correct || [], ans?.selected || []))}</ul>`}
-        ${q.explanation ? html`
-          <div class="q-explain">
-            <span class="q-explain-icon">💡</span>
-            <span lang="ar" dir="rtl">${q.explanation}</span>
-          </div>` : ''}`;
-  return { ok, c, body };
+  if (!ans) return { selected: [], selectedDouble: null };
+  if (q.is_double && Array.isArray(q.sub_questions)) {
+    return {
+      selected: [],
+      selectedDouble: {
+        a: ans.selected_double?.a || [],
+        b: ans.selected_double?.b || [],
+      },
+    };
+  }
+  return { selected: ans.selected || [], selectedDouble: null };
 }
 
-// بطاقة مراجعة كاملة (مستعملة في «أخطائي»)
+// بطاقة مراجعة كاملة بتصميم NARSA الموحّد (مستعملة في «أخطائي»)
 export function reviewItem(q, originalIdx, catMap) {
-  const { ok, c, body } = reviewParts(q, catMap);
+  const ok = q.answer?.isCorrect === true;
+  const c = catMap?.get(q.categoryId);
+  const { selected, selectedDouble } = buildSelected(q);
+  const cardHtml = questionCardHtml(q, {
+    selected,
+    selectedDouble,
+    showAnswer: true,
+    isCorrect: q.answer?.isCorrect ?? null,
+  });
   return html`
     <div class="review-card ${ok ? 'rc-ok' : 'rc-ko'}">
       <div class="review-card-header">
         ${originalIdx != null ? html`<span class="q-number" style="font-size:.85rem">${t('quiz.qn', { n: originalIdx + 1 })}</span>` : ''}
         ${c ? html`<span class="pill" style="font-size:.74rem">${c.icon} ${catName(c)}</span>` : ''}
-        <span class="${ok ? 'review-verdict-ok' : 'review-verdict-ko'}">
-          ${ok ? '✓' : '✗'}
-        </span>
+        <span class="${ok ? 'review-verdict-ok' : 'review-verdict-ko'}">${ok ? '✓' : '✗'}</span>
       </div>
-      <div class="review-card-body">${body}</div>
+      <div class="review-card-body">${raw(cardHtml)}</div>
     </div>`;
 }
 
-// محتوى التصحيح فقط (الصورة، الاختيارات، الشرح) — مستعمل داخل قائمة النتائج
-export const reviewBody = (q, catMap) => reviewParts(q, catMap).body;
+// محتوى التصحيح فقط — مستعمل داخل قائمة النتائج (accordion)
+export function reviewBody(q, catMap) {
+  const { selected, selectedDouble } = buildSelected(q);
+  return raw(questionCardHtml(q, {
+    selected,
+    selectedDouble,
+    showAnswer: true,
+    isCorrect: q.answer?.isCorrect ?? null,
+  }));
+}
 
 // حلقة النتيجة (نفس نمط حلقة الجاهزية في اللوحة)
 const RING_R = 54;

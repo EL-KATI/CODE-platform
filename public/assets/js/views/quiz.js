@@ -5,8 +5,8 @@ import { t, catName } from '../i18n.js';
 import { api } from '../api.js';
 import { store } from '../store.js';
 import { navigate } from '../router.js';
-import { renderVisual } from '../scenario.js';
-import { modeLabel, videoBlock, speechText } from './common.js';
+import { modeLabel, speechText } from './common.js';
+import { renderMediaInto, renderTextPanelInto } from './questionCard.js';
 
 const svg = (d, w = 2.2) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const IC = {
@@ -308,79 +308,18 @@ export async function quizView(appRoot, { params }) {
   function renderMedia() {
     const el = overlay.querySelector('#nrs-media');
     if (!el) return;
-    const cur = q();
-    const vidHtml = videoBlock(cur).s;
-    if (vidHtml) {
-      el.innerHTML = vidHtml;
-      el.classList.add('has-video');
-    } else if (cur.image || cur.visual) {
-      el.innerHTML = `<div class="nrs-img-wrap">${renderVisual(cur)}</div>`;
-      el.classList.remove('has-video');
-    } else {
-      el.innerHTML = `<div class="nrs-no-media"><span>🚗</span></div>`;
-      el.classList.remove('has-video');
-    }
+    renderMediaInto(el, q());
   }
-
-  // ── التصحيح في وضع التمرين: سطر بسيط داخل اللوحة السوداء + شرح القاعدة ──
-  function feedbackHtml(ok, correctNums, explanation) {
-    const nums = [...correctNums].sort((x, y) => x - y).join('، ');
-    return `<div class="nrs-fb ${ok ? 'is-ok' : 'is-ko'}">${ok ? '✓ إجابة صحيحة' : `✗ إجابة خاطئة${nums ? ` — الجواب الصحيح: ${nums}` : ''}`}</div>${explanation ? `<div class="nrs-fb-text">${esc(explanation)}</div>` : ''}`;
-  }
-
-  // سطر خيار NARSA:  1  ————————————  نَعَمْ
-  // DOM: [رقم] [خط أفقي] [نص عربي]  — direction:ltr
-  function optHtml(n, text, state) {
-    return `<div class="nrs-opt ${state}"><span class="nrs-opt-n">${n}</span><div class="nrs-opt-dots" aria-hidden="true"></div><span class="nrs-opt-text">${esc(text)}</span></div>`;
-  }
-  const optText = (o) => ((o && typeof o === 'object') ? (o.text || '') : String(o ?? ''));
 
   // ── لوحة النص (الصندوق الأسود) ────────────────────────────────────
   function renderTextPanel() {
     const el = overlay.querySelector('#nrs-text-panel');
     if (!el) return;
-    const cur = q();
-    const ans = cur.answer;
-    const isDouble = cur.is_double && Array.isArray(cur.sub_questions) && cur.sub_questions.length === 2;
-    const reveal = !exam && ans;
-    // بعد التصحيح الصندوق الأسود يكبر قليلاً ليظهر السؤال والشرح معاً
-    el.classList.toggle('has-result', !!reveal);
-    const state = (on, isCorrect) => (reveal && isCorrect ? 'sub-ok' : reveal && on ? 'sub-wrong' : on ? 'sub-on' : '');
-
-    // السؤال المزدوج: نعرض السطر الأول فقط من النص (الأسطر التالية في الأسئلة القديمة تكرر الجزأين)،
-    // ونحذفه إذا كان هو نفسه عنوان الجزء الأول.
-    const flat = (x) => String(x || '').replace(/[\s؟?:.-]+/g, '');
-    let main = cur.text;
-    if (isDouble) {
-      main = String(cur.text || '').split('\n')[0].trim();
-      if (flat(main) === flat(cur.sub_questions[0].text)) main = '';
-    }
-    let out = `${main ? `<div class="nrs-q-main" dir="rtl">${esc(main)}</div>` : ''}<div class="nrs-block" dir="rtl">`;
-    if (isDouble) {
-      const sets = [selected.a || new Set(), selected.b || new Set()];
-      const corrAll = [];
-      cur.sub_questions.forEach((sq, si) => {
-        const corr = new Set(norm(sq.correct));
-        const labels = (sq.options || []).map(optText);
-        // اختيارات قصيرة (نعم / لا) جنباً إلى جنب كما في الامتحان؛ الطويلة كل واحدة في سطر
-        const inline = labels.every((l) => l.length <= 14);
-        out += `<div class="nrs-sub-label" dir="rtl">${esc(sq.text)}</div><div class="${inline ? 'nrs-opts-row' : 'nrs-opts-list'}">`;
-        labels.forEach((lbl, i) => { out += optHtml(i + 1 + si * 2, lbl, state(sets[si].has(i + 1), corr.has(i + 1))); });
-        out += '</div>';
-        corr.forEach((n) => corrAll.push(n + si * 2));
-      });
-      if (reveal) out += feedbackHtml(ans.isCorrect, corrAll, cur.explanation);
-    } else {
-      const correct = new Set(norm(cur.correct));
-      out += '<div class="nrs-opts-list">';
-      (cur.options || []).forEach((o, i) => { out += optHtml(i + 1, optText(o), state(selected.has(i + 1), correct.has(i + 1))); });
-      out += '</div>';
-      if (reveal) out += feedbackHtml(ans.isCorrect, [...correct], cur.explanation);
-    }
-    el.innerHTML = `${out}</div>`;
-
-    // ── زر الترجمة ───────────────────────────────────────────────────
-    renderTranslateBar(el, main || cur.text || '');
+    renderTextPanelInto(el, q(), {
+      exam,
+      selected,
+      onTranslate: (panelEl, text) => renderTranslateBar(panelEl, text),
+    });
   }
 
   // ── شريط الترجمة ─────────────────────────────────────────────────
