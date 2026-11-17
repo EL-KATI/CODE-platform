@@ -45,7 +45,7 @@ function navLinks() {
   // المتعلم: دروس + تمارين + (حجوزات إذا مرتبط بمؤسسة)
   const links = u
     ? [['/dashboard', 'nav.dashboard'], ['/lessons', 'nav.lessons'], ['/practice', 'nav.practice'], ['/exam', 'nav.exam'], ['/mistakes', 'nav.mistakes'], ['/assistant', 'nav.ai'], ...(store.isEnrolled() ? [['/bookings', 'nav.bookings']] : [])]
-    : [['/', 'nav.home'], ['/lessons', 'nav.lessons'], ['/login', 'nav.login']];
+    : [['/', 'nav.home'], ['/lessons', 'nav.lessons']];
   return links;
 }
 
@@ -164,6 +164,10 @@ export function renderShell() {
   const theme = getTheme() || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   document.getElementById('header-actions').innerHTML = html`
     <button class="icon-btn" id="lang-btn" type="button" lang="${getLocale() === 'ar' ? 'fr' : 'ar'}" aria-label="${t('a11y.language')}">${getLocale() === 'ar' ? 'FR' : 'ع'}</button>
+    ${!store.user ? html`
+      <a class="hdr-auth-btn hdr-auth-login" href="/login">${t('auth.login')}</a>
+      <a class="hdr-auth-btn hdr-auth-register" href="/register">${t('auth.createAccount')}</a>
+    ` : ''}
     <button class="icon-btn" id="theme-btn" type="button" aria-label="${t('a11y.theme')}" aria-pressed="${theme === 'dark'}">${theme === 'dark' ? '☀️' : '🌙'}</button>
     <button class="icon-btn" id="sound-btn" type="button" aria-label="${t('a11y.sound')}" aria-pressed="${sound.enabled}">${sound.enabled ? '🔊' : '🔇'}</button>
     ${store.user && !store.isStaff() ? html`<a class="icon-btn ai-quick" href="/assistant" title="${t('nav.ai')}" ${location.pathname === '/assistant' ? html`aria-current="page"` : ''}>${raw(iconSvg('sparkles'))}<span class="sr-only">${t('nav.ai')}</span></a>` : ''}

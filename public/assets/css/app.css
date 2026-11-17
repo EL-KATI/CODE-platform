@@ -3237,6 +3237,39 @@ body.ui-apple .main-nav a.nav-ai[aria-current="page"], body.ui-apple .mobile-nav
 .hdr-challenge-btn[aria-current="page"] {
   background: linear-gradient(135deg, #c2410c 0%, #b91c1c 100%);
 }
+/* أزرار دخول/تسجيل في الرأس (للزوار فقط) */
+.hdr-auth-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: .84rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background .15s, color .15s, border-color .15s;
+  white-space: nowrap;
+}
+.hdr-auth-login {
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text);
+}
+.hdr-auth-login:hover {
+  background: var(--surface-2);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.hdr-auth-register {
+  background: var(--accent);
+  border: 1.5px solid var(--accent);
+  color: #fff;
+}
+.hdr-auth-register:hover { opacity: .88; }
+@media (max-width: 540px) {
+  .hdr-auth-register { display: none; }
+  .hdr-auth-login { padding: 5px 11px; font-size: .8rem; }
+}
+
 .hdr-ch-ic {
   font-size: 1em;
   animation: hdr-ch-pulse 2s ease-in-out infinite;
