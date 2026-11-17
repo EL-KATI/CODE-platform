@@ -3,7 +3,7 @@ import { route, startRouter, setNavigateHook, navigate, render } from './router.
 import { store } from './store.js';
 import { watchIcons, iconSvg } from './icons.js';
 import { api } from './api.js';
-import { t, setLocale, getLocale, applyStaticTranslations } from './i18n.js';
+import { t, setLocale, getLocale, applyStaticTranslations, translateToLang, restoreLocale } from './i18n.js';
 import { html, raw, esc, toast, sound } from './ui.js';
 
 import { homeView } from './views/home.js';
@@ -163,7 +163,14 @@ export function renderShell() {
 
   const theme = getTheme() || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   document.getElementById('header-actions').innerHTML = html`
-    <button class="icon-btn" id="lang-btn" type="button" lang="${getLocale() === 'ar' ? 'fr' : 'ar'}" aria-label="${t('a11y.language')}">${getLocale() === 'ar' ? 'FR' : 'ع'}</button>
+    <div class="lang-picker-wrap" id="lang-picker-wrap">
+      <button class="icon-btn lang-picker-btn" id="lang-btn" type="button" aria-label="${t('a11y.language')}" aria-haspopup="listbox" aria-expanded="false">
+        <span class="lang-current-flag" id="lang-flag"></span>
+        <span class="lang-current-code" id="lang-code"></span>
+        <svg class="lang-caret" xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="lang-dropdown" id="lang-dropdown" role="listbox" aria-label="${t('a11y.language')}"></div>
+    </div>
     ${!store.user ? html`
       <a class="hdr-auth-btn hdr-auth-login" href="/login">${t('auth.login')}</a>
       <a class="hdr-auth-btn hdr-auth-register" href="/register">${t('auth.createAccount')}</a>
@@ -210,13 +217,81 @@ export function renderShell() {
       </div>
     </div>`.s;
 
-  document.getElementById('lang-btn').onclick = async () => {
-    const next = getLocale() === 'ar' ? 'fr' : 'ar';
-    setLocale(next);
-    if (store.user) api.patch('/me', { locale: next }).catch(() => {});
-    renderShell();
-    await render();
-  };
+  // ─── Language Picker ─────────────────────────────────────────────────────────
+  const LANGS = [
+    { code: 'ar', name: 'العربية',    flag: '🇲🇦' },
+    { code: 'fr', name: 'Français',   flag: '🇫🇷' },
+    { code: 'en', name: 'English',    flag: '🇬🇧' },
+    { code: 'es', name: 'Español',    flag: '🇪🇸' },
+    { code: 'de', name: 'Deutsch',    flag: '🇩🇪' },
+    { code: 'it', name: 'Italiano',   flag: '🇮🇹' },
+    { code: 'pt', name: 'Português',  flag: '🇵🇹' },
+    { code: 'tr', name: 'Türkçe',     flag: '🇹🇷' },
+    { code: 'ru', name: 'Русский',    flag: '🇷🇺' },
+  ];
+  const curLang = LANGS.find(l => l.code === getLocale()) || LANGS[0];
+  const flagEl  = document.getElementById('lang-flag');
+  const codeEl  = document.getElementById('lang-code');
+  if (flagEl) flagEl.textContent = curLang.flag;
+  if (codeEl) codeEl.textContent = curLang.code.toUpperCase();
+
+  const langBtn  = document.getElementById('lang-btn');
+  const langDrop = document.getElementById('lang-dropdown');
+  if (langBtn && langDrop) {
+    // بناء القائمة
+    langDrop.innerHTML = LANGS.map(l => `
+      <button class="lang-opt ${l.code === getLocale() ? 'active' : ''}" data-lang="${l.code}" role="option" aria-selected="${l.code === getLocale()}">
+        <span class="lang-opt-flag">${l.flag}</span>
+        <span class="lang-opt-name">${l.name}</span>
+        ${l.code === getLocale() ? '<span class="lang-opt-check">✓</span>' : ''}
+      </button>`).join('');
+
+    // فتح/غلق
+    langBtn.onclick = (e) => {
+      e.stopPropagation();
+      const open = langBtn.getAttribute('aria-expanded') === 'true';
+      langBtn.setAttribute('aria-expanded', String(!open));
+      langDrop.classList.toggle('open', !open);
+    };
+
+    // اختيار لغة
+    langDrop.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-lang]');
+      if (!btn) return;
+      const lang = btn.dataset.lang;
+      langBtn.setAttribute('aria-expanded', 'false');
+      langDrop.classList.remove('open');
+
+      if (lang === getLocale()) return;
+
+      // إذا لغة ثابتة (ar/fr) → تبديل فوري
+      if (lang === 'ar' || lang === 'fr') {
+        setLocale(lang);
+        if (store.user) api.patch('/me', { locale: lang }).catch(() => {});
+        renderShell();
+        await render();
+        return;
+      }
+
+      // لغة ديناميكية → ترجمة API مع شريط تقدم
+      const toast_id = showTranslationProgress(lang);
+      try {
+        await translateToLang(lang, (p) => updateTranslationProgress(toast_id, p));
+        renderShell();
+        await render();
+      } catch (err) {
+        console.error('[i18n] translation failed:', err);
+        hideTranslationProgress(toast_id);
+        toast(t('translate.error'), 'error');
+      }
+    });
+
+    // غلق عند النقر خارجاً
+    document.addEventListener('click', () => {
+      langBtn.setAttribute('aria-expanded', 'false');
+      langDrop.classList.remove('open');
+    }, { capture: false });
+  }
   document.getElementById('theme-btn').onclick = () => {
     const next = theme === 'dark' ? 'light' : 'dark';
     try { localStorage.setItem('cp_theme', next); } catch { /* ignore */ }
@@ -340,11 +415,32 @@ route('/admin/live', view(adminLiveView), { auth: true, roles: ['admin', 'school
 route('/admin/live/:id/results', view(adminLiveResultsView), { auth: true, roles: ['admin', 'school', 'instructor'] });
 route('*', view(notFoundView));
 
+// ─── شريط تقدم الترجمة ───────────────────────────────────────────────────────
+let _trProgressEl = null;
+function showTranslationProgress(lang) {
+  if (_trProgressEl) _trProgressEl.remove();
+  const el = document.createElement('div');
+  el.id = 'tr-progress-toast';
+  el.className = 'tr-progress-toast';
+  el.innerHTML = `<span class="tr-prog-label">🌐 جاري الترجمة...</span>
+    <div class="tr-prog-bar"><div class="tr-prog-fill" style="width:5%"></div></div>`;
+  document.body.appendChild(el);
+  _trProgressEl = el;
+  return el;
+}
+function updateTranslationProgress(el, p) {
+  if (!el) return;
+  const fill = el.querySelector('.tr-prog-fill');
+  if (fill) fill.style.width = `${Math.round(p * 100)}%`;
+}
+function hideTranslationProgress(el) {
+  if (el) el.remove();
+  if (_trProgressEl === el) _trProgressEl = null;
+}
+
 (async function boot() {
-  let saved = null;
-  try { saved = localStorage.getItem('cp_locale'); } catch { /* ignore */ }
   try { await store.loadUser(); } catch { store.user = null; }
-  setLocale(saved || store.user?.locale || 'ar');
+  restoreLocale();
   applyStaticTranslations();
   watchIcons(document.body); // أيقونات خطية بدل الإيموجي في كل الواجهات
   await startRouter();

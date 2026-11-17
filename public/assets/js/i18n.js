@@ -730,26 +730,162 @@ const fr = {
 const DICT = { ar, fr };
 let locale = 'ar';
 
+// ─── قاموس الترجمات الديناميكية (من API) ─────────────────────────────────────
+// { langCode: { key: translatedValue } }
+let dynamicDict = {};
+
+// ─── RTL languages ────────────────────────────────────────────────────────────
+const RTL_LANGS = new Set(['ar', 'he', 'fa', 'ur']);
+
 export const getLocale = () => locale;
 
 export function setLocale(l) {
-  locale = DICT[l] ? l : 'ar';
+  if (DICT[l]) {
+    // لغة ثابتة (ar / fr)
+    locale = l;
+    dynamicDict[l] = null; // نمسح أي override ديناميكي
+  } else {
+    // لغة ديناميكية — نضع locale كـ placeholder
+    locale = l;
+  }
   try { localStorage.setItem('cp_locale', locale); } catch { /* ignore */ }
   document.documentElement.lang = locale;
-  document.documentElement.dir = locale === 'ar' ? 'rtl' : 'ltr';
+  document.documentElement.dir = RTL_LANGS.has(locale) ? 'rtl' : 'ltr';
   applyStaticTranslations();
 }
 
+/** رجع القيمة المترجمة للغة الحالية */
 export function t(key, params) {
-  let s = DICT[locale][key];
-  if (s === undefined) return key;
+  // 1) جرب القاموس الديناميكي أولاً
+  const dyn = dynamicDict[locale];
+  let s = dyn ? dyn[key] : undefined;
+
+  // 2) fallback للقاموس الثابت (ar هو المصدر)
+  if (s === undefined) s = DICT[locale]?.[key] ?? DICT['ar'][key] ?? key;
+
   if (params) s = s.replace(/\{(\w+)\}/g, (m, k) => (params[k] !== undefined ? params[k] : m));
   return s;
 }
 
 export function applyStaticTranslations() {
   document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
-  document.title = locale === 'ar' ? 'CODE — منصة تعلم الدراسة النظرية لرخصة السياقة' : 'CODE — Apprendre le code de la route (permis B)';
+  document.title = locale === 'ar'
+    ? 'CODE — منصة تعلم الدراسة النظرية لرخصة السياقة'
+    : locale === 'fr'
+    ? 'CODE — Apprendre le code de la route (permis B)'
+    : 'CODE — Driving Theory Platform';
 }
 
 export const catName = (c) => (c ? (c[`name_${locale}`] || c.name || c.name_ar || c.name_fr || '') : '');
+
+// ─── API الترجمة الديناميكية ──────────────────────────────────────────────────
+
+const LS_PREFIX = 'cp_tr_v1_';
+const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 أيام
+
+/** تحميل الترجمات من localStorage */
+function loadCachedTranslations(lang) {
+  try {
+    const raw = localStorage.getItem(LS_PREFIX + lang);
+    if (!raw) return null;
+    const { ts, data } = JSON.parse(raw);
+    if (Date.now() - ts > CACHE_TTL) { localStorage.removeItem(LS_PREFIX + lang); return null; }
+    return data;
+  } catch { return null; }
+}
+
+/** حفظ الترجمات في localStorage */
+function saveCachedTranslations(lang, data) {
+  try { localStorage.setItem(LS_PREFIX + lang, JSON.stringify({ ts: Date.now(), data })); } catch { /* ignore */ }
+}
+
+/** مسح الكاش لغة معينة */
+export function clearTranslationCache(lang) {
+  try { localStorage.removeItem(LS_PREFIX + (lang || locale)); } catch { /* ignore */ }
+}
+
+/** مسح كل الكاش */
+export function clearAllTranslationCaches() {
+  try {
+    Object.keys(localStorage).filter(k => k.startsWith(LS_PREFIX)).forEach(k => localStorage.removeItem(k));
+  } catch { /* ignore */ }
+}
+
+/**
+ * تحميل الترجمة لأي لغة وتطبيقها على الموقع.
+ * @param {string} lang - رمز اللغة (en, es, de, ...)
+ * @param {function} [onProgress] - callback للتقدم (0..1)
+ * @returns {Promise<{engine: string, cached: boolean}>}
+ */
+export async function translateToLang(lang, onProgress) {
+  if (lang === 'ar') { setLocale('ar'); return { engine: 'builtin', cached: true }; }
+  if (lang === 'fr') { setLocale('fr'); return { engine: 'builtin', cached: true }; }
+
+  // تحقق من الكاش
+  const cached = loadCachedTranslations(lang);
+  if (cached) {
+    dynamicDict[lang] = cached;
+    setLocale(lang);
+    return { engine: 'cache', cached: true };
+  }
+
+  // استخرج كل مفاتيح ar
+  const keys = Object.keys(ar);
+  const values = keys.map(k => ar[k]);
+
+  onProgress?.(0.05);
+
+  // إرسال batch للـ API
+  const CHUNK = 100; // 100 مفتاح في كل طلب
+  const allTranslated = [];
+
+  for (let i = 0; i < values.length; i += CHUNK) {
+    const chunk = values.slice(i, i + CHUNK);
+    const resp = await fetch('/api/translate/ui', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ texts: chunk, target: lang, source: 'ar' }),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${resp.status}`);
+    }
+    const data = await resp.json();
+    allTranslated.push(...data.translations);
+    onProgress?.((i + CHUNK) / values.length * 0.9 + 0.05);
+  }
+
+  // بناء القاموس
+  const dict = {};
+  keys.forEach((k, i) => { dict[k] = allTranslated[i] ?? ar[k]; });
+
+  // حفظ في الكاش
+  saveCachedTranslations(lang, dict);
+  dynamicDict[lang] = dict;
+  setLocale(lang);
+  onProgress?.(1);
+
+  return { engine: 'api', cached: false };
+}
+
+/** استرجاع اللغة المحفوظة عند بدء التطبيق */
+export function restoreLocale() {
+  try {
+    const saved = localStorage.getItem('cp_locale') || 'ar';
+    if (saved === 'ar' || saved === 'fr') {
+      setLocale(saved);
+      return;
+    }
+    // لغة ديناميكية — حاول تحميلها من الكاش
+    const cached = loadCachedTranslations(saved);
+    if (cached) {
+      dynamicDict[saved] = cached;
+      setLocale(saved);
+    } else {
+      // fallback للعربية
+      setLocale('ar');
+    }
+  } catch {
+    setLocale('ar');
+  }
+}
