@@ -929,6 +929,13 @@ const superAdminOnly = (req, res, next) => {
   next();
 };
 
+// ── GET /admin/super/push-stats ──────────────────────────────────────────────
+router.get('/super/push-stats', superAdminOnly, (req, res) => {
+  const d = db.get();
+  const row = d.prepare('SELECT COUNT(*) AS count FROM push_subscriptions').get();
+  res.json({ count: row?.count || 0 });
+});
+
 router.get('/super/storage', superAdminOnly, (req, res) => {
   const s = db.getSettings();
   res.json({

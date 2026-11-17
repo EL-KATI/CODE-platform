@@ -18,7 +18,7 @@ import { resultsView } from './views/results.js';
 import { mistakesView, historyView } from './views/mistakes.js';
 import { profileView } from './views/profile.js';
 import { privacyView, notFoundView } from './views/static.js';
-import { mountNotifications } from './notifications.js';
+import { mountNotifications, offerPushPermission } from './notifications.js';
 import { mountLiveJoinBtn } from './live.js';
 import { mountLoginPopup, resetLoginPopup } from './login-popup.js';
 import * as admin from './views/admin.js';
@@ -55,7 +55,7 @@ const SIDE_ICONS = {
   '/admin/bookings': '📅', '/admin/exams': '📝', '/admin/live': '📡',
   '/admin/questions': '❓', '/admin/series': '📚', '/admin/lessons': '🎓',
   '/admin/students': '👥', '/admin/users': '👤', '/admin/audit': '🔍',
-  '/admin/import': '📥', '/admin/storage': '☁️',
+  '/admin/import': '📥', '/admin/storage': '☁️', '/admin/push': '🔔',
 };
 // أيقونة لكل رابط؛ Monitor AI بارز بتنسيق خاص
 const NAV_ICON = { '/': 'home', '/dashboard': 'dashboard', '/lessons': 'book-open', '/practice': 'layers', '/exam': 'clock', '/mistakes': 'restore', '/assistant': 'sparkles', '/bookings': 'calendar', '/login': 'log-in', '/admin': 'bar-chart', '/profile': 'user', '/register': 'user-plus', '/champion': 'star' };
@@ -191,6 +191,8 @@ export function renderShell() {
   const notifMount = document.getElementById('notif-mount');
   if (notifMount && store.user) {
     mountNotifications(notifMount);
+    // عرض بانر "فعّل الإشعارات" للطلاب فقط
+    if (store.user.role === 'student') offerPushPermission();
   }
 
   // زر الانضمام للحصة الجماعية (للطلاب فقط)
@@ -379,6 +381,7 @@ route('/admin/users', view(admin.usersView), adminOnly);
 route('/admin/audit', view(admin.auditView), adminOnly);
 route('/admin/import', view(admin.importView), adminOnly);
 route('/admin/storage', view(admin.storageView), adminOnly);
+route('/admin/push', view(admin.pushView), adminOnly);
 const adminBookings = view(adminBookingsView);
 // الأدمين لا يدير حجوزات التدريب (للمؤسسة والمدرب فقط)
 route('/admin/bookings', (ctx) => (store.user?.role === 'admin' ? navigate('/admin', { replace: true }) : adminBookings(ctx)), staff);

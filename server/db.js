@@ -323,6 +323,22 @@ CREATE TABLE IF NOT EXISTS notifications (
 CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id, read, created_at DESC);
 
 -- ══════════════════════════════════════════════════════════════════════
+-- Push Subscriptions (Web Push / PWA)
+-- ══════════════════════════════════════════════════════════════════════
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id         INTEGER PRIMARY KEY,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  endpoint   TEXT    NOT NULL UNIQUE,
+  p256dh     TEXT    NOT NULL,  -- مفتاح تشفير الرسالة
+  auth       TEXT    NOT NULL,  -- مفتاح المصادقة
+  user_agent TEXT    DEFAULT '',
+  created_at TEXT    NOT NULL DEFAULT (datetime('now')),
+  last_used  TEXT    DEFAULT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions(user_id);
+
+-- ══════════════════════════════════════════════════════════════════════
 -- الحصص الجماعية المباشرة (Live Group Sessions)
 -- ══════════════════════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS live_sessions (

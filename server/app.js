@@ -60,6 +60,7 @@ function createApp() {
   api.use('/bookings', require('./routes/bookings'));
   api.use('/exams', require('./routes/exams'));
   api.use('/notifications', require('./routes/notifications'));
+  api.use('/push', require('./routes/push'));
   api.use('/translate', require('./routes/translate'));
   api.use('/live', require('./routes/live-sessions'));
   api.use((req, res) => res.status(404).json({ error: 'not_found' }));

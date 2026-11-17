@@ -5,6 +5,7 @@ const db = require('./db');
 const { seedContent, ensureAdmin } = require('./seed');
 const { ensureSeries40 } = require('./services/series40');
 const { applyContentUpdates, syncLessons } = require('./services/contentUpdate');
+const push = require('./services/pushService');
 const { createApp } = require('./app');
 
 const d = db.open();
@@ -16,6 +17,19 @@ if (lessonsUpd && lessonsUpd.updated) console.log(`Leçons interactives : ${less
 const nSeries = ensureSeries40(d);
 if (nSeries) console.log('Séries de 40 questions créées :', nSeries);
 ensureAdmin(d);
+
+// تهيئة Push Notifications (VAPID)
+try {
+  const pubRow  = d.prepare("SELECT value FROM app_secrets WHERE key='vapid_public_key'").get();
+  const privRow = d.prepare("SELECT value FROM app_secrets WHERE key='vapid_private_key'").get();
+  if (pubRow && privRow) {
+    push.init(pubRow.value, privRow.value, 'admin@code-platform.ma');
+  } else {
+    console.log('[Push] VAPID keys not configured — run: node server/setup-vapid.js');
+  }
+} catch (e) {
+  console.warn('[Push] Init skipped:', e.message);
+}
 
 const server = createApp().listen(config.port, () => {
   console.log(`Plateforme disponible sur http://localhost:${config.port}`);

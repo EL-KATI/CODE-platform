@@ -85,7 +85,7 @@ const ADMIN_TABS_CONTENT = [
 ];
 const ADMIN_TABS_MANAGE = [['/admin/users', 'admin.users'], ['/admin/audit', 'admin.audit']];
 // تبويبات السوبر أدمين الإضافية
-const SUPER_TABS = [['/admin/import', 'admin.import'], ['/admin/storage', 'admin.storage']];
+const SUPER_TABS = [['/admin/import', 'admin.import'], ['/admin/storage', 'admin.storage'], ['/admin/push', 'admin.push']];
 // المؤسسة: بيانات المؤسسة + طلابها + حجوزاتهم
 export function schoolTabs() {
   return [['/admin/live', 'live.admin.title'], ['/admin/school/enrollments', 'school.enrollments'], ['/admin/school/students', 'school.manageStudents'], ['/admin/school/instructors', 'school.manageInstructors'], ['/admin/bookings', 'nav.bookings'], ['/admin/exams', 'nav.exams'], ['/admin', 'admin.stats']];
@@ -1584,6 +1584,97 @@ export async function storageView(root) {
         result.innerHTML = `<span style="color:var(--danger)">${errorMessage(err)}</span>`;
         result.style.display = '';
         toast(errorMessage(err), 'error');
+      }
+    };
+  });
+}
+
+// ─── Admin Push Notifications ─────────────────────────────────────────────────
+export async function pushView(root) {
+  await load(root, '/admin/push', async () => {
+    // جلب إحصائيات الاشتراكات
+    let stats = { count: 0 };
+    try { stats = await api.get('/admin/super/push-stats'); } catch { /* ignore */ }
+
+    shell(root, '/admin/push', html`
+      <div class="card" style="max-width:600px">
+        <h3 style="margin-top:0;display:flex;align-items:center;gap:8px">
+          🔔 إرسال إشعار لكل المستخدمين
+          <span class="pill pill-info" style="font-size:12px">${stats.count || 0} مشترك</span>
+        </h3>
+        <form id="push-broadcast-form" class="stack" style="gap:14px">
+          <div class="form-group">
+            <label>العنوان (عربي) *</label>
+            <input name="title_ar" class="input" required placeholder="مثال: تذكير بالمذاكرة 📚">
+          </div>
+          <div class="form-group">
+            <label>النص (عربي) *</label>
+            <input name="body_ar" class="input" required placeholder="مثال: لا تنسَ مذاكرة 20 دقيقة اليوم">
+          </div>
+          <div class="form-group">
+            <label>العنوان (فرنسي)</label>
+            <input name="title_fr" class="input" placeholder="Rappel d'étude 📚">
+          </div>
+          <div class="form-group">
+            <label>النص (فرنسي)</label>
+            <input name="body_fr" class="input" placeholder="N'oubliez pas d'étudier 20 minutes aujourd'hui">
+          </div>
+          <div class="form-group">
+            <label>رابط (اختياري)</label>
+            <input name="url" class="input" placeholder="/dashboard" value="/dashboard">
+          </div>
+          <div id="push-result" style="display:none"></div>
+          <button type="submit" class="btn btn-primary" id="push-send-btn">
+            📤 إرسال للجميع
+          </button>
+        </form>
+      </div>
+
+      <div class="card" style="max-width:600px;margin-top:16px">
+        <h3 style="margin-top:0">إعداد VAPID Keys</h3>
+        <p class="muted" style="font-size:13px">
+          لتفعيل الإشعارات على الخادم، شغّل هذا الأمر مرة واحدة:
+        </p>
+        <code style="
+          display:block;background:#1c1917;padding:12px 16px;border-radius:8px;
+          font-size:13px;color:#fb923c;margin:8px 0;
+        ">node server/setup-vapid.js</code>
+        <p class="muted" style="font-size:12px">
+          يولّد مفاتيح VAPID ويحفظها في قاعدة البيانات تلقائياً.
+        </p>
+      </div>`);
+
+    root.querySelector('#push-broadcast-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const btn = root.querySelector('#push-send-btn');
+      const result = root.querySelector('#push-result');
+
+      btn.disabled = true;
+      btn.textContent = '⏳ جاري الإرسال...';
+
+      try {
+        const data = await api.post('/push/broadcast', {
+          title_ar: form.title_ar.value.trim(),
+          body_ar:  form.body_ar.value.trim(),
+          title_fr: form.title_fr.value.trim(),
+          body_fr:  form.body_fr.value.trim(),
+          url:      form.url.value.trim() || '/dashboard',
+        });
+        result.innerHTML = `<span style="color:var(--success,#2e7d32)">
+          ✅ تم الإرسال — ${data.sent} وصل، ${data.failed} فشل، ${data.expired?.length || 0} منتهٍ
+        </span>`;
+        result.style.display = '';
+        toast(`✅ أُرسل لـ ${data.sent} مشترك`, 'success');
+        form.reset();
+        form.url.value = '/dashboard';
+      } catch (err) {
+        result.innerHTML = `<span style="color:var(--danger)">${errorMessage(err)}</span>`;
+        result.style.display = '';
+        toast(errorMessage(err), 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '📤 إرسال للجميع';
       }
     };
   });
