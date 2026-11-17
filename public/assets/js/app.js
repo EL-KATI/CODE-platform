@@ -3,7 +3,7 @@ import { route, startRouter, setNavigateHook, navigate, render } from './router.
 import { store } from './store.js';
 import { watchIcons, iconSvg } from './icons.js';
 import { api } from './api.js';
-import { t, setLocale, getLocale, applyStaticTranslations, translateToLang, restoreLocale } from './i18n.js';
+import { t, setLocale, getLocale, applyStaticTranslations, restoreLocale } from './i18n.js';
 import { html, raw, esc, toast, sound } from './ui.js';
 
 import { homeView } from './views/home.js';
@@ -219,15 +219,8 @@ export function renderShell() {
 
   // ─── Language Picker ─────────────────────────────────────────────────────────
   const LANGS = [
-    { code: 'ar', name: 'العربية',    flag: '🇲🇦' },
-    { code: 'fr', name: 'Français',   flag: '🇫🇷' },
-    { code: 'en', name: 'English',    flag: '🇬🇧' },
-    { code: 'es', name: 'Español',    flag: '🇪🇸' },
-    { code: 'de', name: 'Deutsch',    flag: '🇩🇪' },
-    { code: 'it', name: 'Italiano',   flag: '🇮🇹' },
-    { code: 'pt', name: 'Português',  flag: '🇵🇹' },
-    { code: 'tr', name: 'Türkçe',     flag: '🇹🇷' },
-    { code: 'ru', name: 'Русский',    flag: '🇷🇺' },
+    { code: 'ar', name: 'العربية', flag: '🇲🇦' },
+    { code: 'fr', name: 'Français', flag: '🇫🇷' },
   ];
   const curLang = LANGS.find(l => l.code === getLocale()) || LANGS[0];
   const flagEl  = document.getElementById('lang-flag');
@@ -264,26 +257,10 @@ export function renderShell() {
 
       if (lang === getLocale()) return;
 
-      // إذا لغة ثابتة (ar/fr) → تبديل فوري
-      if (lang === 'ar' || lang === 'fr') {
-        setLocale(lang);
-        if (store.user) api.patch('/me', { locale: lang }).catch(() => {});
-        renderShell();
-        await render();
-        return;
-      }
-
-      // لغة ديناميكية → ترجمة API مع شريط تقدم
-      const toast_id = showTranslationProgress(lang);
-      try {
-        await translateToLang(lang, (p) => updateTranslationProgress(toast_id, p));
-        renderShell();
-        await render();
-      } catch (err) {
-        console.error('[i18n] translation failed:', err);
-        hideTranslationProgress(toast_id);
-        toast(t('translate.error'), 'error');
-      }
+      setLocale(lang);
+      if (store.user) api.patch('/me', { locale: lang }).catch(() => {});
+      renderShell();
+      await render();
     });
 
     // غلق عند النقر خارجاً
@@ -415,28 +392,6 @@ route('/admin/live', view(adminLiveView), { auth: true, roles: ['admin', 'school
 route('/admin/live/:id/results', view(adminLiveResultsView), { auth: true, roles: ['admin', 'school', 'instructor'] });
 route('*', view(notFoundView));
 
-// ─── شريط تقدم الترجمة ───────────────────────────────────────────────────────
-let _trProgressEl = null;
-function showTranslationProgress(lang) {
-  if (_trProgressEl) _trProgressEl.remove();
-  const el = document.createElement('div');
-  el.id = 'tr-progress-toast';
-  el.className = 'tr-progress-toast';
-  el.innerHTML = `<span class="tr-prog-label">🌐 جاري الترجمة...</span>
-    <div class="tr-prog-bar"><div class="tr-prog-fill" style="width:5%"></div></div>`;
-  document.body.appendChild(el);
-  _trProgressEl = el;
-  return el;
-}
-function updateTranslationProgress(el, p) {
-  if (!el) return;
-  const fill = el.querySelector('.tr-prog-fill');
-  if (fill) fill.style.width = `${Math.round(p * 100)}%`;
-}
-function hideTranslationProgress(el) {
-  if (el) el.remove();
-  if (_trProgressEl === el) _trProgressEl = null;
-}
 
 (async function boot() {
   try { await store.loadUser(); } catch { store.user = null; }
