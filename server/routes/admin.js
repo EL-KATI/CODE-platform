@@ -302,9 +302,9 @@ router.patch('/school/enrollments/:id', auth.requireRole('school', 'admin'), wra
     return res.status(403).json({ error: 'forbidden' });
   }
 
-  // جلب school_id الحقيقي للمؤسسة (school_id = id في جدول users)
-  const schoolUser = d.prepare("SELECT id, school_id FROM users WHERE id = ?").get(req_row.school_id);
-  const realSchoolId = schoolUser?.school_id || req_row.school_id;
+  // school_enrollments.school_id = users.id للمؤسسة، وهو نفسه users.school_id (migration تضع school_id=id)
+  // نستخدمه مباشرةً لضمان التطابق مع ما يبحث عنه GET /students
+  const realSchoolId = req_row.school_id;
 
   d.transaction(() => {
     d.prepare(`UPDATE school_enrollments SET status=?, reviewed_at=datetime('now'), reviewed_by=? WHERE id=?`)

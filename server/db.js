@@ -513,7 +513,8 @@ function open(file = config.dbFile) {
   if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type='index' AND name='ix_enrollments_school'").get())
     db.exec('CREATE INDEX ix_enrollments_school ON school_enrollments(school_id, status)');
   db.exec("UPDATE users SET school_id = id WHERE role = 'school' AND (school_id IS NULL OR school_id = '')");
-  // إصلاح: تزامن school_id للطلاب المقبولين الذين لم يُحدَّث school_id عندهم
+  // إصلاح: تزامن school_id للطلاب المقبولين — يعمل دائماً عند بدء الخادم
+  // school_enrollments.school_id = users.id للمؤسسة، وهو نفسه الذي يبحث عنه GET /students
   db.exec(`
     UPDATE users SET school_id = (
       SELECT e.school_id FROM school_enrollments e
@@ -521,10 +522,10 @@ function open(file = config.dbFile) {
       ORDER BY e.reviewed_at DESC LIMIT 1
     )
     WHERE role = 'student'
-      AND (school_id IS NULL OR school_id = '' OR school_id = 0)
       AND EXISTS (
         SELECT 1 FROM school_enrollments e
         WHERE e.student_id = users.id AND e.status = 'approved'
+          AND e.school_id != COALESCE(users.school_id, 0)
       )
   `);
   const bkCols = db.prepare('PRAGMA table_info(training_bookings)').all().map((c) => c.name);
