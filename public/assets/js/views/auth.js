@@ -9,55 +9,6 @@ function safeNext(query) {
   return n.startsWith('/') && !n.startsWith('//') ? n : '/dashboard';
 }
 
-// ── لوحة الديكور اليسرى (مشتركة بين login/register) ──────────────────────────
-function authPanel(mode) {
-  const isLogin = mode === 'login';
-  return html`
-    <div class="auth-panel">
-      <!-- ديكور هندسي -->
-      <div class="auth-deco" aria-hidden="true">
-        <span class="adeco adeco-tl"></span>
-        <span class="adeco adeco-tr"></span>
-        <span class="adeco adeco-br"></span>
-        <span class="adeco adeco-bl"></span>
-        <span class="adeco adeco-c1"></span>
-        <span class="adeco adeco-c2"></span>
-        <span class="adeco adeco-c3"></span>
-      </div>
-      <!-- محتوى الديكور -->
-      <div class="auth-panel-content">
-        <!-- لوغو -->
-        <div class="auth-logo">
-          <div class="auth-logo-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M5 15.5V12l1.6-4.2A1.5 1.5 0 0 1 8 6.8h8a1.5 1.5 0 0 1 1.4 1l1.6 4.2v3.5"/>
-              <path d="M4.5 15.5h15"/>
-              <circle cx="8" cy="15.5" r="1.6" fill="#fff" stroke="none"/>
-              <circle cx="16" cy="15.5" r="1.6" fill="#fff" stroke="none"/>
-            </svg>
-          </div>
-          <span class="auth-logo-name">CODE Platform</span>
-        </div>
-        <!-- نص -->
-        <div class="auth-panel-text">
-          <h2 class="auth-panel-h">${t(isLogin ? 'auth.panelLoginH' : 'auth.panelRegH')}</h2>
-          <p class="auth-panel-p">${t(isLogin ? 'auth.panelLoginP' : 'auth.panelRegP')}</p>
-        </div>
-        <!-- إحصائيات -->
-        <div class="auth-stats">
-          <div class="auth-stat"><strong>7</strong><span>${t('auth.statQuestions')}</span></div>
-          <div class="auth-stat"><strong>🏆</strong><span>${t('auth.statChamp')}</span></div>
-          <div class="auth-stat"><strong>✓</strong><span>${t('auth.statFree')}</span></div>
-        </div>
-        <!-- tabs التبديل بين login/register -->
-        <div class="auth-panel-switch">
-          <a href="/login"  class="auth-sw-btn ${isLogin  ? 'active' : ''}">${t('auth.login')}</a>
-          <a href="/register" class="auth-sw-btn ${!isLogin ? 'active' : ''}">${t('auth.createAccount')}</a>
-        </div>
-      </div>
-    </div>`;
-}
-
 // ── Google Sign-In button ─────────────────────────────────────────────────────
 function googleBtn() {
   return raw(`<button type="button" id="btn-google" class="auth-google-btn">
@@ -71,47 +22,173 @@ function googleBtn() {
 </button>`);
 }
 
-// ── Login ─────────────────────────────────────────────────────────────────────
-export function loginView(root, { query }) {
-  root.innerHTML = html`
-    <div class="auth-layout">
-      ${authPanel('login')}
-      <div class="auth-form-side">
-        <div class="auth-form-box">
-          <h1 class="auth-form-title">${t('auth.loginTitle')}</h1>
-          <p class="muted auth-form-sub">${t('auth.loginSubtitle')}</p>
-          <div id="err" class="form-error" role="alert" hidden></div>
-          <form id="f" novalidate class="auth-form">
-            <div class="field">
-              <label for="email">${t('auth.email')}</label>
-              <input id="email" name="email" type="email" autocomplete="email" required dir="ltr" placeholder="example@gmail.com">
+// ── الصفحة الموحدة (login + register) ────────────────────────────────────────
+function authPageHtml(tab, query) {
+  const isLogin = tab === 'login';
+  const nextParam = query.next ? `?next=${encodeURIComponent(query.next)}` : '';
+
+  return html`
+    <div class="auth-wrap">
+      <!-- لوحة اليسار / الأعلى (ديكور + إحصائيات) -->
+      <div class="auth-deco-panel">
+        <div class="auth-deco-shapes" aria-hidden="true">
+          <span class="adeco adeco-tl"></span>
+          <span class="adeco adeco-tr"></span>
+          <span class="adeco adeco-br"></span>
+          <span class="adeco adeco-bl"></span>
+          <span class="adeco adeco-c3"></span>
+        </div>
+        <div class="auth-deco-body">
+          <div class="auth-brand">
+            <div class="auth-brand-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24"
+                   fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 15.5V12l1.6-4.2A1.5 1.5 0 0 1 8 6.8h8a1.5 1.5 0 0 1 1.4 1l1.6 4.2v3.5"/>
+                <path d="M4.5 15.5h15"/>
+                <circle cx="8"  cy="15.5" r="1.6" fill="#fff" stroke="none"/>
+                <circle cx="16" cy="15.5" r="1.6" fill="#fff" stroke="none"/>
+              </svg>
             </div>
-            <div class="field">
-              <label for="password">${t('auth.password')}</label>
-              <input id="password" name="password" type="password" autocomplete="current-password" required dir="ltr" placeholder="••••••••">
+            <span class="auth-brand-name">CODE Platform</span>
+          </div>
+          <div class="auth-deco-text">
+            <h2 class="auth-deco-h">${t('auth.panelLoginH')}</h2>
+            <p class="auth-deco-p">${t('auth.panelLoginP')}</p>
+          </div>
+          <div class="auth-feats">
+            <div class="auth-feat">
+              <span class="auth-feat-icon">📚</span>
+              <span>${t('auth.statQuestions')}</span>
             </div>
-            <button class="btn btn-primary btn-lg auth-submit" type="submit">${t('auth.login')}</button>
-          </form>
-          <div class="auth-divider"><hr><span>${t('auth.orContinueWith')}</span><hr></div>
-          ${googleBtn()}
-          <p class="auth-switch-link">
-            ${t('auth.noAccount')} <a href="/register${query.next ? `?next=${encodeURIComponent(query.next)}` : ''}">${t('auth.createAccount')}</a>
-          </p>
+            <div class="auth-feat">
+              <span class="auth-feat-icon">🏆</span>
+              <span>${t('auth.statChamp')}</span>
+            </div>
+            <div class="auth-feat">
+              <span class="auth-feat-icon">✓</span>
+              <span>${t('auth.statFree')}</span>
+            </div>
+          </div>
         </div>
       </div>
-    </div>`.s;
 
-  root.querySelector('#btn-google').onclick = () => { window.location.href = '/api/auth/google'; };
+      <!-- منطقة النموذج -->
+      <div class="auth-form-area">
+        <div class="auth-card-box">
+          <!-- تبويبات الدخول / التسجيل -->
+          <div class="auth-tabs">
+            <button class="auth-tab ${isLogin ? 'active' : ''}" data-tab="login">${t('auth.login')}</button>
+            <button class="auth-tab ${!isLogin ? 'active' : ''}" data-tab="register">${t('auth.createAccount')}</button>
+          </div>
 
-  const f = root.querySelector('#f');
-  f.onsubmit = async (e) => {
+          <!-- ─── نموذج الدخول ───────────────────── -->
+          <div id="pane-login" class="auth-pane ${isLogin ? '' : 'hidden'}">
+            <div id="err-login" class="form-error" role="alert" hidden></div>
+            <form id="f-login" novalidate class="auth-form">
+              <div class="field">
+                <label for="login-email">${t('auth.email')}</label>
+                <input id="login-email" name="email" type="email" autocomplete="email"
+                       required dir="ltr" placeholder="example@gmail.com">
+              </div>
+              <div class="field">
+                <label for="login-pass">
+                  ${t('auth.password')}
+                  <a href="/forgot-password" class="auth-forgot-link">${t('auth.forgotPassword')}</a>
+                </label>
+                <input id="login-pass" name="password" type="password"
+                       autocomplete="current-password" required dir="ltr" placeholder="••••••••">
+              </div>
+              <button class="btn btn-primary btn-lg auth-submit" type="submit">${t('auth.login')}</button>
+            </form>
+            <div class="auth-divider"><hr><span>${t('auth.orContinueWith')}</span><hr></div>
+            ${googleBtn()}
+          </div>
+
+          <!-- ─── نموذج التسجيل ─────────────────── -->
+          <div id="pane-register" class="auth-pane ${!isLogin ? '' : 'hidden'}">
+            <div id="err-register" class="form-error" role="alert" hidden></div>
+            ${googleBtn()}
+            <div class="auth-divider"><hr><span>${t('auth.orContinueWith')}</span><hr></div>
+            <form id="f-register" novalidate class="auth-form">
+              <div class="auth-name-row">
+                <div class="field" style="margin:0">
+                  <label for="reg-first">${t('auth.firstName')} *</label>
+                  <input id="reg-first" class="input" name="first_name" required maxlength="80"
+                         placeholder="${t('auth.firstName')}" autocomplete="given-name">
+                </div>
+                <div class="field" style="margin:0">
+                  <label for="reg-last">${t('auth.lastName')} *</label>
+                  <input id="reg-last" class="input" name="last_name" required maxlength="80"
+                         placeholder="${t('auth.lastName')}" autocomplete="family-name">
+                </div>
+              </div>
+              <div class="field">
+                <label for="reg-email">${t('auth.email')} *</label>
+                <input id="reg-email" class="input" name="email" type="email"
+                       autocomplete="email" required dir="ltr" placeholder="example@gmail.com">
+              </div>
+              <div class="auth-name-row">
+                <div class="field" style="margin:0">
+                  <label for="reg-phone">${t('auth.phone')} *</label>
+                  <input id="reg-phone" class="input" name="phone" type="tel" required
+                         maxlength="20" placeholder="06xxxxxxxx" autocomplete="tel">
+                </div>
+                <div class="field" style="margin:0">
+                  <label for="reg-city">${t('auth.city')}</label>
+                  <input id="reg-city" class="input" name="city" maxlength="80"
+                         placeholder="Casablanca" autocomplete="address-level2">
+                </div>
+              </div>
+              <div class="auth-pass-hint">🔑 ${t('auth.autoPassword')}</div>
+              <label class="check field" style="margin-bottom:16px">
+                <input type="checkbox" name="terms" required>
+                <span>${t('auth.acceptTerms')} <a href="/privacy" target="_blank">${t('footer.privacy')}</a></span>
+              </label>
+              <button class="btn btn-primary btn-lg auth-submit" type="submit">${t('auth.createAccount')}</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ── View موحد يخدم /login و /register ────────────────────────────────────────
+function mountAuthView(root, { query }, defaultTab) {
+  root.innerHTML = authPageHtml(defaultTab, query).s;
+
+  // تبديل التبويبات
+  root.querySelectorAll('.auth-tab').forEach(btn => {
+    btn.onclick = () => {
+      const tab = btn.dataset.tab;
+      root.querySelectorAll('.auth-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+      root.querySelectorAll('.auth-pane').forEach(p => p.classList.toggle('hidden', p.id !== `pane-${tab}`));
+      // تحديث URL بدون إعادة تحميل
+      const nextParam = query.next ? `?next=${encodeURIComponent(query.next)}` : '';
+      history.replaceState(null, '', `/${tab}${nextParam}`);
+    };
+  });
+
+  // Google buttons (يوجد زران — واحد في كل pane)
+  root.querySelectorAll('#btn-google').forEach(btn => {
+    btn.onclick = () => { window.location.href = '/api/auth/google'; };
+  });
+
+  // ── نموذج الدخول ──
+  const fLogin = root.querySelector('#f-login');
+  fLogin.onsubmit = async (e) => {
     e.preventDefault();
-    const btn = f.querySelector('button[type=submit]');
-    const err = root.querySelector('#err');
+    const btn = fLogin.querySelector('button[type=submit]');
+    const err = root.querySelector('#err-login');
     err.hidden = true; btn.disabled = true; btn.textContent = '…';
     try {
-      const result = await api.post('/auth/login', { email: f.email.value, password: f.password.value });
-      if (result.requiresOtp) { navigate(`/verify-otp?email=${encodeURIComponent(result.email)}`, { replace: true }); return; }
+      const result = await api.post('/auth/login', {
+        email: fLogin.email.value,
+        password: fLogin.password.value,
+      });
+      if (result.requiresOtp) {
+        navigate(`/verify-otp?email=${encodeURIComponent(result.email)}`, { replace: true });
+        return;
+      }
       store.user = result.user;
       setLocale(result.user.locale || getLocale());
       toast(t('auth.welcome', { name: result.user.name }));
@@ -119,76 +196,26 @@ export function loginView(root, { query }) {
     } catch (ex) {
       err.textContent = errorMessage(ex); err.hidden = false;
       btn.disabled = false; btn.textContent = t('auth.login');
-      f.password.focus();
+      fLogin.password.focus();
     }
   };
-}
 
-// ── Register ──────────────────────────────────────────────────────────────────
-export function registerView(root, { query }) {
-  root.innerHTML = html`
-    <div class="auth-layout">
-      ${authPanel('register')}
-      <div class="auth-form-side">
-        <div class="auth-form-box">
-          <h1 class="auth-form-title">${t('auth.registerTitle')}</h1>
-          <p class="muted auth-form-sub">${t('auth.registerSubtitle')}</p>
-          <div id="err" class="form-error" role="alert" hidden></div>
-          ${googleBtn()}
-          <div class="auth-divider"><hr><span>${t('auth.orContinueWith')}</span><hr></div>
-          <form id="f" novalidate class="auth-form">
-            <div class="auth-name-row">
-              <div class="field" style="margin:0">
-                <label for="first_name">${t('auth.firstName')} *</label>
-                <input id="first_name" class="input" name="first_name" required maxlength="80" placeholder="الاسم" autocomplete="given-name">
-              </div>
-              <div class="field" style="margin:0">
-                <label for="last_name">${t('auth.lastName')} *</label>
-                <input id="last_name" class="input" name="last_name" required maxlength="80" placeholder="النسب" autocomplete="family-name">
-              </div>
-            </div>
-            <div class="field">
-              <label for="email">${t('auth.email')} *</label>
-              <input id="email" class="input" name="email" type="email" autocomplete="email" required dir="ltr" placeholder="example@gmail.com">
-            </div>
-            <div class="auth-name-row">
-              <div class="field" style="margin:0">
-                <label for="phone">${t('auth.phone')} *</label>
-                <input id="phone" class="input" name="phone" type="tel" required maxlength="20" placeholder="06xxxxxxxx" autocomplete="tel">
-              </div>
-              <div class="field" style="margin:0">
-                <label for="city">${t('auth.city')}</label>
-                <input id="city" class="input" name="city" maxlength="80" placeholder="Casablanca" autocomplete="address-level2">
-              </div>
-            </div>
-            <div class="auth-pass-hint">🔑 ${t('auth.autoPassword')}</div>
-            <label class="check field" style="margin-bottom:16px">
-              <input type="checkbox" name="terms" required>
-              <span>${t('auth.acceptTerms')} <a href="/privacy" target="_blank">${t('footer.privacy')}</a></span>
-            </label>
-            <button class="btn btn-primary btn-lg auth-submit" type="submit">${t('auth.createAccount')}</button>
-          </form>
-          <p class="auth-switch-link">
-            ${t('auth.haveAccount')} <a href="/login">${t('auth.login')}</a>
-          </p>
-        </div>
-      </div>
-    </div>`.s;
-
-  root.querySelector('#btn-google').onclick = () => { window.location.href = '/api/auth/google'; };
-
-  const f = root.querySelector('#f');
-  f.onsubmit = async (e) => {
+  // ── نموذج التسجيل ──
+  const fReg = root.querySelector('#f-register');
+  fReg.onsubmit = async (e) => {
     e.preventDefault();
-    const btn = f.querySelector('button[type=submit]');
-    const err = root.querySelector('#err');
+    const btn = fReg.querySelector('button[type=submit]');
+    const err = root.querySelector('#err-register');
     err.hidden = true; btn.disabled = true; btn.textContent = '…';
     try {
       const body = {
-        acceptTerms: f.terms.checked, locale: getLocale(),
-        first_name: f.first_name.value.trim(), last_name: f.last_name.value.trim(),
-        email: f.email.value.trim(), phone: f.phone.value.trim(),
-        city: f.city.value.trim() || undefined,
+        acceptTerms: fReg.terms.checked,
+        locale: getLocale(),
+        first_name: fReg.first_name.value.trim(),
+        last_name: fReg.last_name.value.trim(),
+        email: fReg.email.value.trim(),
+        phone: fReg.phone.value.trim(),
+        city: fReg.city.value.trim() || undefined,
       };
       const { user, generatedPassword } = await api.post('/auth/register', body);
       store.user = user;
@@ -202,33 +229,34 @@ export function registerView(root, { query }) {
   };
 }
 
+export function loginView(root, ctx)    { mountAuthView(root, ctx, 'login'); }
+export function registerView(root, ctx) { mountAuthView(root, ctx, 'register'); }
+
 // ── OTP ───────────────────────────────────────────────────────────────────────
 export function verifyOtpView(root, { query }) {
   const email = decodeURIComponent(query.email || '');
 
   root.innerHTML = html`
-    <div class="auth-layout">
-      ${authPanel('login')}
-      <div class="auth-form-side">
-        <div class="auth-form-box">
-          <div class="auth-otp-icon">🔐</div>
-          <h1 class="auth-form-title">${t('auth.otpTitle')}</h1>
-          <p class="muted auth-form-sub">${t('auth.otpSubtitle', { email })}</p>
-          <div id="err" class="form-error" role="alert" hidden></div>
-          <form id="f" novalidate class="auth-form">
-            <div class="field" style="margin-bottom:20px">
-              <label for="code">${t('auth.otpCode')}</label>
-              <input id="code" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}"
-                maxlength="6" autocomplete="one-time-code" required dir="ltr"
-                placeholder="● ● ● ● ● ●" class="auth-otp-input">
-            </div>
-            <button class="btn btn-primary btn-lg auth-submit" type="submit">${t('auth.otpVerify')}</button>
-          </form>
-          <div style="margin-top:16px;text-align:center">
-            <button id="btn-resend" class="btn btn-ghost btn-sm">${t('auth.otpResend')}</button>
+    <div class="auth-wrap auth-wrap--narrow">
+      <div class="auth-card-box auth-card-box--center">
+        <div class="auth-otp-icon">🔐</div>
+        <h1 class="auth-form-title">${t('auth.otpTitle')}</h1>
+        <p class="muted auth-form-sub">${t('auth.otpSubtitle', { email })}</p>
+        <div id="err" class="form-error" role="alert" hidden></div>
+        <form id="f" novalidate class="auth-form">
+          <div class="field" style="margin-bottom:20px">
+            <label for="code">${t('auth.otpCode')}</label>
+            <input id="code" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}"
+              maxlength="6" autocomplete="one-time-code" required dir="ltr"
+              placeholder="● ● ● ● ● ●" class="auth-otp-input">
           </div>
-          <p id="timer" class="small muted" style="text-align:center;margin-top:8px"></p>
+          <button class="btn btn-primary btn-lg auth-submit" type="submit">${t('auth.otpVerify')}</button>
+        </form>
+        <div style="margin-top:16px;text-align:center">
+          <button id="btn-resend" class="btn btn-ghost btn-sm">${t('auth.otpResend')}</button>
         </div>
+        <p id="timer" class="small muted" style="text-align:center;margin-top:8px"></p>
+        <p class="auth-switch-link"><a href="/login">${t('auth.backToLogin')}</a></p>
       </div>
     </div>`.s;
 
@@ -283,8 +311,6 @@ export function verifyOtpView(root, { query }) {
 // ── Enroll ────────────────────────────────────────────────────────────────────
 async function _loadEnrollStatus(root) {
   try {
-    const { navigate } = await import('../router.js');
-    const { store } = await import('../store.js');
     const rows = await api.get('/admin/enroll/status');
     const box = root.querySelector('#status-box');
     const form = root.querySelector('#enroll-f');
@@ -292,7 +318,6 @@ async function _loadEnrollStatus(root) {
     if (rows && rows.length) {
       const r = rows[0];
       if (r.status === 'approved') {
-        // تم القبول — تحديث بيانات المستخدم
         try {
           const meData = await api.get('/auth/me');
           if (meData?.user) store.user = meData.user;
@@ -314,7 +339,6 @@ async function _loadEnrollStatus(root) {
           </div>`;
         if (form) form.style.display = 'none';
       } else {
-        // rejected — أعرض الحالة وأُبقي النموذج
         box.innerHTML = `
           <div style="padding:12px 14px;border-radius:8px;background:var(--surface-2);border:1.5px solid var(--red-600);margin-bottom:16px;font-size:.9rem">
             🏫 <strong>${r.school_name || ''}</strong> — <span style="color:var(--red-600)">${t('auth.enrollRejected')}</span>
