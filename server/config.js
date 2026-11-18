@@ -20,6 +20,10 @@ module.exports = {
   uploadsDir: process.env.UPLOADS_DIR || path.join(ROOT, 'public', 'uploads'),
   jwtSecret: secret(),
   sessionDays: Number(process.env.SESSION_DAYS) || 7,
+  // Google OAuth / Drive
+  googleClientId:     process.env.GOOGLE_CLIENT_ID     || '',
+  googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+  googleRedirectUri:  process.env.GOOGLE_REDIRECT_URI  || 'http://localhost:3000/auth/google/callback',
   // Paramètres de l'examen théorique (catégorie B, Maroc) – modifiables par l'admin dans « Paramètres ».
   examDefaults: {
     exam_question_count: 40,

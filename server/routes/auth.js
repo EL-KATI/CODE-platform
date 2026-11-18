@@ -6,6 +6,7 @@ const db = require('../db');
 const auth = require('../auth');
 const mailer = require('../services/mailer');
 const { wrap, str, bad, EMAIL_RE, HttpError } = require('../http');
+const drive = require('../services/googleDrive');
 
 const router = express.Router();
 const limiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, standardHeaders: 'draft-7', legacyHeaders: false, message: { error: 'too_many_requests' } });
@@ -258,6 +259,20 @@ router.post('/logout', (req, res) => {
 
 router.get('/me', (req, res) => res.json({ user: auth.publicUser(req.user), ...(req.sessionReplaced ? { reason: 'session_replaced' } : {}) }));
 
+
+// ── Google Drive OAuth Callback ───────────────────────────────────────────────
+// يُستخدم مرة واحدة فقط لربط Drive بالمشروع
+router.get('/google/drive-callback', wrap(async (req, res) => {
+  const code = req.query.code;
+  if (!code) return res.redirect('/admin?drive=error');
+  try {
+    await drive.exchangeCode(code);
+    res.redirect('/admin?drive=connected');
+  } catch (e) {
+    console.error('Drive callback error:', e.message);
+    res.redirect('/admin?drive=error');
+  }
+}));
 
 module.exports = router;
 module.exports.password = password;

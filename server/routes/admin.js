@@ -13,6 +13,7 @@ const config = require('../config');
 const auth = require('../auth');
 const progress = require('../services/progress');
 const { wrap, str, int, optInt, bad, notFound, EMAIL_RE, HttpError } = require('../http');
+const drive = require('../services/googleDrive');
 
 const router = express.Router();
 
@@ -504,7 +505,7 @@ router.post('/questions-import', instructorReadOnly, wrap(async (req, res) => {
   res.json({ created, errors: errors.slice(0, 50) });
 }));
 
-// Téléversement d'image (JSON base64, 2 Mo max) -> /uploads/<hash>.<ext>
+// Téléversement d'image (JSON base64, 2 Mo max) -> Google Drive أو /uploads/<hash>.<ext>
 router.post('/uploads', instructorReadOnly, wrap(async (req, res) => {
   const m = /^data:image\/(png|jpe?g|webp|gif|svg\+xml);base64,([A-Za-z0-9+/=]+)$/.exec((req.body && req.body.dataUrl) || '');
   if (!m) throw bad('invalid_image');
@@ -513,13 +514,22 @@ router.post('/uploads', instructorReadOnly, wrap(async (req, res) => {
   const ext = { png: 'png', jpg: 'jpg', jpeg: 'jpg', webp: 'webp', gif: 'gif', 'svg+xml': 'svg' }[m[1]];
   if (ext === 'svg' && /<script|on\w+\s*=|javascript:/i.test(buf.toString('utf8'))) throw bad('invalid_image');
   const name = `${crypto.createHash('sha256').update(buf).digest('hex').slice(0, 24)}.${ext}`;
+
+  // ─── Google Drive (إذا مربوط) ───────────────────────────────────────────────
+  if (drive.isDriveConnected()) {
+    const { url } = await drive.uploadImage(buf, name);
+    db.audit(req.user.id, 'upload', 'image', null, { name, drive: true });
+    return res.status(201).json({ url });
+  }
+
+  // ─── محلي (fallback) ────────────────────────────────────────────────────────
   fs.mkdirSync(config.uploadsDir, { recursive: true });
   fs.writeFileSync(path.join(config.uploadsDir, name), buf);
   db.audit(req.user.id, 'upload', 'image', null, { name });
   res.status(201).json({ url: `/uploads/${name}` });
 }));
 
-// Téléversement de vidéo (corps binaire brut mp4/webm, 30 Mo max) -> /uploads/<hash>.<ext>
+// Téléversement de vidéo (corps binaire brut mp4/webm, 30 Mo max) -> Google Drive أو /uploads/<hash>.<ext>
 router.post('/uploads-video', instructorReadOnly, express.raw({ type: ['video/mp4', 'video/webm'], limit: '30mb' }), wrap(async (req, res) => {
   const buf = req.body;
   if (!Buffer.isBuffer(buf) || !buf.length) throw bad('invalid_video');
@@ -528,13 +538,22 @@ router.post('/uploads-video', instructorReadOnly, express.raw({ type: ['video/mp
   if (!isMp4 && !isWebm) throw bad('invalid_video');
   const ext = isMp4 ? 'mp4' : 'webm';
   const name = `${crypto.createHash('sha256').update(buf).digest('hex').slice(0, 24)}.${ext}`;
+
+  // ─── Google Drive ────────────────────────────────────────────────────────────
+  if (drive.isDriveConnected()) {
+    const { url } = await drive.uploadVideo(buf, name);
+    db.audit(req.user.id, 'upload', 'video', null, { name, drive: true });
+    return res.status(201).json({ url });
+  }
+
+  // ─── محلي ───────────────────────────────────────────────────────────────────
   fs.mkdirSync(config.uploadsDir, { recursive: true });
   fs.writeFileSync(path.join(config.uploadsDir, name), buf);
   db.audit(req.user.id, 'upload', 'video', null, { name });
   res.status(201).json({ url: `/uploads/${name}` });
 }));
 
-// Téléversement audio (mp3/ogg/wav, 10 Mo max) -> /audio/<id>.<ext>
+// Téléversement audio (mp3/ogg/wav, 10 Mo max) -> Google Drive أو /audio/<id>.<ext>
 router.post('/uploads-audio/:id', instructorReadOnly, express.raw({ type: ['audio/mpeg', 'audio/mp3', 'audio/ogg', 'audio/wav', 'audio/webm'], limit: '10mb' }), wrap(async (req, res) => {
   const id = int(req.params.id, { min: 1, field: 'id' });
   const buf = req.body;
@@ -544,14 +563,23 @@ router.post('/uploads-audio/:id', instructorReadOnly, express.raw({ type: ['audi
   if (ct.includes('ogg')) ext = 'ogg';
   else if (ct.includes('wav')) ext = 'wav';
   else if (ct.includes('webm')) ext = 'webm';
+  const filename = `${id}.${ext}`;
+
+  // ─── Google Drive ────────────────────────────────────────────────────────────
+  if (drive.isDriveConnected()) {
+    const { url } = await drive.uploadAudio(buf, filename);
+    db.get().prepare('UPDATE questions SET audio_file = ? WHERE id = ?').run(url, id);
+    db.audit(req.user.id, 'upload', 'audio', id, { filename, drive: true });
+    return res.status(201).json({ url });
+  }
+
+  // ─── محلي ───────────────────────────────────────────────────────────────────
   const audioDir = path.join(__dirname, '../../public/audio');
   fs.mkdirSync(audioDir, { recursive: true });
-  // احذف الملفات القديمة لنفس السؤال
   for (const e of ['mp3', 'ogg', 'wav', 'webm']) {
     const old = path.join(audioDir, `${id}.${e}`);
     if (fs.existsSync(old)) fs.unlinkSync(old);
   }
-  const filename = `${id}.${ext}`;
   fs.writeFileSync(path.join(audioDir, filename), buf);
   const url = `/audio/${filename}`;
   db.get().prepare('UPDATE questions SET audio_file = ? WHERE id = ?').run(url, id);
@@ -570,6 +598,19 @@ router.delete('/uploads-audio/:id', instructorReadOnly, wrap(async (req, res) =>
   db.get().prepare('UPDATE questions SET audio_file = NULL WHERE id = ?').run(id);
   db.audit(req.user.id, 'delete', 'audio', id);
   res.json({ ok: true });
+}));
+
+// --- Google Drive Auth -------------------------------------------------------
+
+// حالة Drive
+router.get('/drive/status', auth.adminOnly, wrap(async (req, res) => {
+  res.json({ connected: drive.isDriveConnected() });
+}));
+
+// رابط المصادقة (أدمن فقط)
+router.get('/drive/auth', auth.adminOnly, wrap(async (req, res) => {
+  const url = drive.getAuthUrl();
+  res.json({ url });
 }));
 
 // --- Séries -------------------------------------------------------------------
