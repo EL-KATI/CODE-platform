@@ -79,7 +79,8 @@ router.post('/register', limiter, wrap(async (req, res) => {
 // ── Google OAuth ──────────────────────────────────────────────────────────────
 const GOOGLE_CLIENT_ID     = process.env.GOOGLE_CLIENT_ID || '';
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
-const GOOGLE_REDIRECT_URI  = process.env.GOOGLE_REDIRECT_URI || '';
+// Sign-in always uses /auth/google/callback — separate from Drive's redirect URI
+const GOOGLE_SIGNIN_URI = (process.env.APP_URL || 'http://localhost:3000') + '/auth/google/callback';
 
 function googleFetch(url, options = {}) {
   return new Promise((resolve, reject) => {
@@ -104,7 +105,7 @@ router.get('/google', (req, res) => {
   res.cookie('oauth_state', state, { httpOnly: true, sameSite: 'lax', maxAge: 300_000 });
   const params = new URLSearchParams({
     client_id: GOOGLE_CLIENT_ID,
-    redirect_uri: GOOGLE_REDIRECT_URI,
+    redirect_uri: GOOGLE_SIGNIN_URI,
     response_type: 'code',
     scope: 'openid email profile',
     state,
@@ -130,7 +131,7 @@ router.get('/google/callback', wrap(async (req, res) => {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       code, client_id: GOOGLE_CLIENT_ID, client_secret: GOOGLE_CLIENT_SECRET,
-      redirect_uri: GOOGLE_REDIRECT_URI, grant_type: 'authorization_code',
+      redirect_uri: GOOGLE_SIGNIN_URI, grant_type: 'authorization_code',
     }).toString(),
   });
   if (tokenRes.status !== 200) return res.redirect('/login?error=token_exchange_failed');
