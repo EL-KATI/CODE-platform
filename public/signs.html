@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>علامات التشوير — CODE Platform</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, #1e293b, #0f172a);
+      border-bottom: 1px solid #334155;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header-logo {
+      font-size: 22px;
+      font-weight: 800;
+      color: #f59e0b;
+      text-decoration: none;
+    }
+    .header-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #f1f5f9;
+    }
+    .header-sep { color: #475569; margin: 0 4px; }
+
+    /* Search */
+    .search-bar {
+      padding: 20px 24px 0;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .search-input {
+      width: 100%;
+      padding: 12px 20px;
+      border-radius: 12px;
+      border: 2px solid #334155;
+      background: #1e293b;
+      color: #f1f5f9;
+      font-size: 16px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .search-input:focus { border-color: #f59e0b; }
+    .search-input::placeholder { color: #64748b; }
+
+    /* Category Tabs */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      padding: 16px 24px;
+      max-width: 1200px;
+      margin: 0 auto;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab {
+      padding: 8px 16px;
+      border-radius: 20px;
+      border: 2px solid #334155;
+      background: transparent;
+      color: #94a3b8;
+      cursor: pointer;
+      white-space: nowrap;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .tab:hover { border-color: #f59e0b; color: #f59e0b; }
+    .tab.active { background: #f59e0b; border-color: #f59e0b; color: #0f172a; }
+
+    /* Stats */
+    .stats {
+      padding: 0 24px 8px;
+      max-width: 1200px;
+      margin: 0 auto;
+      color: #64748b;
+      font-size: 13px;
+    }
+
+    /* Signs Grid */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px;
+      padding: 0 24px 32px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* Sign Card */
+    .sign-card {
+      background: #1e293b;
+      border-radius: 16px;
+      border: 2px solid #334155;
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+    }
+    .sign-card:hover {
+      border-color: #f59e0b;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(245,158,11,0.15);
+    }
+
+    .sign-img-wrap {
+      background: #f8fafc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 140px;
+      position: relative;
+      overflow: hidden;
+    }
+    .sign-img {
+      max-width: 100px;
+      max-height: 110px;
+      object-fit: contain;
+    }
+    .sign-img-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* SVG Signs */
+    .svg-sign { width: 90px; height: 90px; }
+
+    .sign-code {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      background: rgba(15,23,42,0.85);
+      color: #f59e0b;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-family: monospace;
+    }
+
+    .sign-info {
+      padding: 12px 14px;
+    }
+    .sign-name-ar {
+      font-size: 14px;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin-bottom: 4px;
+      line-height: 1.4;
+    }
+    .sign-name-fr {
+      font-size: 11px;
+      color: #64748b;
+      margin-bottom: 8px;
+    }
+    .sign-desc {
+      font-size: 12px;
+      color: #94a3b8;
+      line-height: 1.5;
+    }
+
+    .cat-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 10px;
+      margin-top: 8px;
+    }
+    .cat-danger { background: #7f1d1d; color: #fca5a5; }
+    .cat-interdiction { background: #7f1d1d; color: #fca5a5; }
+    .cat-obligation { background: #1e3a5f; color: #93c5fd; }
+    .cat-priorite { background: #78350f; color: #fcd34d; }
+    .cat-indication { background: #1e3a5f; color: #93c5fd; }
+
+    /* Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: #1e293b;
+      border-radius: 20px;
+      border: 2px solid #334155;
+      max-width: 440px;
+      width: 100%;
+      overflow: hidden;
+    }
+    .modal-img {
+      background: #f8fafc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 200px;
+    }
+    .modal-img img { max-height: 170px; max-width: 170px; object-fit: contain; }
+    .modal-body { padding: 24px; }
+    .modal-code { color: #f59e0b; font-family: monospace; font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+    .modal-title { font-size: 20px; font-weight: 800; color: #f1f5f9; margin-bottom: 4px; }
+    .modal-title-fr { font-size: 14px; color: #64748b; margin-bottom: 16px; }
+    .modal-desc { font-size: 15px; color: #cbd5e1; line-height: 1.7; margin-bottom: 16px; }
+    .modal-cat { font-size: 13px; color: #94a3b8; }
+    .modal-close {
+      display: block;
+      width: 100%;
+      margin-top: 20px;
+      padding: 12px;
+      border-radius: 10px;
+      background: #334155;
+      color: #f1f5f9;
+      border: none;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+    .modal-close:hover { background: #475569; }
+
+    /* Empty State */
+    .empty {
+      text-align: center;
+      padding: 64px 24px;
+      color: #475569;
+      grid-column: 1/-1;
+    }
+    .empty svg { width: 64px; height: 64px; margin-bottom: 16px; opacity: 0.4; }
+    .empty p { font-size: 16px; }
+
+    /* Loading */
+    .loading {
+      text-align: center;
+      padding: 64px;
+      color: #64748b;
+      grid-column: 1/-1;
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <a href="/" class="header-logo">CODE</a>
+  <span class="header-sep">/</span>
+  <span class="header-title">علامات التشوير</span>
+</div>
+
+<div class="search-bar">
+  <input type="text" class="search-input" id="searchInput"
+         placeholder="🔍  ابحث عن علامة بالاسم أو الرمز...">
+</div>
+
+<div class="tabs" id="tabsContainer">
+  <button class="tab active" data-cat="">الكل</button>
+</div>
+
+<div class="stats" id="statsEl">جارٍ التحميل...</div>
+
+<div class="grid" id="grid">
+  <div class="loading">⏳ جارٍ تحميل العلامات...</div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-img" id="modalImgWrap"></div>
+    <div class="modal-body">
+      <div class="modal-code" id="modalCode"></div>
+      <div class="modal-title" id="modalTitle"></div>
+      <div class="modal-title-fr" id="modalTitleFr"></div>
+      <div class="modal-desc" id="modalDesc"></div>
+      <div class="modal-cat" id="modalCat"></div>
+      <button class="modal-close" id="modalCloseBtn">إغلاق</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let allSigns = [];
+  let allCategories = [];
+  let currentCat = '';
+  let searchTimer = null;
+
+  // SVG placeholders by category
+  function getSignSVG(sign, categories) {
+    const cat = categories.find(c => c.id === sign.category);
+    const shape = cat ? cat.shape : 'circle';
+
+    if (shape === 'triangle') {
+      // Danger - Red triangle
+      return `<svg class="svg-sign" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <polygon points="50,8 95,88 5,88" fill="white" stroke="#e74c3c" stroke-width="6"/>
+        <text x="50" y="68" text-anchor="middle" font-size="13" font-family="Arial,sans-serif" fill="#e74c3c" font-weight="bold">${sign.code}</text>
+      </svg>`;
+    } else if (shape === 'circle') {
+      // Interdiction - White circle red border
+      return `<svg class="svg-sign" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="50" cy="50" r="44" fill="white" stroke="#e74c3c" stroke-width="7"/>
+        <line x1="22" y1="22" x2="78" y2="78" stroke="#e74c3c" stroke-width="7"/>
+        <text x="50" y="55" text-anchor="middle" font-size="12" font-family="Arial,sans-serif" fill="#c0392b" font-weight="bold">${sign.code}</text>
+      </svg>`;
+    } else if (shape === 'circle-blue') {
+      // Obligation - Blue circle
+      return `<svg class="svg-sign" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="50" cy="50" r="44" fill="#2980b9"/>
+        <text x="50" y="55" text-anchor="middle" font-size="13" font-family="Arial,sans-serif" fill="white" font-weight="bold">${sign.code}</text>
+      </svg>`;
+    } else if (shape === 'diamond') {
+      // Priority - Yellow diamond
+      return `<svg class="svg-sign" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <polygon points="50,5 95,50 50,95 5,50" fill="#f39c12"/>
+        <text x="50" y="55" text-anchor="middle" font-size="12" font-family="Arial,sans-serif" fill="white" font-weight="bold">${sign.code}</text>
+      </svg>`;
+    } else {
+      // Indication - Blue rectangle
+      return `<svg class="svg-sign" viewBox="0 0 110 80" xmlns="http://www.w3.org/2000/svg">
+        <rect x="5" y="5" width="100" height="70" rx="8" fill="#2980b9"/>
+        <text x="55" y="47" text-anchor="middle" font-size="13" font-family="Arial,sans-serif" fill="white" font-weight="bold">${sign.code}</text>
+      </svg>`;
+    }
+  }
+
+  function getCatBadgeClass(catId) {
+    return `cat-badge cat-${catId}`;
+  }
+
+  function getCatName(catId) {
+    const c = allCategories.find(c => c.id === catId);
+    return c ? c.name_ar : catId;
+  }
+
+  function renderGrid(signs) {
+    const grid = document.getElementById('grid');
+    document.getElementById('statsEl').textContent = `${signs.length} علامة`;
+
+    if (!signs.length) {
+      grid.innerHTML = `<div class="empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+        </svg>
+        <p>لم يتم العثور على علامات مطابقة</p>
+      </div>`;
+      return;
+    }
+
+    grid.innerHTML = signs.map(sign => `
+      <div class="sign-card" onclick="openModal('${sign.code}')">
+        <div class="sign-img-wrap">
+          <span class="sign-code">${sign.code}</span>
+          ${getSignSVG(sign, allCategories)}
+        </div>
+        <div class="sign-info">
+          <div class="sign-name-ar">${sign.name_ar}</div>
+          <div class="sign-name-fr">${sign.name_fr}</div>
+          <div class="sign-desc">${sign.description_ar}</div>
+          <span class="${getCatBadgeClass(sign.category)}">${getCatName(sign.category)}</span>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function filterSigns() {
+    let signs = allSigns;
+    if (currentCat) signs = signs.filter(s => s.category === currentCat);
+    const q = document.getElementById('searchInput').value.trim();
+    if (q) {
+      const ql = q.toLowerCase();
+      signs = signs.filter(s =>
+        s.name_ar.includes(q) ||
+        s.name_fr.toLowerCase().includes(ql) ||
+        s.code.toLowerCase().includes(ql) ||
+        s.description_ar.includes(q)
+      );
+    }
+    renderGrid(signs);
+  }
+
+  function openModal(code) {
+    const sign = allSigns.find(s => s.code === code);
+    if (!sign) return;
+    const cat = allCategories.find(c => c.id === sign.category);
+
+    document.getElementById('modalCode').textContent = `الرمز: ${sign.code}`;
+    document.getElementById('modalTitle').textContent = sign.name_ar;
+    document.getElementById('modalTitleFr').textContent = sign.name_fr;
+    document.getElementById('modalDesc').textContent = sign.description_ar;
+    document.getElementById('modalCat').textContent = `الفئة: ${cat ? cat.name_ar : ''}`;
+    document.getElementById('modalImgWrap').innerHTML = getSignSVG(sign, allCategories).replace('class="svg-sign"', 'style="width:150px;height:150px;"');
+
+    document.getElementById('modalOverlay').classList.add('open');
+  }
+
+  document.getElementById('modalCloseBtn').onclick = () =>
+    document.getElementById('modalOverlay').classList.remove('open');
+  document.getElementById('modalOverlay').onclick = (e) => {
+    if (e.target === e.currentTarget)
+      document.getElementById('modalOverlay').classList.remove('open');
+  };
+
+  document.getElementById('searchInput').addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(filterSigns, 200);
+  });
+
+  async function loadSigns() {
+    try {
+      const res = await fetch('/api/signs');
+      const data = await res.json();
+      allSigns = data.signs;
+      allCategories = data.categories;
+
+      // Build tabs
+      const tabs = document.getElementById('tabsContainer');
+      tabs.innerHTML = `<button class="tab active" data-cat="">الكل (${allSigns.length})</button>`;
+      allCategories.forEach(cat => {
+        const count = allSigns.filter(s => s.category === cat.id).length;
+        const btn = document.createElement('button');
+        btn.className = 'tab';
+        btn.dataset.cat = cat.id;
+        btn.textContent = `${cat.name_ar} (${count})`;
+        btn.onclick = () => {
+          document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+          btn.classList.add('active');
+          currentCat = cat.id;
+          filterSigns();
+        };
+        tabs.appendChild(btn);
+      });
+
+      tabs.querySelector('[data-cat=""]').onclick = () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tabs.querySelector('[data-cat=""]').classList.add('active');
+        currentCat = '';
+        filterSigns();
+      };
+
+      renderGrid(allSigns);
+    } catch (err) {
+      document.getElementById('grid').innerHTML = `<div class="empty"><p>خطأ في تحميل البيانات ⚠️</p></div>`;
+    }
+  }
+
+  loadSigns();
+</script>
+</body>
+</html>

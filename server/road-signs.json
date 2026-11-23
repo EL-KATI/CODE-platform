@@ -1,0 +1,470 @@
+{
+  "categories": [
+    {
+      "id": "danger",
+      "name_ar": "علامات الخطر",
+      "name_fr": "Panneaux de danger",
+      "description_ar": "مثلثة الشكل بحد أحمر، تحذر من خطر على الطريق",
+      "color": "#e74c3c",
+      "shape": "triangle"
+    },
+    {
+      "id": "interdiction",
+      "name_ar": "علامات المنع",
+      "name_fr": "Panneaux d'interdiction",
+      "description_ar": "دائرية الشكل بحد أحمر، تمنع تصرفاً معيناً",
+      "color": "#e74c3c",
+      "shape": "circle"
+    },
+    {
+      "id": "obligation",
+      "name_ar": "علامات الإلزام",
+      "name_fr": "Panneaux d'obligation",
+      "description_ar": "دائرية الشكل زرقاء، تلزم بتصرف معين",
+      "color": "#2980b9",
+      "shape": "circle-blue"
+    },
+    {
+      "id": "priorite",
+      "name_ar": "علامات الأولوية",
+      "name_fr": "Panneaux de priorité",
+      "description_ar": "علامات تحدد من له الأولوية في المرور",
+      "color": "#f39c12",
+      "shape": "diamond"
+    },
+    {
+      "id": "indication",
+      "name_ar": "علامات الإشارة",
+      "name_fr": "Panneaux d'indication",
+      "description_ar": "مستطيلة أو مربعة زرقاء، تعطي معلومات مفيدة",
+      "color": "#2980b9",
+      "shape": "rectangle"
+    }
+  ],
+  "signs": [
+    {
+      "code": "A1",
+      "category": "danger",
+      "name_ar": "منعرج خطير إلى اليمين",
+      "name_fr": "Virage dangereux à droite",
+      "description_ar": "يوجد منعرج حاد نحو اليمين أمامك، خفف السرعة",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/Moroccan_Road_Sign_A1.svg/120px-Moroccan_Road_Sign_A1.svg.png"
+    },
+    {
+      "code": "A2",
+      "category": "danger",
+      "name_ar": "منعرجات متعاقبة",
+      "name_fr": "Suite de virages",
+      "description_ar": "توجد عدة منعرجات متتالية أمامك",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f9/Moroccan_Road_Sign_A2.svg/120px-Moroccan_Road_Sign_A2.svg.png"
+    },
+    {
+      "code": "A3b",
+      "category": "danger",
+      "name_ar": "تقاطع طرق",
+      "name_fr": "Intersection",
+      "description_ar": "يوجد تقاطع طرق أمامك، انتبه للمركبات القادمة",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/50/Moroccan_Road_Sign_A3b.svg/120px-Moroccan_Road_Sign_A3b.svg.png"
+    },
+    {
+      "code": "A6",
+      "category": "danger",
+      "name_ar": "إشارة ضوئية",
+      "name_fr": "Feux de circulation",
+      "description_ar": "يوجد مقطع مضيء بالإشارات الضوئية أمامك",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_A6.svg/120px-Moroccan_Road_Sign_A6.svg.png"
+    },
+    {
+      "code": "A7",
+      "category": "danger",
+      "name_ar": "عبور الأطفال",
+      "name_fr": "Passage d'enfants",
+      "description_ar": "منطقة عبور الأطفال، خفف السرعة وكن يقظاً",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/16/Moroccan_Road_Sign_A7.svg/120px-Moroccan_Road_Sign_A7.svg.png"
+    },
+    {
+      "code": "A8",
+      "category": "danger",
+      "name_ar": "عبور الدراجين",
+      "name_fr": "Passage de cyclistes",
+      "description_ar": "منطقة عبور الدراجين، احذر وأعطهم الأولوية",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/Moroccan_Road_Sign_A8.svg/120px-Moroccan_Road_Sign_A8.svg.png"
+    },
+    {
+      "code": "A9",
+      "category": "danger",
+      "name_ar": "عبور المشاة",
+      "name_fr": "Passage piétons",
+      "description_ar": "يوجد ممر للمشاة، أعطهم الأولوية",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Moroccan_Road_Sign_A9.svg/120px-Moroccan_Road_Sign_A9.svg.png"
+    },
+    {
+      "code": "A10",
+      "category": "danger",
+      "name_ar": "حيوانات أليفة",
+      "name_fr": "Animaux domestiques",
+      "description_ar": "احتمال وجود حيوانات أليفة على الطريق",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9c/Moroccan_Road_Sign_A10.svg/120px-Moroccan_Road_Sign_A10.svg.png"
+    },
+    {
+      "code": "A11",
+      "category": "danger",
+      "name_ar": "حيوانات برية",
+      "name_fr": "Animaux sauvages",
+      "description_ar": "احتمال وجود حيوانات برية تعبر الطريق",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/51/Moroccan_Road_Sign_A11.svg/120px-Moroccan_Road_Sign_A11.svg.png"
+    },
+    {
+      "code": "A12",
+      "category": "danger",
+      "name_ar": "أشغال في الطريق",
+      "name_fr": "Travaux",
+      "description_ar": "توجد أشغال على الطريق، خفف السرعة وكن حذراً",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Moroccan_Road_Sign_A12.svg/120px-Moroccan_Road_Sign_A12.svg.png"
+    },
+    {
+      "code": "A13",
+      "category": "danger",
+      "name_ar": "خطر الانزلاق",
+      "name_fr": "Chaussée glissante",
+      "description_ar": "الطريق زلقة، خفف السرعة وتجنب الكبح المفاجئ",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9c/Moroccan_Road_Sign_A13.svg/120px-Moroccan_Road_Sign_A13.svg.png"
+    },
+    {
+      "code": "A16",
+      "category": "danger",
+      "name_ar": "ضيق الطريق",
+      "name_fr": "Chaussée rétrécie",
+      "description_ar": "الطريق يضيق أمامك، تباطأ وأعطِ الأولوية للمركبات المقابلة",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5d/Moroccan_Road_Sign_A16.svg/120px-Moroccan_Road_Sign_A16.svg.png"
+    },
+    {
+      "code": "A18",
+      "category": "danger",
+      "name_ar": "انحدار شديد",
+      "name_fr": "Descente dangereuse",
+      "description_ar": "انحدار خطير أمامك، استخدم الفرامل بحكمة",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_A18.svg/120px-Moroccan_Road_Sign_A18.svg.png"
+    },
+    {
+      "code": "A19",
+      "category": "danger",
+      "name_ar": "صعود شديد",
+      "name_fr": "Montée dangereuse",
+      "description_ar": "يوجد صعود شديد أمامك",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_A19.svg/120px-Moroccan_Road_Sign_A19.svg.png"
+    },
+    {
+      "code": "A21",
+      "category": "danger",
+      "name_ar": "معبر للقطار مع حاجز",
+      "name_fr": "Passage à niveau avec barrières",
+      "description_ar": "معبر للسكة الحديدية به حواجز",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_A21.svg/120px-Moroccan_Road_Sign_A21.svg.png"
+    },
+    {
+      "code": "A22",
+      "category": "danger",
+      "name_ar": "معبر للقطار بدون حاجز",
+      "name_fr": "Passage à niveau sans barrières",
+      "description_ar": "معبر للسكة الحديدية بدون حواجز، خطر مرتفع",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_A22.svg/120px-Moroccan_Road_Sign_A22.svg.png"
+    },
+    {
+      "code": "B1",
+      "category": "interdiction",
+      "name_ar": "أعط الأولوية",
+      "name_fr": "Cédez le passage",
+      "description_ar": "أعط الأولوية للمركبات القادمة من الطريق الرئيسية",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/Moroccan_Road_Sign_B1.svg/120px-Moroccan_Road_Sign_B1.svg.png"
+    },
+    {
+      "code": "B2",
+      "category": "interdiction",
+      "name_ar": "توقف إلزامي",
+      "name_fr": "Stop",
+      "description_ar": "يجب التوقف الكامل قبل المتابعة والتأكد من الأمان",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_B2.svg/120px-Moroccan_Road_Sign_B2.svg.png"
+    },
+    {
+      "code": "B3",
+      "category": "interdiction",
+      "name_ar": "ممنوع الدخول",
+      "name_fr": "Sens interdit",
+      "description_ar": "ممنوع الدخول من هذا الاتجاه",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_B3.svg/120px-Moroccan_Road_Sign_B3.svg.png"
+    },
+    {
+      "code": "B4",
+      "category": "interdiction",
+      "name_ar": "ممنوع السير في الاتجاهين",
+      "name_fr": "Circulation interdite dans les deux sens",
+      "description_ar": "ممنوع السير في كلا الاتجاهين",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_B4.svg/120px-Moroccan_Road_Sign_B4.svg.png"
+    },
+    {
+      "code": "B5",
+      "category": "interdiction",
+      "name_ar": "ممنوع الانعطاف يساراً",
+      "name_fr": "Défense de tourner à gauche",
+      "description_ar": "ممنوع الالتفاف إلى اليسار في هذا الموقع",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_B5.svg/120px-Moroccan_Road_Sign_B5.svg.png"
+    },
+    {
+      "code": "B6",
+      "category": "interdiction",
+      "name_ar": "ممنوع الانعطاف يميناً",
+      "name_fr": "Défense de tourner à droite",
+      "description_ar": "ممنوع الالتفاف إلى اليمين في هذا الموقع",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_B6.svg/120px-Moroccan_Road_Sign_B6.svg.png"
+    },
+    {
+      "code": "B7",
+      "category": "interdiction",
+      "name_ar": "ممنوع الالتفاف",
+      "name_fr": "Défense de faire demi-tour",
+      "description_ar": "ممنوع إجراء نصف دورة (U-turn) في هذا الموقع",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_B7.svg/120px-Moroccan_Road_Sign_B7.svg.png"
+    },
+    {
+      "code": "B8",
+      "category": "interdiction",
+      "name_ar": "ممنوع التجاوز",
+      "name_fr": "Défense de dépasser",
+      "description_ar": "ممنوع تجاوز السيارات الأخرى في هذا القسم",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_B8.svg/120px-Moroccan_Road_Sign_B8.svg.png"
+    },
+    {
+      "code": "B9",
+      "category": "interdiction",
+      "name_ar": "ممنوع التجاوز للشاحنات",
+      "name_fr": "Défense aux poids lourds de dépasser",
+      "description_ar": "ممنوع على الشاحنات تجاوز السيارات الأخرى",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_B9.svg/120px-Moroccan_Road_Sign_B9.svg.png"
+    },
+    {
+      "code": "B11",
+      "category": "interdiction",
+      "name_ar": "الحد الأقصى للسرعة 30",
+      "name_fr": "Vitesse maximale 30 km/h",
+      "description_ar": "يمنع السير بسرعة تتجاوز 30 كلم/س",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_B11.svg/120px-Moroccan_Road_Sign_B11.svg.png"
+    },
+    {
+      "code": "B12",
+      "category": "interdiction",
+      "name_ar": "الحد الأقصى للسرعة 40",
+      "name_fr": "Vitesse maximale 40 km/h",
+      "description_ar": "يمنع السير بسرعة تتجاوز 40 كلم/س",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_B12.svg/120px-Moroccan_Road_Sign_B12.svg.png"
+    },
+    {
+      "code": "B13",
+      "category": "interdiction",
+      "name_ar": "الحد الأقصى للسرعة 50",
+      "name_fr": "Vitesse maximale 50 km/h",
+      "description_ar": "يمنع السير بسرعة تتجاوز 50 كلم/س (داخل التجمعات العمرانية)",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_B13.svg/120px-Moroccan_Road_Sign_B13.svg.png"
+    },
+    {
+      "code": "B14",
+      "category": "interdiction",
+      "name_ar": "الحد الأقصى للسرعة 60",
+      "name_fr": "Vitesse maximale 60 km/h",
+      "description_ar": "يمنع السير بسرعة تتجاوز 60 كلم/س",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_B14.svg/120px-Moroccan_Road_Sign_B14.svg.png"
+    },
+    {
+      "code": "B15",
+      "category": "interdiction",
+      "name_ar": "الحد الأقصى للسرعة 80",
+      "name_fr": "Vitesse maximale 80 km/h",
+      "description_ar": "يمنع السير بسرعة تتجاوز 80 كلم/س (خارج التجمعات العمرانية)",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_B15.svg/120px-Moroccan_Road_Sign_B15.svg.png"
+    },
+    {
+      "code": "B16",
+      "category": "interdiction",
+      "name_ar": "الحد الأقصى للسرعة 100",
+      "name_fr": "Vitesse maximale 100 km/h",
+      "description_ar": "يمنع السير بسرعة تتجاوز 100 كلم/س",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_B16.svg/120px-Moroccan_Road_Sign_B16.svg.png"
+    },
+    {
+      "code": "B17",
+      "category": "interdiction",
+      "name_ar": "الحد الأقصى للسرعة 110",
+      "name_fr": "Vitesse maximale 110 km/h",
+      "description_ar": "يمنع السير بسرعة تتجاوز 110 كلم/س",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_B17.svg/120px-Moroccan_Road_Sign_B17.svg.png"
+    },
+    {
+      "code": "B18",
+      "category": "interdiction",
+      "name_ar": "الحد الأقصى للسرعة 120",
+      "name_fr": "Vitesse maximale 120 km/h",
+      "description_ar": "يمنع السير بسرعة تتجاوز 120 كلم/س (الطرق السيارة)",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_B18.svg/120px-Moroccan_Road_Sign_B18.svg.png"
+    },
+    {
+      "code": "B20",
+      "category": "interdiction",
+      "name_ar": "ممنوع التوقف والوقوف",
+      "name_fr": "Arrêt et stationnement interdits",
+      "description_ar": "ممنوع التوقف أو الوقوف في هذا الموقع",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_B20.svg/120px-Moroccan_Road_Sign_B20.svg.png"
+    },
+    {
+      "code": "B21",
+      "category": "interdiction",
+      "name_ar": "ممنوع الوقوف",
+      "name_fr": "Stationnement interdit",
+      "description_ar": "ممنوع الوقوف في هذا المكان",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_B21.svg/120px-Moroccan_Road_Sign_B21.svg.png"
+    },
+    {
+      "code": "C1",
+      "category": "obligation",
+      "name_ar": "إلزامية الاتجاه يميناً",
+      "name_fr": "Obligation de tourner à droite",
+      "description_ar": "يجب الانعطاف إلى اليمين فقط",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_C1.svg/120px-Moroccan_Road_Sign_C1.svg.png"
+    },
+    {
+      "code": "C2",
+      "category": "obligation",
+      "name_ar": "إلزامية الاتجاه يساراً",
+      "name_fr": "Obligation de tourner à gauche",
+      "description_ar": "يجب الانعطاف إلى اليسار فقط",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_C2.svg/120px-Moroccan_Road_Sign_C2.svg.png"
+    },
+    {
+      "code": "C3",
+      "category": "obligation",
+      "name_ar": "إلزامية التقدم مباشرة",
+      "name_fr": "Obligation d'aller tout droit",
+      "description_ar": "يجب المتابعة في خط مستقيم فقط",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_C3.svg/120px-Moroccan_Road_Sign_C3.svg.png"
+    },
+    {
+      "code": "C4",
+      "category": "obligation",
+      "name_ar": "إلزامية الدوران حول الجزيرة",
+      "name_fr": "Obligation de contourner le rond-point",
+      "description_ar": "يجب الدوران حول الجزيرة بعكس عقارب الساعة",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_C4.svg/120px-Moroccan_Road_Sign_C4.svg.png"
+    },
+    {
+      "code": "C5",
+      "category": "obligation",
+      "name_ar": "الحد الأدنى للسرعة 30",
+      "name_fr": "Vitesse minimale obligatoire 30 km/h",
+      "description_ar": "يجب السير بسرعة لا تقل عن 30 كلم/س",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_C5.svg/120px-Moroccan_Road_Sign_C5.svg.png"
+    },
+    {
+      "code": "C6",
+      "category": "obligation",
+      "name_ar": "مسار مخصص للدراجات",
+      "name_fr": "Piste cyclable obligatoire",
+      "description_ar": "مسار مخصص لدراجات فقط، ممنوع للسيارات",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_C6.svg/120px-Moroccan_Road_Sign_C6.svg.png"
+    },
+    {
+      "code": "D1",
+      "category": "priorite",
+      "name_ar": "أولوية المرور",
+      "name_fr": "Route à grande circulation",
+      "description_ar": "أنت على طريق ذات أولوية، لك الحق في المرور أولاً",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_D1.svg/120px-Moroccan_Road_Sign_D1.svg.png"
+    },
+    {
+      "code": "D2",
+      "category": "priorite",
+      "name_ar": "نهاية أولوية المرور",
+      "name_fr": "Fin de route à grande circulation",
+      "description_ar": "انتهت الأولوية، أعط الأولوية للطرق الأخرى",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_D2.svg/120px-Moroccan_Road_Sign_D2.svg.png"
+    },
+    {
+      "code": "D3",
+      "category": "priorite",
+      "name_ar": "أعط الأولوية للقادمين",
+      "name_fr": "Cédez le passage aux véhicules venant en sens inverse",
+      "description_ar": "أعط الأولوية للمركبات القادمة من الجهة المقابلة",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_D3.svg/120px-Moroccan_Road_Sign_D3.svg.png"
+    },
+    {
+      "code": "D4",
+      "category": "priorite",
+      "name_ar": "لك الأولوية على المركبات المقابلة",
+      "name_fr": "Priorité sur les véhicules venant en sens inverse",
+      "description_ar": "لك الأولوية على المركبات القادمة من الجهة المقابلة",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_D4.svg/120px-Moroccan_Road_Sign_D4.svg.png"
+    },
+    {
+      "code": "E1",
+      "category": "indication",
+      "name_ar": "طريق ذو اتجاه واحد",
+      "name_fr": "Voie à sens unique",
+      "description_ar": "الطريق ذو اتجاه واحد فقط",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_E1.svg/120px-Moroccan_Road_Sign_E1.svg.png"
+    },
+    {
+      "code": "E2",
+      "category": "indication",
+      "name_ar": "موقف السيارات",
+      "name_fr": "Stationnement autorisé",
+      "description_ar": "يسمح بوقوف السيارات في هذا المكان",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_E2.svg/120px-Moroccan_Road_Sign_E2.svg.png"
+    },
+    {
+      "code": "E3",
+      "category": "indication",
+      "name_ar": "مستشفى",
+      "name_fr": "Hôpital",
+      "description_ar": "يوجد مستشفى في هذا الاتجاه، يمنع استخدام الأبواق",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_E3.svg/120px-Moroccan_Road_Sign_E3.svg.png"
+    },
+    {
+      "code": "E4",
+      "category": "indication",
+      "name_ar": "نقطة الإسعافات الأولية",
+      "name_fr": "Poste de secours",
+      "description_ar": "يوجد مركز للإسعافات الأولية قريباً",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_E4.svg/120px-Moroccan_Road_Sign_E4.svg.png"
+    },
+    {
+      "code": "E5",
+      "category": "indication",
+      "name_ar": "محطة وقود",
+      "name_fr": "Station service",
+      "description_ar": "توجد محطة وقود في هذا الاتجاه",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_E5.svg/120px-Moroccan_Road_Sign_E5.svg.png"
+    },
+    {
+      "code": "E6",
+      "category": "indication",
+      "name_ar": "مطعم",
+      "name_fr": "Restaurant",
+      "description_ar": "يوجد مطعم في هذا الاتجاه",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_E6.svg/120px-Moroccan_Road_Sign_E6.svg.png"
+    },
+    {
+      "code": "E7",
+      "category": "indication",
+      "name_ar": "فندق أو نزل",
+      "name_fr": "Hôtel ou motel",
+      "description_ar": "يوجد فندق أو نزل في هذا الاتجاه",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_E7.svg/120px-Moroccan_Road_Sign_E7.svg.png"
+    },
+    {
+      "code": "E8",
+      "category": "indication",
+      "name_ar": "مخيم",
+      "name_fr": "Camping",
+      "description_ar": "يوجد موقع للتخييم في هذا الاتجاه",
+      "wiki_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Moroccan_Road_Sign_E8.svg/120px-Moroccan_Road_Sign_E8.svg.png"
+    }
+  ]
+}

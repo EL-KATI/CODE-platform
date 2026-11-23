@@ -87,6 +87,7 @@ function createApp() {
   api.use('/push', require('./routes/push'));
   api.use('/translate', require('./routes/translate'));
   api.use('/live', require('./routes/live-sessions'));
+  api.use('/signs', require('./routes/signs'));
   api.use((req, res) => res.status(404).json({ error: 'not_found' }));
   app.use('/api', api);
 
