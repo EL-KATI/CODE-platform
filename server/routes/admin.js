@@ -603,12 +603,12 @@ router.delete('/uploads-audio/:id', instructorReadOnly, wrap(async (req, res) =>
 // --- Google Drive Auth -------------------------------------------------------
 
 // حالة Drive
-router.get('/drive/status', auth.adminOnly, wrap(async (req, res) => {
+router.get('/drive/status', wrap(async (req, res) => {
   res.json({ connected: drive.isDriveConnected() });
 }));
 
 // رابط المصادقة (أدمن فقط)
-router.get('/drive/auth', auth.adminOnly, wrap(async (req, res) => {
+router.get('/drive/auth', wrap(async (req, res) => {
   const url = drive.getAuthUrl();
   res.json({ url });
 }));
