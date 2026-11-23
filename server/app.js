@@ -14,6 +14,8 @@ const ALLOWED_ORIGINS = new Set([
   'http://10.0.2.2:3000',   // محاكي Android
   'capacitor://localhost',   // Capacitor Android
   'https://localhost',       // Capacitor iOS (مستقبلاً)
+  'https://permicode.com',   // الموقع الرسمي
+  'https://www.permicode.com',
 ]);
 
 function createApp() {
@@ -40,14 +42,14 @@ function createApp() {
       useDefaults: true,
       directives: {
         'default-src': ["'self'", 'capacitor://localhost'],
-        'script-src': ["'self'", 'capacitor://localhost'],
+        'script-src': ["'self'", 'capacitor://localhost', "'unsafe-inline'"],
         'style-src': ["'self'", 'capacitor://localhost', 'https://fonts.googleapis.com', "'unsafe-inline'"],
         'style-src-attr': ["'unsafe-inline'"],
         'font-src': ["'self'", 'capacitor://localhost', 'https://fonts.gstatic.com'],
         'img-src': ["'self'", 'capacitor://localhost', 'data:', 'https:'],
         'media-src': ["'self'", 'capacitor://localhost', 'https:'],
         'frame-src': ['https://www.youtube-nocookie.com'],
-        'connect-src': ["'self'", 'capacitor://localhost', 'http://10.0.2.2:3000', 'https://fonts.googleapis.com', 'https://fonts.gstatic.com', 'https://libretranslate.com'],
+        'connect-src': ["'self'", 'capacitor://localhost', 'http://10.0.2.2:3000', 'https://permicode.com', 'https://www.permicode.com', 'https://fonts.googleapis.com', 'https://fonts.gstatic.com', 'https://libretranslate.com'],
         'object-src': ["'none'"],
         'frame-ancestors': ["'none'"],
         'upgrade-insecure-requests': config.isProd ? [] : null,
