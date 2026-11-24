@@ -171,8 +171,10 @@ body {
   line-height: 1.7;              /* Interline généreux — réduit fatigue de lecture */
   font-size: var(--text-base);
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
+  overflow-x: hidden;
 }
 img, svg { max-width: 100%; display: block; }
 a { color: var(--primary); }
@@ -197,6 +199,7 @@ p  { margin: 0 0 1em; }
   top: 0;
   z-index: 40;
   box-shadow: 0 1px 0 rgb(255 255 255 / .06), 0 4px 20px rgb(0 0 0 / .3);
+  padding-top: env(safe-area-inset-top, 0px);
 }
 .header-inner {
   max-width: 1240px;
@@ -244,7 +247,7 @@ p  { margin: 0 0 1em; }
   color: #e7e5e4;
   border: 1px solid rgb(255 255 255 / .12);
   border-radius: 10px;
-  height: 40px; min-width: 40px; padding: 0 12px;
+  height: 44px; min-width: 44px; padding: 0 12px;
   cursor: pointer;
   font: inherit; font-weight: 700; font-size: .85rem;
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
@@ -426,7 +429,7 @@ main:focus { outline: none; }
 .btn-ghost   { background: transparent; color: var(--primary); border-color: transparent; }
 .btn-ghost:hover { background: var(--primary-soft); }
 
-.btn-sm { padding: 7px 14px; min-height: 36px; font-size: var(--text-sm); border-radius: 8px; }
+.btn-sm { padding: 7px 14px; min-height: 44px; font-size: var(--text-sm); border-radius: 8px; }
 .btn-lg { padding: 14px 26px; font-size: 1.08rem; min-height: 52px; }
 .btn[disabled], .btn[aria-disabled="true"] { opacity: .5; cursor: not-allowed; transform: none; box-shadow: none; }
 
@@ -825,7 +828,7 @@ tr:hover td { background: var(--surface-2); }
 
 /* ── Toasts ──────────────────────────────────────────────────────────── */
 .toasts {
-  position: fixed; bottom: 20px; inset-inline-start: 50%;
+  position: fixed; bottom: max(20px, env(safe-area-inset-bottom, 20px)); inset-inline-start: 50%;
   transform: translateX(-50%);
   display: flex; flex-direction: column; gap: 8px;
   z-index: 1100; width: min(92vw, 420px);
@@ -852,7 +855,9 @@ dialog {
   color: var(--text);
   width: min(94vw, 720px);
   max-height: 90vh;
+  max-height: 90dvh;
   box-shadow: var(--shadow-lg);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 dialog::backdrop { background: rgb(12 10 9 / .7); backdrop-filter: blur(4px); }
 .dialog-body { padding: 24px; overflow: auto; max-height: calc(90vh - 80px); }
@@ -2328,7 +2333,9 @@ body.has-side .site-footer { margin-inline-start:230px; }
   /* apprtl-18kvqo4: outer wrapper */
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh;
   max-height: 100vh;
+  max-height: 100dvh;
   align-items: center;
   flex-direction: row;
   justify-content: center;
@@ -2345,6 +2352,7 @@ body.has-side .site-footer { margin-inline-start:230px; }
   flex-flow: column nowrap;
   flex: 1 1 0%;
   height: calc(-2rem + 100vh);
+  height: calc(-2rem + 100dvh);
   max-height: 100%;
   justify-content: flex-start;
   width: 100%;
@@ -2707,7 +2715,7 @@ body.has-side .site-footer { margin-inline-start:230px; }
 
 /* ── الهاتف: اللوحة الجانبية تصبح شريطاً أفقياً ── */
 @media (max-width: 760px) {
-  .nrs-window { flex-flow: column nowrap; height: calc(-2rem + 100vh); }
+  .nrs-window { flex-flow: column nowrap; height: calc(-2rem + 100vh); height: calc(-2rem + 100dvh); }
   .nrs-content-row { flex-direction: column; gap: 0; padding: 0; height: auto; flex: 1 1 0%; }
   .nrs-side { width: 100%; max-width: none; height: auto; flex-direction: row; align-items: stretch; gap: 4px; padding: 4px; }
   .nrs-ctrl-col { flex-direction: row; flex-flow: row; padding: 4px 6px; gap: 4px; border-radius: 8px; align-items: center; }
@@ -4015,6 +4023,7 @@ body.ui-apple .staff-side a.side-ai[aria-current="page"] { background: linear-gr
 .auth-wrap {
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh;
   overflow: hidden;
 }
 .auth-wrap--narrow {
@@ -4678,6 +4687,7 @@ body.ui-apple .staff-side a.side-ai[aria-current="page"] { background: linear-gr
   background: var(--surface);
   border-top: 2px solid var(--border);
   padding: 12px 20px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom, 12px));
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   box-shadow: 0 -4px 20px rgba(0,0,0,.12);
 }
@@ -5777,3 +5787,126 @@ body.live-fullscreen .inst-live-wrap .live-nrs-main {
 /* Apple-style تحسينات */
 body.ui-apple .simple-card { border-radius: 20px; }
 body.ui-apple .dash-mode-toggle { border-radius: 22px; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE ADDITIONS — Cross-device UI Consistency Pass
+   Added: 100dvh fixes, safe-area, touch targets, TV/4K breakpoints,
+          focus-visible, clamp typography, horizontal overflow guard
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Focus-visible: keyboard / TV remote navigation ─────────────────────── */
+:focus-visible {
+  outline: 3px solid var(--primary, #ea580c) !important;
+  outline-offset: 3px !important;
+  box-shadow: 0 0 0 5px rgb(234 88 12 / .25) !important;
+  border-radius: 6px;
+}
+/* Larger focus ring for coarse pointer (TV remotes, touch) */
+@media (pointer: coarse) {
+  :focus-visible {
+    outline-width: 4px !important;
+    box-shadow: 0 0 0 7px rgb(234 88 12 / .25) !important;
+  }
+}
+
+/* ── Minimum touch targets on coarse-pointer devices ────────────────────── */
+@media (pointer: coarse) {
+  .btn, .btn-sm, .btn-lg,
+  .icon-btn, .notif-bell-btn,
+  .auth-tab, .auth-google-btn,
+  .live-opt, .live-ctrl-btn,
+  .lang-opt, .lang-picker-btn,
+  .act-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* ── TV / Large-screen (≥ 1440px) content width cap ─────────────────────── */
+@media (min-width: 1440px) {
+  .pg, .dash, .live-page, .champ-page, .admin-live-results {
+    max-width: 1400px;
+    margin-inline: auto;
+  }
+  .header-inner {
+    max-width: 1440px;
+  }
+}
+
+/* ── TV / 4K (≥ 1600px) typography & layout scale ───────────────────────── */
+@media (min-width: 1600px) {
+  :root {
+    --text-base: clamp(1rem, 1.1vw, 1.25rem);
+  }
+  h1 { font-size: clamp(1.75rem, 2.8vw, 3rem); }
+  h2 { font-size: clamp(1.3rem, 1.8vw, 2rem); }
+  h3 { font-size: clamp(1.1rem, 1.3vw, 1.5rem); }
+
+  .pg, .dash, .live-page, .champ-page, .admin-live-results {
+    max-width: 1600px;
+    padding-inline: 48px;
+  }
+  .header-inner { max-width: 1600px; }
+
+  /* Larger touch/remote targets */
+  .btn      { min-height: 52px; padding: 14px 28px; }
+  .btn-sm   { min-height: 44px; }
+  .icon-btn { height: 52px; min-width: 52px; }
+
+  /* Quiz/exam option readability */
+  .option { min-height: 72px; font-size: 1.15rem; }
+  .nrs-overlay { --exam-font-size: clamp(1.4rem, 1.8vw, 2rem); }
+}
+
+/* ── 4K / Ultra-wide (≥ 2560px) ─────────────────────────────────────────── */
+@media (min-width: 2560px) {
+  .pg, .dash, .live-page, .champ-page, .admin-live-results {
+    max-width: 2000px;
+  }
+  .header-inner { max-width: 2000px; }
+}
+
+/* ── iOS safe-area: fixed bottom bars ───────────────────────────────────── */
+/* welcome-popup safe-area on mobile */
+@media (max-width: 480px) {
+  .welcome-popup {
+    bottom: max(16px, env(safe-area-inset-bottom, 16px));
+  }
+}
+
+/* tr-progress-toast safe-area */
+.tr-progress-toast {
+  bottom: max(24px, env(safe-area-inset-bottom, 24px));
+}
+
+/* notif-bell size bump to 44px */
+.notif-bell-btn {
+  width: 44px;
+  height: 44px;
+}
+
+/* ── Prevent horizontal scroll on small mobile ───────────────────────────── */
+html {
+  overflow-x: hidden;
+}
+
+/* ── Responsive image aspect-ratio guard (exam images) ───────────────────── */
+.nrs-media img,
+.live-q-img,
+.q-image img {
+  aspect-ratio: auto;
+  object-fit: contain;
+  max-width: 100%;
+  height: auto;
+}
+
+/* ── Admin / instructor rtable horizontal scroll guard ───────────────────── */
+@media (max-width: 767px) {
+  .rtable-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .rtable-scroll table {
+    min-width: 600px;
+  }
+}
