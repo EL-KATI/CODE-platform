@@ -148,21 +148,9 @@ function wireSide(side) {
   const inlineBtn = side.querySelector('.side-toggle');
   if (inlineBtn) inlineBtn.onclick = (e) => { e.stopPropagation(); toggleSide(); };
 
-  // زر ☰ في الرأس للمتعلمين على الهاتف
-  let hdrBtn = document.getElementById('side-open-btn');
-  if (!hdrBtn) {
-    hdrBtn = document.createElement('button');
-    hdrBtn.id = 'side-open-btn';
-    hdrBtn.className = 'icon-btn side-open-btn';
-    hdrBtn.type = 'button';
-    hdrBtn.setAttribute('aria-label', t('a11y.menu'));
-    hdrBtn.setAttribute('aria-controls', 'staff-side');
-    hdrBtn.setAttribute('aria-expanded', 'false');
-    hdrBtn.innerHTML = iconSvg('menu');
-    const hdrActions = document.getElementById('header-actions');
-    if (hdrActions) hdrActions.prepend(hdrBtn);
-  }
-  hdrBtn.onclick = (e) => { e.stopPropagation(); toggleSide(); };
+  // زر ☰ في الرأس (مُضمَّن مسبقاً في header-actions من renderShell)
+  const hdrBtn = document.getElementById('side-open-btn');
+  if (hdrBtn) hdrBtn.onclick = (e) => { e.stopPropagation(); toggleSide(); };
 
   // خلفية داكنة خلف الدرج
   let backdrop = document.getElementById('side-backdrop');
@@ -197,6 +185,9 @@ export function renderShell() {
   const linkHtml = navLinks().map(([href, key]) => navA(href, key));
   // المتعلم المسجّل: الروابط في الشريط الجانبي فقط (لا أزرار في الرأس)
   document.getElementById('main-nav').innerHTML = isLearnerSide() ? '' : html`${linkHtml}`.s;
+  // تطبيق الوضع المحفوظ (بسيط/كامل) على body في كل صفحة ليبقى ثابتاً عبر SPA
+  const { SIMPLE_KEY_GLOBAL } = { SIMPLE_KEY_GLOBAL: 'permicode_simple_mode' };
+  document.body.classList.toggle('dash-simple-active', isLearnerSide() && localStorage.getItem('permicode_simple_mode') === '1');
   renderStaffSide();
   // نمط موحّد لكل الواجهات (المترشح، الزائر، المؤسسة، المدرب، الأدمين)
   document.body.classList.add('ui-apple');
@@ -228,6 +219,7 @@ export function renderShell() {
       ? html`<a class="icon-btn" href="/profile" title="${store.user.name}"><span aria-hidden="true">👤</span><span class="sr-only">${t('nav.profile')}</span></a>
              <button class="icon-btn" id="logout-btn" type="button">${t('nav.logout')}</button>`
       : html``}
+    ${isLearnerSide() && store.user ? html`<button class="icon-btn side-open-btn" id="side-open-btn" type="button" aria-label="${t('a11y.menu')}" aria-controls="staff-side" aria-expanded="false">${raw(iconSvg('menu'))}</button>` : ''}
     <button class="icon-btn menu-toggle" id="menu-btn" type="button" aria-expanded="false" aria-controls="mobile-nav" aria-label="${t('a11y.menu')}">☰</button>`.s;
 
   // تركيب نظام الإشعارات للمستخدمين المسجلين فقط
