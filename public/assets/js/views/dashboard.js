@@ -276,6 +276,7 @@ export async function dashboardView(root) {
 
   const applyMode = (simple) => {
     dash.classList.toggle('dash-simple', simple);
+    document.body.classList.toggle('dash-simple-active', simple);
     if (modeLbl) modeLbl.textContent = simple ? t('dash.modeFull') : t('dash.modeSimple');
     if (modeBtn) modeBtn.setAttribute('aria-label', simple ? t('dash.modeFull') : t('dash.modeSimple'));
   };

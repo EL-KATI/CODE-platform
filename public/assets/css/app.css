@@ -3404,9 +3404,11 @@ body.ui-apple .main-nav a.nav-ai[aria-current="page"], body.ui-apple .mobile-nav
 body.ui-apple .staff-side a.side-ai[aria-current="page"] { background: linear-gradient(135deg, rgb(168 63 224 / .18), rgb(61 104 240 / .18)); color: var(--text); box-shadow: inset 0 0 0 1px rgb(124 92 255 / .35); }
 .staff-side a > span:first-child .ic { transition: transform .25s cubic-bezier(.34, 1.56, .64, 1); }
 .staff-side a:hover > span:first-child .ic { transform: scale(1.15); }
-@media (max-width: 900px) {
-  .staff-side.learner { display: none; }
-}
+/* الوضع البسيط: إخفاء الشريط الجانبي تمامًا + إزالة المسافة */
+body.dash-simple-active .staff-side { display: none !important; }
+body.dash-simple-active.has-side main,
+body.dash-simple-active.has-side .site-footer { margin-inline-start: 0 !important; max-width: none !important; }
+
 @media (prefers-reduced-motion: reduce) { .staff-side a.side-ai > span:first-child .ic, .staff-side a > span:first-child .ic { animation: none; transition: none; } }
 
 /* ══ v57: مفاتيح Monitor AI في الإعدادات ══ */
@@ -3433,54 +3435,62 @@ body.ui-apple .staff-side a.side-ai[aria-current="page"] { background: linear-gr
 .toggle-label input[type="checkbox"]:checked { background: var(--accent, #007aff); }
 .toggle-label input[type="checkbox"]:checked::after { inset-inline-start: calc(100% - 23px); }
 
-/* ══ v66: الشريط الجانبي عمودي على الهاتف أيضاً (لكل الأدوار) ══ */
+/* ══ v68: الشريط الجانبي — درج تراكب على الجوال/التابلت (< 1024px) ══ */
 .side-toggle { display: none; }
-@media (max-width: 900px) {
-  body.ui-apple .staff-side, .staff-side, .staff-side.learner {
-    display: block; position: fixed; top: var(--hdr-h, 64px); bottom: 0; inset-inline-start: 0;
-    width: 60px; padding: 10px 6px; overflow-y: auto; overflow-x: hidden; white-space: nowrap;
-    border-bottom: 0; border-inline-end: 1px solid var(--glass-border, var(--border)); z-index: 300;
-    transition: width .25s cubic-bezier(.25, .1, .25, 1), box-shadow .25s ease;
-  }
-  .staff-side nav { flex-direction: column; overflow-x: visible; gap: 4px; }
-  body.ui-apple .staff-side a, .staff-side a { justify-content: center; padding: 10px 8px; gap: 12px; }
-  .staff-side .side-title, .staff-side a > span:last-child { display: none; }
-  .side-toggle {
-    display: grid; place-items: center; width: 44px; height: 40px; margin: 0 auto 8px; border: 0; border-radius: 12px;
-    background: var(--surface-3, #f2f2f7); color: var(--text); cursor: pointer;
-  }
-  .side-toggle .ic { width: 20px; height: 20px; }
-  body .staff-side.open, body.ui-apple .staff-side.open { width: 248px; box-shadow: 0 20px 44px rgb(0 0 0 / .3); }
-  .staff-side.open .side-toggle { margin-inline: 4px; }
-  .staff-side.open .side-title { display: block; margin: 4px 10px 10px; }
-  body .staff-side.open a, body.ui-apple .staff-side.open a { justify-content: flex-start; padding-inline: 12px; }
-  .staff-side.open a > span:last-child { display: inline; }
+/* زر الرأس لفتح الدرج — مخفي على الكمبيوتر، يظهر على الجوال في الوضع الكامل */
+.side-open-btn { display: none; }
 
-  /* ── إصلاح RTL: الـ sidebar على اليمين في العربية ── */
-  body.has-side main, body.has-side .site-footer {
-    margin-inline-start: 60px !important;
-    margin-inline-end: 0 !important;
-    max-width: calc(100vw - 60px) !important;
-    overflow-x: hidden;
+@media (max-width: 1023px) {
+  /* الشريط الجانبي: درج تراكب مخفي افتراضيًا */
+  body.ui-apple .staff-side, .staff-side, .staff-side.learner {
+    position: fixed; top: var(--hdr-h, 64px); bottom: 0; inset-inline-start: 0;
+    width: 280px; padding: 16px 12px; overflow-y: auto; overflow-x: hidden;
+    border-bottom: 0; border-inline-end: 1px solid var(--glass-border, var(--border)); z-index: 400;
+    /* إخفاء خارج الشاشة بمسافة بادئة سالبة (يعمل مع RTL وLTR) */
+    margin-inline-start: -280px;
+    visibility: hidden;
+    transition: margin-inline-start .25s cubic-bezier(.25, .1, .25, 1), visibility .25s, box-shadow .25s ease;
   }
-  /* منع تجاوز المحتوى من تحت الـ sidebar */
-  body.has-side main > * { max-width: 100%; }
+  /* حالة المفتوح */
+  body .staff-side.open, body.ui-apple .staff-side.open {
+    margin-inline-start: 0 !important;
+    visibility: visible !important;
+    box-shadow: 0 20px 44px rgb(0 0 0 / .35);
+  }
+  /* الروابط والنص في الوضع الكامل دائمًا */
+  .staff-side nav { flex-direction: column; overflow-x: visible; gap: 4px; }
+  body.ui-apple .staff-side a, .staff-side a { justify-content: flex-start; padding: 10px 12px; gap: 12px; }
+  .staff-side .side-title { display: block; margin: 4px 10px 10px; }
+  .staff-side a > span:last-child { display: inline; }
+
+  /* المحتوى الرئيسي: بعرض كامل بدون هامش للشريط الجانبي */
+  body.has-side main, body.has-side .site-footer {
+    margin-inline-start: 0 !important;
+    margin-inline-end: 0 !important;
+    max-width: 100vw !important;
+  }
   body.has-side .menu-toggle { display: none !important; }
   body.has-side .mobile-nav { display: none !important; }
 
-  /* الـ page-header لا يتداخل مع الـ sidebar */
+  /* زر ☰ في الرأس يظهر فقط في الوضع الكامل (ليس البسيط) */
+  body:not(.dash-simple-active).has-side .side-open-btn { display: grid; }
+
+  /* الـ page-header لا يتداخل */
   .page-header { flex-wrap: wrap; gap: 10px; }
   .page-header-actions { flex-wrap: wrap; gap: 6px; }
 }
-/* على الهواتف الصغيرة جداً (< 480px): نقلل عرض الـ sidebar أكثر */
-@media (max-width: 480px) {
-  body.ui-apple .staff-side, .staff-side, .staff-side.learner { width: 52px; }
-  body.has-side main, body.has-side .site-footer {
-    margin-inline-start: 52px !important;
-    max-width: calc(100vw - 52px) !important;
-  }
+
+/* خلفية الدرج الداكنة */
+.side-backdrop {
+  display: none; position: fixed; inset: 0; z-index: 399;
+  background: rgb(0 0 0 / 0); transition: background .25s ease;
 }
-@media (prefers-reduced-motion: reduce) { .staff-side { transition: none; } }
+.side-backdrop.visible { display: block; background: rgb(0 0 0 / .4); }
+
+@media (prefers-reduced-motion: reduce) {
+  .staff-side { transition: none; }
+  .side-backdrop { transition: none; }
+}
 
 /* ══ v67: الجداول تتحول إلى بطاقات على الهاتف واللوحة (أندرويد/آيفون/iPad) ══ */
 @media (max-width: 1100px) {
@@ -3528,11 +3538,10 @@ body.ui-apple .staff-side a.side-ai[aria-current="page"] { background: linear-gr
 @media (max-width: 1100px) {
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea { font-size: 16px; }
 }
-@media (max-width: 900px) {
-  .staff-side { padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
-  body.has-side main, body.has-side .site-footer { padding-bottom: env(safe-area-inset-bottom, 0px); }
-  html[dir="rtl"] .staff-side { padding-right: calc(6px + env(safe-area-inset-right, 0px)); }
-  html[dir="ltr"] .staff-side { padding-left: calc(6px + env(safe-area-inset-left, 0px)); }
+@media (max-width: 1023px) {
+  .staff-side { padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+  html[dir="rtl"] .staff-side { padding-right: calc(12px + env(safe-area-inset-right, 0px)); }
+  html[dir="ltr"] .staff-side { padding-left: calc(12px + env(safe-area-inset-left, 0px)); }
 }
 /* أهداف لمس مريحة (44px) على شاشات اللمس */
 @media (pointer: coarse) {

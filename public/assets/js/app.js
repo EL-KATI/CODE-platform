@@ -87,7 +87,7 @@ function renderStaffSide() {
     }
     side.className = 'staff-side learner';
     const isCur = (href) => (href === '/' ? path === '/' : path === href || path.startsWith(href + '/'));
-    const items = [...navLinks(), u ? ['/profile', 'nav.profile'] : ['/login', 'nav.login']];
+    const items = [...navLinks(), ...(u ? [] : [['/login', 'nav.login']])];
     side.setAttribute('aria-label', t('a11y.menu'));
     side.innerHTML = html`<button class="side-toggle" type="button" aria-expanded="false" aria-label="${t('a11y.menu')}">${raw(iconSvg('menu'))}</button><div class="side-title">${u ? (u.name || '') : t('brand.name')}</div>
       <nav>${items.map(([href, key]) => html`<a href="${href}" class="${href === '/assistant' ? 'side-ai' : ''}" title="${t(key)}" ${isCur(href) ? html`aria-current="page"` : ''}><span aria-hidden="true">${raw(iconSvg(NAV_ICON[href] || 'file'))}</span><span>${t(key)}</span></a>`)}</nav>`.s;
@@ -131,21 +131,64 @@ new MutationObserver(() => {
   requestAnimationFrame(() => { ltPending = false; labelTables(); });
 }).observe(document.body, { childList: true, subtree: true });
 
-// على الهاتف: شريط أيقونات عمودي ضيق، وزر ☰ أعلاه يفتحه بالأسماء (بدل الشريط الأفقي)
+// على الهاتف: درج تراكب — زر ☰ في الرأس يفتحه، والخلفية الداكنة تغلقه
 function wireSide(side) {
   side.classList.remove('open');
-  const btn = side.querySelector('.side-toggle');
-  if (btn) btn.onclick = (e) => {
-    e.stopPropagation();
-    const open = side.classList.toggle('open');
-    btn.setAttribute('aria-expanded', String(open));
+
+  const toggleSide = (force) => {
+    const open = typeof force === 'boolean' ? force : !side.classList.contains('open');
+    side.classList.toggle('open', open);
+    document.getElementById('staff-side')?.setAttribute('aria-hidden', String(!open));
+    document.querySelectorAll('[aria-controls="staff-side"]').forEach((b) => b.setAttribute('aria-expanded', String(open)));
+    const bd = document.getElementById('side-backdrop');
+    if (bd) bd.classList.toggle('visible', open);
   };
+
+  // زر ☰ داخل الشريط الجانبي (للأدمن)
+  const inlineBtn = side.querySelector('.side-toggle');
+  if (inlineBtn) inlineBtn.onclick = (e) => { e.stopPropagation(); toggleSide(); };
+
+  // زر ☰ في الرأس للمتعلمين على الهاتف
+  let hdrBtn = document.getElementById('side-open-btn');
+  if (!hdrBtn) {
+    hdrBtn = document.createElement('button');
+    hdrBtn.id = 'side-open-btn';
+    hdrBtn.className = 'icon-btn side-open-btn';
+    hdrBtn.type = 'button';
+    hdrBtn.setAttribute('aria-label', t('a11y.menu'));
+    hdrBtn.setAttribute('aria-controls', 'staff-side');
+    hdrBtn.setAttribute('aria-expanded', 'false');
+    hdrBtn.innerHTML = iconSvg('menu');
+    const hdrActions = document.getElementById('header-actions');
+    if (hdrActions) hdrActions.prepend(hdrBtn);
+  }
+  hdrBtn.onclick = (e) => { e.stopPropagation(); toggleSide(); };
+
+  // خلفية داكنة خلف الدرج
+  let backdrop = document.getElementById('side-backdrop');
+  if (!backdrop) {
+    backdrop = document.createElement('div');
+    backdrop.id = 'side-backdrop';
+    backdrop.className = 'side-backdrop';
+    document.body.appendChild(backdrop);
+  }
+  backdrop.onclick = () => toggleSide(false);
 }
 document.addEventListener('click', (e) => {
   const side = document.getElementById('staff-side');
-  if (side && side.classList.contains('open') && (!side.contains(e.target) || e.target.closest('a'))) side.classList.remove('open');
+  if (side && side.classList.contains('open') && !side.contains(e.target) && e.target.id !== 'side-open-btn') {
+    side.classList.remove('open');
+    document.getElementById('side-backdrop')?.classList.remove('visible');
+    document.querySelectorAll('[aria-controls="staff-side"]').forEach((b) => b.setAttribute('aria-expanded', 'false'));
+  }
 });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') document.getElementById('staff-side')?.classList.remove('open'); });
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    document.getElementById('staff-side')?.classList.remove('open');
+    document.getElementById('side-backdrop')?.classList.remove('visible');
+    document.querySelectorAll('[aria-controls="staff-side"]').forEach((b) => b.setAttribute('aria-expanded', 'false'));
+  }
+});
 
 export function renderShell() {
   const path = location.pathname;
