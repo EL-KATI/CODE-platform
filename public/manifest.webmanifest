@@ -1,6 +1,6 @@
 {
-  "name": "CODE — رخصة السياقة صنف B",
-  "short_name": "CODE",
+  "name": "PERMICODE — رخصة السياقة صنف B",
+  "short_name": "PERMICODE",
   "description": "منصة تفاعلية لتعلم الدراسة النظرية لرخصة السياقة صنف B: دروس، تمارين، امتحانات تجريبية بتوقيت، مراجعة ذكية وتتبع التقدم.",
   "start_url": "/?utm_source=pwa",
   "scope": "/",

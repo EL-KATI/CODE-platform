@@ -1,7 +1,7 @@
 // Internationalisation : arabe (RTL) et français.
 const ar = {
   'a11y.skip': 'انتقل إلى المحتوى', 'a11y.language': 'تغيير اللغة', 'a11y.menu': 'القائمة', 'a11y.sound': 'تفعيل/إيقاف الصوت', 'a11y.theme': 'تغيير المظهر',
-  'brand.name': 'CODE', 'brand.tagline': 'الدراسة النظرية — رخصة السياقة صنف B',
+  'brand.name': 'PERMICODE', 'brand.tagline': 'الدراسة النظرية — رخصة السياقة صنف B',
   'footer.text': 'منصة تعلم الدراسة النظرية لرخصة السياقة', 'footer.privacy': 'الخصوصية', 'footer.disclaimer': 'منصة تدريبية غير رسمية',
   'nav.home': 'الرئيسية', 'nav.dashboard': 'لوحتي', 'nav.lessons': 'الدروس', 'nav.practice': 'السلاسل', 'nav.exam': 'امتحان تجريبي', 'nav.mistakes': 'أخطائي',
   'nav.login': 'دخول', 'nav.register': 'إنشاء حساب', 'nav.logout': 'خروج', 'nav.profile': 'حسابي', 'nav.admin': 'الإدارة',
@@ -365,7 +365,7 @@ const ar = {
 
 const fr = {
   'a11y.skip': 'Aller au contenu', 'a11y.language': 'Changer de langue', 'a11y.menu': 'Menu', 'a11y.sound': 'Activer/désactiver le son', 'a11y.theme': 'Changer de thème',
-  'brand.name': 'CODE', 'brand.tagline': 'Code de la route — permis B',
+  'brand.name': 'PERMICODE', 'brand.tagline': 'Code de la route — permis B',
   'footer.text': "Plateforme d'apprentissage du code de la route", 'footer.privacy': 'Confidentialité', 'footer.disclaimer': "Plateforme d'entraînement non officielle",
   'nav.home': 'Accueil', 'nav.dashboard': 'Mon tableau de bord', 'nav.lessons': 'Leçons', 'nav.practice': 'Séries', 'nav.exam': 'Examen blanc', 'nav.mistakes': 'Mes erreurs',
   'nav.login': 'Connexion', 'nav.register': 'Créer un compte', 'nav.logout': 'Déconnexion', 'nav.profile': 'Mon profil', 'nav.admin': 'Administration',
