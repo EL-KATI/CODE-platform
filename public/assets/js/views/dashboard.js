@@ -4,6 +4,9 @@ import { api } from '../api.js';
 import { store } from '../store.js';
 import { modeLabel, scorePill, startAttempt } from './common.js';
 
+// مفتاح localStorage للوضع البسيط
+const SIMPLE_KEY = 'permicode_simple_mode';
+
 // أيقونات خطية (نمط SF Symbols) للإجراءات السريعة
 const ICON = {
   exam: '<path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="9"/>',
@@ -11,6 +14,7 @@ const ICON = {
   mistakes: '<path d="M4 12a8 8 0 1 0 2.6-5.9"/><path d="M4 4v4.5h4.5"/><path d="M12 8.5v4"/><circle cx="12" cy="15.6" r=".6" fill="currentColor"/>',
   ai: '<path d="M12 3l1.7 4.6L18 9.3l-4.3 1.7L12 15.6l-1.7-4.6L6 9.3l4.3-1.7z"/><path d="M18.5 15l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/>',
   chevron: '<path d="M9 6l6 6-6 6"/>',
+  lessons: '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
 };
 const icon = (name) => raw(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[name]}</svg>`);
 
@@ -98,10 +102,52 @@ export async function dashboardView(root) {
         <h1>${t('dash.hello', { name: u.name })}</h1>
         ${u.schoolName ? html`<p class="muted small" style="margin:4px 0 0;display:flex;align-items:center;gap:6px"><span>🏫</span><span>${u.schoolName}</span></p>` : ''}
         </div>
-        ${next.href ? html`<a class="btn btn-primary" href="${next.href}">${next.label}</a>` : html`<button class="btn btn-primary" id="next-btn">${next.label}</button>`}
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px">
+          ${next.href ? html`<a class="btn btn-primary" href="${next.href}">${next.label}</a>` : html`<button class="btn btn-primary" id="next-btn">${next.label}</button>`}
+          <button id="mode-toggle" class="dash-mode-toggle" aria-label="${t('dash.modeSimple')}">
+            <span class="mode-toggle-icon" aria-hidden="true">⚡</span>
+            <span id="mode-toggle-label"></span>
+          </button>
+        </div>
       </header>
 
-      <section class="dash-top" aria-label="${t('dash.readiness')}">
+      <!-- الوضع البسيط: بطاقات كبيرة للإجراءات الأساسية -->
+      <section class="dash-simple-actions" data-simple-only aria-label="${t('dash.modeSimple')}">
+        <div class="simple-grid">
+          <a class="simple-card simple-exam" href="/exam">
+            <span class="simple-emoji">🎯</span>
+            <strong>${t('dash.simpleExam')}</strong>
+            <small>${t('dash.qaExamSub', { n: d.settings.questionCount })}</small>
+          </a>
+          <a class="simple-card simple-practice" href="/practice">
+            <span class="simple-emoji">📚</span>
+            <strong>${t('dash.simplePractice')}</strong>
+            <small>${t('dash.qaPracticeSub', { n: d.series.length })}</small>
+          </a>
+          <a class="simple-card simple-lessons" href="/lessons">
+            <span class="simple-emoji">📖</span>
+            <strong>${t('dash.simpleLessons')}</strong>
+            <small>${d.lessons.done}/${d.lessons.total} ${t('dash.lessonsDone')}</small>
+          </a>
+          <a class="simple-card simple-mistakes" href="/mistakes">
+            <span class="simple-emoji">🔄</span>
+            <strong>${t('dash.simpleMistakes')}</strong>
+            <small>${t('dash.qaMistakesSub', { n: d.counts.mistakes })}</small>
+          </a>
+          <a class="simple-card simple-ai" href="/assistant">
+            <span class="simple-emoji">✨</span>
+            <strong>${t('dash.simpleAi')}</strong>
+            <small>${t('dash.qaAiSub')}</small>
+          </a>
+          <button class="simple-card simple-review" id="simple-review-btn" ${d.counts.due ? '' : 'disabled'}>
+            <span class="simple-emoji">🧠</span>
+            <strong>${t('dash.smartReview')}</strong>
+            <small>${d.counts.due} ${t('dash.due')}</small>
+          </button>
+        </div>
+      </section>
+
+      <section class="dash-top" aria-label="${t('dash.readiness')}" data-full-only>
         <div class="card dash-ready">
           ${readinessRing(r.score, tone)}
           <div class="dash-ready-text">
@@ -138,7 +184,7 @@ export async function dashboardView(root) {
         </a>`}
       </section>
 
-      <section aria-label="${t('dash.quick')}">
+      <section aria-label="${t('dash.quick')}" data-full-only>
         <h2 class="dash-h">${t('dash.quick')}</h2>
         <div class="qa-grid">
           <a class="qa qa-exam" href="/exam"><span class="qa-icon">${icon('exam')}</span>
@@ -156,14 +202,14 @@ export async function dashboardView(root) {
         </div>
       </section>
 
-      <section class="dash-stats" aria-label="${t('dash.subtitle')}">
+      <section class="dash-stats" aria-label="${t('dash.subtitle')}" data-full-only>
         <div class="card stat-tile"><strong>${d.lessons.done}<span>/${d.lessons.total}</span></strong><small>${t('dash.lessonsDone')}</small></div>
         <div class="card stat-tile"><strong>${d.counts.seen}<span>/${d.counts.questions}</span></strong><small>${t('dash.questionsSeen')}</small></div>
         <div class="card stat-tile"><strong>${d.counts.due}</strong><small>${t('dash.due')}</small></div>
         <div class="card stat-tile"><strong>🔥 ${d.streak}</strong><small>${t('dash.streak')}</small></div>
       </section>
 
-      <section>
+      <section data-full-only>
         <div class="dash-h-row"><h2 class="dash-h">${t('dash.byCategory')}</h2><a href="/practice" class="dash-link">${t('dash.trainAll')}</a></div>
         <div class="card dash-list">
           ${d.categories.map((c) => html`
@@ -179,7 +225,7 @@ export async function dashboardView(root) {
         </div>
       </section>
 
-      <section>
+      <section data-full-only>
         <div class="dash-h-row"><h2 class="dash-h">${t('dash.recent')}</h2><a class="dash-link" href="/history">${t('dash.allHistory')}</a></div>
         <div class="card dash-list">
           ${d.recent.length ? d.recent.map((a) => html`
@@ -192,7 +238,7 @@ export async function dashboardView(root) {
       </section>
 
       ${!u.schoolId ? html`
-      <section>
+      <section data-full-only>
         <div class="card" style="text-align:center;padding:28px 24px">
           <div style="font-size:2rem;margin-bottom:8px">🏫</div>
           <h3 style="margin:0 0 8px">${t('auth.enrollTitle')}</h3>
@@ -201,7 +247,7 @@ export async function dashboardView(root) {
         </div>
       </section>` : html``}
 
-      <section id="champ-section" aria-label="${t('champ.title')}">
+      <section id="champ-section" aria-label="${t('champ.title')}" data-full-only>
         <div class="dash-h-row"><h2 class="dash-h">${raw('🏆')} ${t('champ.title')}</h2><button class="dash-link" id="lb-toggle">${t('champ.seeAll')}</button></div>
         <div id="champ-card" class="card" style="padding:16px 20px">
           <div class="muted small" style="text-align:center;padding:12px 0">${t('common.loading')}</div>
@@ -218,6 +264,34 @@ export async function dashboardView(root) {
   bm.onclick = () => startAttempt({ mode: 'bookmarks', practice: true }, bm);
   const nb = root.querySelector('#next-btn');
   if (nb) nb.onclick = () => startAttempt({ mode: 'review', practice: true }, nb);
+
+  // زر مراجعة الوضع البسيط
+  const srv = root.querySelector('#simple-review-btn');
+  if (srv) srv.onclick = () => startAttempt({ mode: 'review', practice: true }, srv);
+
+  // ── منطق الوضع البسيط ──────────────────────────────────────────────────────
+  const dash = root.querySelector('.dash');
+  const modeBtn = root.querySelector('#mode-toggle');
+  const modeLbl = root.querySelector('#mode-toggle-label');
+
+  const applyMode = (simple) => {
+    dash.classList.toggle('dash-simple', simple);
+    if (modeLbl) modeLbl.textContent = simple ? t('dash.modeFull') : t('dash.modeSimple');
+    if (modeBtn) modeBtn.setAttribute('aria-label', simple ? t('dash.modeFull') : t('dash.modeSimple'));
+  };
+
+  // تطبيق الوضع المحفوظ أو الوضع الكامل افتراضيًا
+  const savedSimple = localStorage.getItem(SIMPLE_KEY) === '1';
+  applyMode(savedSimple);
+
+  if (modeBtn) {
+    modeBtn.onclick = () => {
+      const isSimple = dash.classList.contains('dash-simple');
+      const next = !isSimple;
+      localStorage.setItem(SIMPLE_KEY, next ? '1' : '0');
+      applyMode(next);
+    };
+  }
 
   // ── بطل الكود ──────────────────────────────────────────────────────────────
   loadChampion(root, store.user);
