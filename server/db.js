@@ -674,4 +674,18 @@ function repairDoubleQuestions(db) {
   `);
 }
 
+// ── Migration: جدول استخدام Monitor AI اليومي ────────────────────────────────
+{
+  const db = get();
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ai_daily_usage (
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      date    TEXT NOT NULL,
+      count   INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (user_id, date)
+    );
+    CREATE INDEX IF NOT EXISTS idx_ai_daily_usage_date ON ai_daily_usage(date);
+  `);
+}
+
 module.exports = { open, get, getSettings, audit };

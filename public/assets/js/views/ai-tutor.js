@@ -4,15 +4,26 @@ import { html, esc, toast, errorMessage } from '../ui.js';
 import { t } from '../i18n.js';
 
 export async function aiTutorView(root) {
-  let models = { claude: false, gemini: false };
-  try { models = (await api.get('/ai/status')).models || models; } catch { /* يُعرض تنبيه «غير مفعّل» */ }
+  let status = { models: { claude: false, gemini: false }, enabled: true, dailyLimit: 15, dailyUsed: 0 };
+  try { status = { ...status, ...(await api.get('/ai/status')) }; } catch { /* يُعرض تنبيه «غير مفعّل» */ }
+
+  const models = status.models || { claude: false, gemini: false };
   const noProvider = !models.claude && !models.gemini;
+  const disabled = !status.enabled;
+  const quotaLeft = Math.max(0, (status.dailyLimit || 15) - (status.dailyUsed || 0));
+  const quotaExhausted = quotaLeft <= 0;
+  const showChat = !noProvider && !disabled && !quotaExhausted;
   const examples = [t('ai.ex1'), t('ai.ex2'), t('ai.ex3')];
+
+  const unavailableCard = (msg) => html`<div class="card empty"><div class="big">🤖</div><p>${msg}</p></div>`;
 
   root.innerHTML = html`
     <div class="pg pg-narrow chat-page">
       <header class="pg-head"><h1>${t('nav.ai')}</h1><p>${t('ai.subtitle')}</p></header>
-      ${noProvider ? html`<div class="card empty"><div class="big">🤖</div><p>${t('ai.unavailable')}</p></div>` : html`
+      ${noProvider ? unavailableCard(t('ai.unavailable'))
+        : disabled ? unavailableCard(t('ai.disabledByAdmin'))
+        : quotaExhausted ? unavailableCard(t('ai.quotaExhausted'))
+        : html`
       <div class="chat">
         <div class="chat-bar" ${models.claude && models.gemini ? '' : 'hidden'}>
           <label class="small muted" for="ai-model">${t('ai.model')}</label>
@@ -35,17 +46,30 @@ export async function aiTutorView(root) {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"/><path d="M6 11l6-6 6 6"/></svg>
           </button>
         </form>
-        <p class="chat-note">${t('ai.disclaimer')}</p>
+        <p class="chat-note chat-quota" id="ai-quota">${t('ai.disclaimer')} · <span>${t('ai.quotaRemaining', { n: quotaLeft, max: status.dailyLimit || 15 })}</span></p>
       </div>`}
     </div>`.s;
 
-  if (noProvider) return;
+  if (!showChat) return;
 
   const form = root.querySelector('#ai-form');
   const input = root.querySelector('#ai-question');
   const messages = root.querySelector('#ai-messages');
   const modelSel = root.querySelector('#ai-model');
   const sendBtn = root.querySelector('#ai-send');
+  const quotaEl = root.querySelector('#ai-quota span');
+  let dailyUsed = status.dailyUsed || 0;
+  const dailyLimit = status.dailyLimit || 15;
+
+  function updateQuota(used) {
+    dailyUsed = used;
+    const left = Math.max(0, dailyLimit - dailyUsed);
+    if (quotaEl) quotaEl.textContent = t('ai.quotaRemaining', { n: left, max: dailyLimit });
+    if (left <= 0 && sendBtn) {
+      sendBtn.disabled = true;
+      toast(t('ai.quotaExhausted'), 'error');
+    }
+  }
 
   function addMessage(role, text, meta) {
     messages.querySelector('.ai-empty')?.remove();
@@ -75,11 +99,17 @@ export async function aiTutorView(root) {
       pending.remove();
       const src = Array.isArray(res.sources) && res.sources.length ? ` · ${t('ai.sources')} ${res.sources.map((s) => s.replace(/^درس:\s*/, '')).join('، ')}` : '';
       addMessage('assistant', res.answer, `Monitor AI${src}`);
+      if (res.dailyUsed !== undefined) updateQuota(res.dailyUsed);
     } catch (err) {
       pending.remove();
+      // Handle quota exceeded (429) gracefully
+      if (err.status === 429 || (err.body && err.body.error === 'ai_quota_exceeded')) {
+        updateQuota(dailyLimit);
+        return;
+      }
       toast(errorMessage(err), 'error');
     } finally {
-      sendBtn.disabled = false;
+      if (dailyUsed < dailyLimit) sendBtn.disabled = false;
       input.focus();
     }
   }

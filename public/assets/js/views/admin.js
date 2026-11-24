@@ -1296,12 +1296,26 @@ const AI_PROV = [
 ];
 
 async function renderAiKeys(box) {
-  let st;
-  try { st = await api.get('/admin/ai-keys'); } catch (err) { box.innerHTML = html`<p class="muted">${errorMessage(err)}</p>`.s; return; }
+  let st, cfg;
+  try {
+    [st, cfg] = await Promise.all([api.get('/admin/ai-keys'), api.get('/admin/ai-settings')]);
+  } catch (err) { box.innerHTML = html`<p class="muted">${errorMessage(err)}</p>`.s; return; }
   const srcLabel = (p) => (p.source === 'admin' ? t('ai.keySrcAdmin') : p.source === 'env' ? t('ai.keySrcEnv') : t('ai.keyNone'));
   box.innerHTML = html`
     <h3 style="margin-top:0">${raw('🔑')} ${t('ai.keysTitle')}</h3>
     <p class="muted small">${t('ai.keysHelp')}</p>
+    <div class="ai-ctrl-row" style="display:flex;gap:24px;align-items:center;flex-wrap:wrap;padding:12px 0;border-bottom:1px solid var(--border);margin-bottom:16px">
+      <label class="toggle-label" style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600">
+        <input type="checkbox" id="ai-enabled-toggle" role="switch" ${cfg.enabled ? 'checked' : ''}>
+        <span>${t('ai.enableToggle')}</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:8px" title="${t('ai.dailyLimitHelp')}">
+        <span class="small muted">${t('ai.dailyLimit')}</span>
+        <input id="ai-daily-limit" class="input" type="number" min="1" max="1000" value="${cfg.dailyLimit}" style="width:70px;text-align:center">
+        <span class="small muted">${t('ai.perDay')}</span>
+        <button class="btn btn-secondary" type="button" id="ai-limit-save" style="padding:4px 12px">${t('common.save')}</button>
+      </label>
+    </div>
     ${AI_PROV.map((pv) => { const p = st[pv.id]; return html`
       <div class="ai-key-row" data-prov="${pv.id}">
         <div class="ai-key-head">
@@ -1324,6 +1338,21 @@ async function renderAiKeys(box) {
         <div class="ai-key-result small" aria-live="polite"></div>
       </div>`; })}
     <p class="muted small">${t('ai.keysNote')}</p>`.s;
+
+  // Enable/disable toggle
+  box.querySelector('#ai-enabled-toggle').onchange = async (e) => {
+    try {
+      await api.put('/admin/ai-settings', { enabled: e.target.checked });
+      toast(t('common.saved'));
+    } catch (err) { toast(errorMessage(err), 'error'); e.target.checked = !e.target.checked; }
+  };
+  // Daily limit save
+  box.querySelector('#ai-limit-save').onclick = async () => {
+    const lim = parseInt(box.querySelector('#ai-daily-limit').value, 10);
+    if (!lim || lim < 1) { toast(t('common.error'), 'error'); return; }
+    try { await api.put('/admin/ai-settings', { dailyLimit: lim }); toast(t('common.saved')); }
+    catch (err) { toast(errorMessage(err), 'error'); }
+  };
 
   box.querySelectorAll('.ai-key-row').forEach((row) => {
     const prov = row.dataset.prov;

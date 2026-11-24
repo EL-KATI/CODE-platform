@@ -3425,6 +3425,13 @@ body.ui-apple .staff-side a.side-ai[aria-current="page"] { background: linear-gr
 .ai-key-result { padding: 8px 12px; border-radius: 10px; background: var(--surface-3, #f2f2f7); overflow-wrap: anywhere; }
 .ai-key-result.ok { background: rgb(52 199 89 / .14); }
 .ai-key-result.err { background: rgb(255 59 48 / .12); }
+/* AI quota note */
+.chat-quota span { font-weight: 600; color: var(--accent, #007aff); }
+/* Admin AI controls toggle */
+.toggle-label input[type="checkbox"] { width: 44px; height: 26px; appearance: none; -webkit-appearance: none; background: var(--border); border-radius: 999px; cursor: pointer; position: relative; transition: background .2s; flex-shrink: 0; }
+.toggle-label input[type="checkbox"]::after { content: ''; position: absolute; top: 3px; inset-inline-start: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: inset-inline-start .2s; }
+.toggle-label input[type="checkbox"]:checked { background: var(--accent, #007aff); }
+.toggle-label input[type="checkbox"]:checked::after { inset-inline-start: calc(100% - 23px); }
 
 /* ══ v66: الشريط الجانبي عمودي على الهاتف أيضاً (لكل الأدوار) ══ */
 .side-toggle { display: none; }

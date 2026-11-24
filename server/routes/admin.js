@@ -1039,6 +1039,35 @@ router.delete('/ai-keys/:provider', adminOnly, wrap(async (req, res) => {
   res.json(ai.providerStatus());
 }));
 
+// GET /admin/ai-settings – on/off flag + daily limit
+router.get('/ai-settings', adminOnly, (req, res) => {
+  const d = db.get();
+  const get = (k, def) => { const r = d.prepare('SELECT value FROM settings WHERE key = ?').get(k); return r ? r.value : def; };
+  res.json({
+    enabled: get('ai_enabled', '1') !== '0',
+    dailyLimit: parseInt(get('ai_daily_limit', '15'), 10),
+  });
+});
+
+// PUT /admin/ai-settings – update on/off flag and/or daily limit
+router.put('/ai-settings', adminOnly, wrap(async (req, res) => {
+  const d = db.get();
+  const up = d.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
+  const b = req.body || {};
+  if (b.enabled !== undefined) {
+    up.run('ai_enabled', b.enabled ? '1' : '0');
+    db.audit(req.user.id, 'update', 'ai_settings', null, { enabled: b.enabled });
+  }
+  if (b.dailyLimit !== undefined) {
+    const lim = parseInt(b.dailyLimit, 10);
+    if (!Number.isFinite(lim) || lim < 1 || lim > 1000) throw new HttpError(400, 'invalid_field', { field: 'dailyLimit' });
+    up.run('ai_daily_limit', String(lim));
+    db.audit(req.user.id, 'update', 'ai_settings', null, { dailyLimit: lim });
+  }
+  const get = (k, def) => { const r = d.prepare('SELECT value FROM settings WHERE key = ?').get(k); return r ? r.value : def; };
+  res.json({ enabled: get('ai_enabled', '1') !== '0', dailyLimit: parseInt(get('ai_daily_limit', '15'), 10) });
+}));
+
 router.post('/ai-keys/:provider/test', adminOnly, wrap(async (req, res) => {
   aiProvider(req.params.provider);
   try {

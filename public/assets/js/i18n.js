@@ -178,6 +178,9 @@ const ar = {
   'narsa.driver': 'السائق', 'narsa.vehicle': 'المركبة', 'narsa.offences': 'المخالفات والعقوبات',
   'quiz.double': 'سؤال مزدوج', 'quiz.doubleHint': 'سؤال مزدوج — أجب على كلا الجزأين', 'quiz.subQ1': 'الجزء الأول', 'quiz.subQ2': 'الجزء الثاني',
   'admin.settingsHelp': 'إعدادات الامتحان العامة', 'admin.settingsNoAccess': 'هذه الإعدادات متاحة للمشرف الرئيسي فقط', 'admin.exams': 'الامتحانات', 'admin.attempts': 'المحاولات', 'admin.lastActivity': 'آخر نشاط',
+  'ai.enableToggle': 'تفعيل Monitor AI', 'ai.dailyLimit': 'حد يومي', 'ai.perDay': 'سؤال/يوم', 'ai.dailyLimitHelp': 'الحد الأقصى للأسئلة اليومية لكل مستخدم',
+  'ai.disabledByAdmin': 'Monitor AI موقوف مؤقتاً من طرف الإدارة.', 'ai.quotaExhausted': 'وصلت للحد اليومي من الأسئلة. جرب غداً!',
+  'ai.quotaRemaining': (d) => `${d.n} من ${d.max} سؤال متبقي اليوم`,
   'ai.keysTitle': 'Monitor AI — مفاتيح API', 'ai.keysHelp': 'أضف أو بدّل أو احذف مفاتيح مزوّدي الذكاء الاصطناعي. المفتاح يُحفظ مشفّراً في الخادم ولا يظهر كاملاً بعد الحفظ.',
   'ai.keyActive': 'مفعّل', 'ai.keyNone': 'غير مضبوط', 'ai.keySrcAdmin': 'محفوظ من لوحة الإدارة', 'ai.keySrcEnv': 'من ملف .env',
   'ai.keyNew': 'مفتاح API', 'ai.keyReplace': 'مفتاح جديد (اتركه فارغاً للإبقاء على الحالي)', 'ai.modelOpt': 'النموذج (اختياري — فارغ = تلقائي)', 'ai.model': 'النموذج', 'ai.autoPh': 'فارغ = تلقائي، مثال',
@@ -193,6 +196,7 @@ const ar = {
   'nav.ai': 'Monitor AI', 'ai.sources': 'من دروس المنصة:', 'ai.subtitle': 'المدرّب الافتراضي ديالك: اسأل على أي قاعدة فمدونة السير المغربية', 'ai.model': 'النموذج', 'ai.auto': 'تلقائي', 'ai.send': 'إرسال',
   'ai.placeholder': 'اكتب سؤالك هنا…', 'ai.empty': 'ما كاين حتى سؤال باقي. جرب واحد من هادو:', 'ai.unavailable': 'Monitor AI غير مفعّل حالياً. تواصل مع إدارة المنصة.',
   'ai.disclaimer': 'أجوبة Monitor AI مولّدة بالذكاء الاصطناعي وتقدر تكون فيها أخطاء. المرجع الرسمي هو القانون 52.05 ودروس المنصة.',
+  'ai.quotaRemaining': (d) => `${d.n} من ${d.max} سؤال متبقي اليوم`,
   'ai.ex1': 'شنو هي قاعدة الأسبقية لليمين؟', 'ai.ex2': 'كيفاش نحسب مسافة الأمان؟', 'ai.ex3': 'فين ممنوع التجاوز؟',
   'booking.title': 'حجز حصص التدريب التطبيقي',
   'booking.subtitle': 'اختر موعدا مناسبا للتدرب على القيادة',
@@ -545,6 +549,9 @@ const fr = {
   'narsa.driver': 'Le conducteur', 'narsa.vehicle': 'Le véhicule', 'narsa.offences': 'Infractions et sanctions',
   'quiz.double': 'Question double', 'quiz.doubleHint': 'Question double — répondez aux deux parties', 'quiz.subQ1': 'Partie 1', 'quiz.subQ2': 'Partie 2',
   'admin.settingsHelp': "Paramètres généraux de l'examen", 'admin.settingsNoAccess': 'Ces paramètres sont réservés au super administrateur', 'admin.exams': 'Examens', 'admin.attempts': 'Tentatives', 'admin.lastActivity': 'Dernière activité',
+  'ai.enableToggle': 'Activer Monitor AI', 'ai.dailyLimit': 'Limite quotidienne', 'ai.perDay': 'questions/jour', 'ai.dailyLimitHelp': 'Nombre max de questions par utilisateur et par jour',
+  'ai.disabledByAdmin': "Monitor AI est temporairement désactivé par l'administration.", 'ai.quotaExhausted': 'Vous avez atteint votre limite de questions du jour. Revenez demain !',
+  'ai.quotaRemaining': (d) => `${d.n} / ${d.max} questions restantes aujourd'hui`,
   'ai.keysTitle': 'Monitor AI — clés API', 'ai.keysHelp': "Ajoutez, remplacez ou supprimez les clés des fournisseurs d'IA. La clé est chiffrée sur le serveur et n'est plus affichée en entier.",
   'ai.keyActive': 'Active', 'ai.keyNone': 'Non configurée', 'ai.keySrcAdmin': "Enregistrée depuis l'administration", 'ai.keySrcEnv': 'Depuis le fichier .env',
   'ai.keyNew': 'Clé API', 'ai.keyReplace': 'Nouvelle clé (laisser vide pour garder l’actuelle)', 'ai.modelOpt': 'Modèle (optionnel — vide = automatique)', 'ai.model': 'Modèle', 'ai.autoPh': 'vide = auto, ex.',
@@ -560,6 +567,7 @@ const fr = {
   'nav.ai': 'Monitor AI', 'ai.sources': 'Leçons utilisées :', 'ai.subtitle': 'Votre moniteur virtuel : posez une question sur le code de la route marocain', 'ai.model': 'Modèle', 'ai.auto': 'Automatique', 'ai.send': 'Envoyer',
   'ai.placeholder': 'Écrivez votre question ici…', 'ai.empty': 'Aucune question pour le moment. Essayez par exemple :', 'ai.unavailable': "Monitor AI n'est pas activé pour le moment. Contactez l'administration.",
   'ai.disclaimer': "Les réponses de Monitor AI sont générées par IA et peuvent contenir des erreurs. La référence officielle reste la loi 52-05 et les leçons.",
+  'ai.quotaRemaining': (d) => `${d.n} / ${d.max} questions restantes aujourd'hui`,
   'ai.ex1': "Qu'est-ce que la priorité à droite ?", 'ai.ex2': 'Comment calculer la distance de sécurité ?', 'ai.ex3': 'Où le dépassement est-il interdit ?',
   'booking.title': 'Réservation des séances pratiques',
   'booking.subtitle': 'Choisissez un créneau pour votre leçon de conduite',
@@ -750,8 +758,9 @@ export function setLocale(l) {
 
 /** رجع القيمة المترجمة للغة الحالية */
 export function t(key, params) {
-  let s = DICT[locale]?.[key] ?? DICT['ar'][key] ?? key;
-  if (params) s = s.replace(/\{(\w+)\}/g, (m, k) => (params[k] !== undefined ? params[k] : m));
+  const s = DICT[locale]?.[key] ?? DICT['ar'][key] ?? key;
+  if (typeof s === 'function') return s(params || {});
+  if (params) return s.replace(/\{(\w+)\}/g, (m, k) => (params[k] !== undefined ? params[k] : m));
   return s;
 }
 
