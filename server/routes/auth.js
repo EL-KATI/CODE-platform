@@ -119,13 +119,24 @@ router.get('/google/callback', wrap(async (req, res) => {
   if (!GOOGLE_CLIENT_ID) return res.redirect('/login?error=google_not_configured');
 
   const { code, state, error } = req.query;
-  if (error) return res.redirect(`/login?error=${encodeURIComponent(error)}`);
+  console.log('[Google CB] query:', { code: code?.slice(0,10)+'…', state, error });
+  console.log('[Google CB] cookies:', Object.keys(req.cookies || {}));
+  console.log('[Google CB] oauth_state cookie:', req.cookies?.oauth_state?.slice(0,8)+'…');
+
+  if (error) {
+    console.error('[Google CB] Google returned error:', error);
+    return res.redirect(`/login?error=${encodeURIComponent(error)}`);
+  }
 
   const storedState = req.cookies?.oauth_state;
   res.clearCookie('oauth_state');
-  if (!state || state !== storedState) return res.redirect('/login?error=invalid_state');
+  if (!state || state !== storedState) {
+    console.error('[Google CB] STATE MISMATCH — query state:', state?.slice(0,8), '| cookie state:', storedState?.slice(0,8));
+    return res.redirect('/login?error=invalid_state');
+  }
 
   // تبادل الكود بـ access token
+  console.log('[Google CB] state OK — exchanging code, redirect_uri:', GOOGLE_SIGNIN_URI);
   const tokenRes = await googleFetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -134,6 +145,7 @@ router.get('/google/callback', wrap(async (req, res) => {
       redirect_uri: GOOGLE_SIGNIN_URI, grant_type: 'authorization_code',
     }).toString(),
   });
+  console.log('[Google CB] token exchange status:', tokenRes.status, tokenRes.status !== 200 ? JSON.stringify(tokenRes.body) : 'OK');
   if (tokenRes.status !== 200) return res.redirect('/login?error=token_exchange_failed');
 
   const { access_token, id_token } = tokenRes.body;
@@ -142,9 +154,11 @@ router.get('/google/callback', wrap(async (req, res) => {
   const infoRes = await googleFetch('https://www.googleapis.com/oauth2/v2/userinfo', {
     headers: { Authorization: `Bearer ${access_token}` },
   });
+  console.log('[Google CB] userinfo status:', infoRes.status);
   if (infoRes.status !== 200) return res.redirect('/login?error=userinfo_failed');
 
   const { id: google_id, email, name: google_name, picture } = infoRes.body;
+  console.log('[Google CB] got user:', email, '| google_id:', google_id?.slice(0,6)+'…');
   if (!email || !google_id) return res.redirect('/login?error=missing_email');
 
   const d = db.get();
@@ -190,6 +204,7 @@ router.get('/google/callback', wrap(async (req, res) => {
   auth.issueSession(res, user, req);
   // توجيه مباشر للوحة التحكم بعد المصادقة بجوجل
   const dest = user.role === 'admin' || user.role === 'instructor' ? '/admin' : '/dashboard';
+  console.log('[Google CB] ✅ login success — redirecting to', dest, '| user:', email, 'role:', user.role);
   res.redirect(dest);
 }));
 
